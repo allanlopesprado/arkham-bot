@@ -1,0 +1,12 @@
+[
+  {
+    "code": "01001",
+    "html": "<ul><li>\n<p>You can trigger Roland's <span class=\"icon-reaction\"></span> reaction after you use any card under your control to defeat an enemy (e.g. <a href=\"https://arkhamdb.com/card/01021\">Guard Dog</a>).</p>\n</li>\n<li>You can only 'discover' a clue if there is a clue on your location.</li>\n</ul>",
+    "text": "- You can trigger Roland's <span class=\"icon-reaction\"></span> reaction after you use any card under your control to defeat an enemy (e.g. [Guard Dog](https://arkhamdb.com/card/01021)).\r\n\r\n- You can only 'discover' a clue if there is a clue on your location.",
+    "updated": {
+      "date": "2017-04-17 00:53:35.000000",
+      "timezone_type": 3,
+      "timezone": "UTC"
+    }
+  }
+]

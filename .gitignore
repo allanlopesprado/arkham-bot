@@ -1,0 +1,65 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python environments
+venv/
+.venv/
+ENV/
+env/
+
+# Python build/cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Runtime state
+logs/
+debug_logs/
+*.log
+backups/
+backups/local/
+data/posted_cards.txt
+data/posted_cards.txt.lock
+data/card_cache.json
+data/card_cache.json.lock
+data/daily_scheduler_state.json
+data/last_pinned_daily_card.json
+posted_cards.txt
+posted_cards.txt.lock
+card_cache.json
+card_cache.json.lock
+main_process.lock
+
+# Archives / local exports
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Node / frontend
+node_modules/
+dist/
+build/
+miniapp/node_modules/
+miniapp/dist/
+worker/node_modules/
+worker/dist/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Backup artifacts
+*.backup*
+*.backup-*.py
+*.dump
+*.sql.gz

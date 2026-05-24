@@ -1,0 +1,10 @@
+name = "arkham-bot-worker"
+main = "src/index.js"
+compatibility_date = "2026-05-24"
+
+[vars]
+SUPABASE_URL = ""
+ALLOWED_ORIGINS = "https://example.pages.dev"
+# Set secrets with wrangler secret put:
+# TELEGRAM_BOT_TOKEN
+# SUPABASE_SERVICE_ROLE_KEY
