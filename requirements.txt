@@ -1,0 +1,8 @@
+python-telegram-bot
+requests
+python-dotenv
+pillow
+filelock
+httpx
+tenacity
+tzdata

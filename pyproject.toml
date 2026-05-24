@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arkham-bot"
+version = "0.1.0"
+description = "Arkham Horror LCG Telegram bot"
+requires-python = ">=3.11"
+dependencies = [
+  "python-telegram-bot",
+  "requests",
+  "python-dotenv",
+  "pillow",
+  "filelock",
+  "httpx",
+  "tenacity",
+  "tzdata",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[project.optional-dependencies]
+dev = ["pytest"]

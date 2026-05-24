@@ -1,0 +1,16 @@
+[Unit]
+Description=Arkham Horror LCG Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/arkham_bot
+EnvironmentFile=/opt/arkham_bot/.env
+ExecStart=/opt/arkham_bot/venv/bin/python /opt/arkham_bot/main.py interactive
+Restart=always
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
