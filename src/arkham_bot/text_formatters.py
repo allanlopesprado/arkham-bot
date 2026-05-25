@@ -121,17 +121,29 @@ def clean_and_format_text(text_raw, is_flavor=False):
     return text.strip()
 
 
+def _card_name(card: dict) -> str:
+    return card.get('name') or card.get('real_name') or 'Unknown Card'
+
+
+def _card_text(card: dict) -> str:
+    return card.get('text') or card.get('real_text') or ''
+
+
+def _card_traits(card: dict) -> str:
+    return card.get('traits') or card.get('real_traits') or ''
+
+
 def format_card_caption(card, is_interactive=False):
-    name = card.get('name', 'Unknown Card')
+    name = _card_name(card)
     type_name = card.get('type_name', '')
     subname = card.get('subname', '')
     cost = card.get('cost')
     xp = card.get('xp')
-    text = card.get('text', '')
+    text = _card_text(card)
     flavor = card.get('flavor', '')
     artist = card.get('illustrator', '')
     code = card.get('code')
-    traits = card.get('traits', '')
+    traits = _card_traits(card)
     pack_name = card.get('pack_name', '')
     position = card.get('position', '')
     card_type_code = card.get('type_code', 'unknown')
@@ -235,8 +247,8 @@ def format_card_caption(card, is_interactive=False):
 
 
 def format_card_back_caption(card, back_text_raw, is_interactive=False):
-    name = card.get('name', 'Unknown Card')
-    back_name = card.get('back_name', 'Back')
+    name = _card_name(card)
+    back_name = card.get('back_name') or name
     code = card.get('code')
     back_flavor = card.get('back_flavor', '')
 
