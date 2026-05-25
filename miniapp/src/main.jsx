@@ -117,6 +117,8 @@ const I18N = {
     resetCaption: 'Permite repetir cartas já usadas',
     clearQueue: 'Limpar fila',
     clearQueueCaption: 'Cancela comandos pendentes',
+    maintenance: 'Manutenção',
+    dangerZone: 'Zona de risco',
     reloadSettings: 'Recarregar configurações',
     saveSettings: 'Salvar configurações',
     result: 'Resultado',
@@ -246,6 +248,8 @@ const I18N = {
     resetCaption: 'Allows cards already used to repeat',
     clearQueue: 'Clear queue',
     clearQueueCaption: 'Cancels pending commands',
+    maintenance: 'Maintenance',
+    dangerZone: 'Danger zone',
     reloadSettings: 'Reload settings',
     saveSettings: 'Save settings',
     result: 'Result',
@@ -462,10 +466,10 @@ function Notice({ tone = 'warn', children }) {
   return <div className={`notice ${tone}`}>{children}</div>;
 }
 
-function Section({ title, footer, children }) {
+function Section({ title, footer, danger, children }) {
   return (
     <section className="section">
-      {title && <div className="section-title">{title}</div>}
+      {title && <div className={`section-title${danger ? ' danger' : ''}`}>{title}</div>}
       <div className="card">{children}</div>
       {footer && <div className="section-footer">{footer}</div>}
     </section>
@@ -549,7 +553,7 @@ function Field({ label, hint, children }) {
 function SelectField({ label, value, onChange, hint, children }) {
   return (
     <label className="field">
-      <span className="field-label">{label}</span>
+      {label && <span className="field-label">{label}</span>}
       <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
         {children}
       </select>
@@ -1054,27 +1058,35 @@ function App() {
 
       {/* ── CONTROLS ── */}
       {activeTab === 'controls' && (
-        <Section title={copy.modeSettings}>
-          <ToggleRow
-            label={copy.dailyPost}
-            caption={copy.automaticPostingCaption}
-            checked={settings.daily_post_enabled}
-            disabled={actionsDisabled}
-            onChange={(checked) => confirmThenEnqueue(
-              checked ? copy.confirmResume : copy.confirmPause,
-              checked ? 'resume_daily_post' : 'pause_daily_post'
-            )}
-          />
-          <ActionRow icon="sync" label={copy.syncArkhamDB} caption={copy.syncCaption} onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
-          <ActionRow icon="reset" label={copy.resetCycle} caption={copy.resetCaption} onClick={() => confirmThenEnqueue(copy.confirmReset, 'reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
-          <ActionRow icon="trash" label={copy.clearQueue} caption={copy.clearQueueCaption} onClick={() => confirmThenEnqueue(copy.confirmClear, 'clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
-        </Section>
+        <>
+          <Section title={copy.modeSettings} footer={copy.dailyPostFooter}>
+            <ToggleRow
+              label={copy.automaticPosting}
+              caption={copy.automaticPostingCaption}
+              checked={settings.daily_post_enabled}
+              disabled={actionsDisabled}
+              onChange={(checked) => confirmThenEnqueue(
+                checked ? copy.confirmResume : copy.confirmPause,
+                checked ? 'resume_daily_post' : 'pause_daily_post'
+              )}
+            />
+          </Section>
+
+          <Section title={copy.maintenance}>
+            <ActionRow icon="sync" label={copy.syncArkhamDB} caption={copy.syncCaption} onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
+          </Section>
+
+          <Section title={copy.dangerZone} danger>
+            <ActionRow icon="reset" label={copy.resetCycle} caption={copy.resetCaption} onClick={() => confirmThenEnqueue(copy.confirmReset, 'reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
+            <ActionRow icon="trash" label={copy.clearQueue} caption={copy.clearQueueCaption} onClick={() => confirmThenEnqueue(copy.confirmClear, 'clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
+          </Section>
+        </>
       )}
 
       {/* ── SCHEDULE ── */}
       {activeTab === 'schedule' && (
         <>
-          <Section title={copy.scheduleTitle || copy.schedule}>
+          <Section title={copy.scheduleTitle || copy.schedule} footer={copy.dailyPostFooter}>
             <ToggleRow
               label={copy.automaticPosting}
               caption={copy.automaticPostingCaption}
@@ -1107,10 +1119,11 @@ function App() {
                 <input className="input" type="text" value={settings.timezone} onChange={(e) => setSettings((cur) => ({ ...cur, timezone: e.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
               </Field>
             </div>
+          </Section>
+
+          <Section title={copy.aiLanguage} footer={copy.aiLanguageCaption}>
             <div className="form-row">
               <SelectField
-                label={copy.aiLanguage}
-                hint={copy.aiLanguageCaption}
                 value={settings.ai_language}
                 onChange={(val) => setSettings((cur) => ({ ...cur, ai_language: val }))}
               >
@@ -1118,6 +1131,9 @@ function App() {
                 <option value="en-US">{copy.aiLanguageEn}</option>
               </SelectField>
             </div>
+          </Section>
+
+          <Section>
             <ActionRow icon="refresh" label={copy.reloadSettings} onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
             <ActionRow icon="save" label={copy.saveSettings} onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />
           </Section>
