@@ -1,25 +1,24 @@
-# Environment / secrets
+# ─── Environment / secrets ───────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 
-# Python environments
+# ─── Python environments ─────────────────────────────────────────────────────
 venv/
 .venv/
 ENV/
 env/
 
-# Python build/cache
+# ─── Python build / cache ────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 *.egg-info/
 build/
-dist/
 .eggs/
 
-# Runtime state
+# ─── Runtime state ───────────────────────────────────────────────────────────
 logs/
 debug_logs/
 *.log
@@ -37,29 +36,35 @@ card_cache.json
 card_cache.json.lock
 main_process.lock
 
-# Archives / local exports
+# ─── Archives ────────────────────────────────────────────────────────────────
 *.zip
 *.tar
 *.tar.gz
 *.7z
 
-# Node / frontend
+# ─── Node / frontend ─────────────────────────────────────────────────────────
 node_modules/
-dist/
-build/
 miniapp/node_modules/
 miniapp/dist/
 worker/node_modules/
 worker/dist/
 
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# ─── Wrangler ────────────────────────────────────────────────────────────────
+.wrangler/
+worker/.wrangler/
 
-# Backup artifacts
+# ─── Build output (genérico) ─────────────────────────────────────────────────
+dist/
+build/
+
+# ─── Backup artifacts ────────────────────────────────────────────────────────
 *.backup*
 *.backup-*.py
 *.dump
 *.sql.gz
+
+# ─── IDE / OS ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
