@@ -17,6 +17,8 @@ def test_format_status_report_includes_operational_fields():
         "last_daily_post_card_code": "01001",
         "supabase_configured": True,
         "supabase_status": "ok",
+        "cards_count": "1234",
+        "packs_count": "42",
         "bot_commands_enabled": True,
         "is_admin": True,
         "admin_source": "owner",
@@ -25,10 +27,12 @@ def test_format_status_report_includes_operational_fields():
 
     text = telegram_handlers._format_status_report(payload)
 
-    assert "Arkham Bot - Status" in text
-    assert "Postagem diaria" in text
-    assert "Supabase leitura: ok" in text
-    assert "Comandos pendentes/retry: 0" in text
+    assert "<b>Arkham Bot</b>" in text
+    assert "<code>Status operacional</code>" in text
+    assert "Agendamento" in text
+    assert "Supabase: <b>ok</b>" in text
+    assert "Cartas: <code>1234</code>" in text
+    assert "Fila pendente/retry: <code>0</code>" in text
 
 
 def test_format_status_report_escapes_values():
@@ -45,6 +49,8 @@ def test_format_status_report_escapes_values():
         "last_daily_post_card_code": "01001",
         "supabase_configured": False,
         "supabase_status": "nao configurado",
+        "cards_count": "-",
+        "packs_count": "-",
         "bot_commands_enabled": False,
         "is_admin": False,
         "admin_source": "none",
@@ -72,3 +78,19 @@ def test_as_bool_understands_string_settings():
     assert telegram_handlers._as_bool("sim") is True
     assert telegram_handlers._as_bool("false", True) is False
     assert telegram_handlers._as_bool(None, True) is True
+
+
+def test_format_help_report_public_is_structured():
+    text = telegram_handlers._format_help_report(is_admin=False)
+
+    assert "<b>Cartas</b>" in text
+    assert "<code>/status</code>" in text
+    assert "<b>Admin</b>" not in text
+
+
+def test_format_help_report_admin_includes_admin_commands():
+    text = telegram_handlers._format_help_report(is_admin=True)
+
+    assert "<b>Admin</b>" in text
+    assert "<code>/post &lt;card_code&gt;</code>" in text
+    assert "<code>/add_admin &lt;id&gt; [role] [nome]</code>" in text

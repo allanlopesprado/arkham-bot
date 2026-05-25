@@ -80,6 +80,10 @@ def _yes_no(value: bool) -> str:
     return "sim" if value else "nao"
 
 
+def _active_inactive(value: bool) -> str:
+    return "ativo" if value else "inativo"
+
+
 def _format_uptime(now: datetime) -> str:
     seconds = max(0, int((now - BOT_STARTED_AT).total_seconds()))
     days, remainder = divmod(seconds, 86400)
@@ -100,6 +104,21 @@ def _format_list(value) -> str:
     return str(value)
 
 
+def _format_days(value) -> str:
+    names = {
+        "mon": "seg",
+        "tue": "ter",
+        "wed": "qua",
+        "thu": "qui",
+        "fri": "sex",
+        "sat": "sab",
+        "sun": "dom",
+    }
+    if not isinstance(value, list):
+        return _format_list(value)
+    return ", ".join(names.get(str(item), str(item)) for item in value) or "-"
+
+
 def _as_bool(value, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
@@ -114,40 +133,94 @@ def _safe_status_value(value) -> str:
     return escape(str(value if value not in (None, "") else "-"))
 
 
+def _code(value) -> str:
+    return f"<code>{_safe_status_value(value)}</code>"
+
+
+def _bold(value) -> str:
+    return f"<b>{_safe_status_value(value)}</b>"
+
+
 def _format_status_report(payload: dict) -> str:
     lines = [
-        "<b>Arkham Bot - Status</b>",
+        "<b>Arkham Bot</b>",
+        "<code>Status operacional</code>",
         "",
-        "<b>Runtime</b>",
-        f"Bot: {_safe_status_value(payload['bot'])}",
-        f"Uptime: {_safe_status_value(payload['uptime'])}",
-        f"Horario local: {_safe_status_value(payload['local_time'])}",
+        "<b>Resumo</b>",
+        f"- Bot: {_bold(payload['bot'])}",
+        f"- Uptime: {_code(payload['uptime'])}",
+        f"- Horario local: {_code(payload['local_time'])}",
         "",
         "<b>Telegram</b>",
-        f"Chat configurado: {_yes_no(payload['telegram_chat_configured'])}",
-        f"Usuario: {_safe_status_value(payload['telegram_user_id'])}",
+        f"- Chat configurado: {_bold(_yes_no(payload['telegram_chat_configured']))}",
+        f"- Usuario: {_code(payload['telegram_user_id'])}",
         "",
-        "<b>Postagem diaria</b>",
-        f"Ativa: {_yes_no(payload['daily_post_enabled'])}",
-        f"Horarios: {_safe_status_value(_format_list(payload['daily_post_times']))}",
-        f"Dias: {_safe_status_value(_format_list(payload['daily_post_days']))}",
-        f"Ultimo status: {_safe_status_value(payload['last_daily_post_status'])}",
-        f"Ultima carta: {_safe_status_value(payload['last_daily_post_card_code'])}",
+        "<b>Agendamento</b>",
+        f"- Postagem diaria: {_bold(_active_inactive(payload['daily_post_enabled']))}",
+        f"- Horarios: {_code(_format_list(payload['daily_post_times']))}",
+        f"- Dias: {_code(_format_days(payload['daily_post_days']))}",
+        f"- Ultimo resultado: {_code(payload['last_daily_post_status'])}",
+        f"- Ultima carta: {_code(payload['last_daily_post_card_code'])}",
         "",
-        "<b>Infra</b>",
-        f"Supabase configurado: {_yes_no(payload['supabase_configured'])}",
-        f"Supabase leitura: {_safe_status_value(payload['supabase_status'])}",
-        f"Worker comandos: {_yes_no(payload['bot_commands_enabled'])}",
+        "<b>Dados</b>",
+        f"- Supabase: {_bold(payload['supabase_status'])}",
+        f"- Cartas: {_code(payload['cards_count'])}",
+        f"- Packs: {_code(payload['packs_count'])}",
+        f"- Worker de comandos: {_bold(_active_inactive(payload['bot_commands_enabled']))}",
         "",
         "<b>Admin</b>",
     ]
     if payload["is_admin"]:
         lines.extend([
-            f"Acesso: {_safe_status_value(payload['admin_source'])}",
-            f"Comandos pendentes/retry: {_safe_status_value(payload['pending_commands'])}",
+            f"- Acesso: {_code(payload['admin_source'])}",
+            f"- Fila pendente/retry: {_code(payload['pending_commands'])}",
         ])
     else:
-        lines.append("Acesso: nao")
+        lines.append("- Acesso: nao")
+    return "\n".join(lines)
+
+
+def _format_help_report(is_admin: bool) -> str:
+    lines = [
+        "<b>Arkham Bot</b>",
+        "<code>Comandos disponiveis</code>",
+        "",
+        "<b>Cartas</b>",
+        "- <code>/card</code> - busca guiada por ciclo/pacote",
+        "- <code>/random</code> - carta aleatoria",
+        "- <code>/today</code> - ultima carta diaria registrada",
+        "- <code>/search &lt;texto&gt;</code> - busca por nome/texto",
+        "- <code>/pack &lt;codigo&gt;</code> - cartas de um pacote",
+        "- <code>/faction &lt;codigo&gt;</code> - cartas por faccao",
+        "- <code>/type &lt;codigo&gt;</code> - cartas por tipo",
+        "- <code>/xp &lt;numero&gt;</code> - cartas por XP",
+        "",
+        "<b>Regras e referencias</b>",
+        "- <code>/faq &lt;card_code&gt;</code> - FAQ da carta",
+        "- <code>/taboo</code> - lista taboo",
+        "- <code>/decklist &lt;id&gt;</code> - decklist do ArkhamDB",
+        "",
+        "<b>Bot</b>",
+        "- <code>/status</code> - status operacional",
+        "- <code>/menu</code> - mostra este menu",
+        "- <code>/cancel</code> - cancela uma busca em andamento",
+    ]
+    if is_admin:
+        lines.extend([
+            "",
+            "<b>Admin</b>",
+            "- <code>/admin</code> - valida permissao",
+            "- <code>/post &lt;card_code&gt;</code> - posta carta agora",
+            "- <code>/repost &lt;card_code&gt;</code> - reposta carta",
+            "- <code>/skip &lt;card_code&gt;</code> - marca carta como usada",
+            "- <code>/pause</code> - pausa postagem diaria",
+            "- <code>/resume</code> - retoma postagem diaria",
+            "- <code>/settings</code> - mostra settings do Supabase",
+            "- <code>/queue</code> - mostra comandos pendentes",
+            "- <code>/errors</code> - mostra erros recentes",
+            "- <code>/add_admin &lt;id&gt; [role] [nome]</code> - adiciona admin",
+            "- <code>/remove_admin &lt;id&gt;</code> - remove admin",
+        ])
     return "\n".join(lines)
 
 
@@ -176,22 +249,36 @@ def _collect_status_payload(update: Update) -> dict:
     daily_post_days = DAILY_POST_DAYS
     supabase_status = "nao configurado"
     pending_commands = "-"
+    cards_count = "-"
+    packs_count = "-"
 
     try:
         from .repositories.settings_repo import get_all_settings
 
         settings = get_all_settings()
+        if SUPABASE_ENABLED:
+            supabase_status = "ok"
         if settings:
             daily_post_enabled = _as_bool(settings.get("daily_post_enabled"), daily_post_enabled)
             daily_post_times = _as_list(settings.get("daily_post_times", daily_post_times), daily_post_times)
             daily_post_days = _as_list(settings.get("daily_post_days", daily_post_days), daily_post_days)
             timezone_name = str(settings.get("timezone", timezone_name) or timezone_name)
-            supabase_status = "ok"
-        elif SUPABASE_ENABLED:
-            supabase_status = "sem settings"
     except Exception as exc:
         logger.warning("status_settings_lookup_failed: %s", exc)
         supabase_status = "erro"
+
+    if SUPABASE_ENABLED:
+        try:
+            from .supabase_client import get_supabase_client
+
+            client = get_supabase_client()
+            if client:
+                cards_count = str(len(client.get("arkham_cards", {"select": "code"})))
+                packs_count = str(len(client.get("arkham_packs", {"select": "code"})))
+        except Exception as exc:
+            logger.warning("status_catalog_lookup_failed: %s", exc)
+            cards_count = "erro"
+            packs_count = "erro"
 
     if is_admin:
         try:
@@ -221,6 +308,8 @@ def _collect_status_payload(update: Update) -> dict:
         "last_daily_post_card_code": state.get("last_daily_post_card_code", "-"),
         "supabase_configured": SUPABASE_ENABLED,
         "supabase_status": supabase_status,
+        "cards_count": cards_count,
+        "packs_count": packs_count,
         "bot_commands_enabled": BOT_COMMANDS_POLLING_ENABLED,
         "is_admin": is_admin,
         "admin_source": admin_source(user_id),
@@ -454,8 +543,10 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
+    user_id = update.effective_user.id if update.effective_user else None
     await update.message.reply_text(
-        "Commands: /card, /random, /today, /faq <card_code>, /taboo, /decklist <id>, /status, /cancel"
+        _format_help_report(is_admin_user(user_id)),
+        parse_mode=ParseMode.HTML,
     )
 
 
