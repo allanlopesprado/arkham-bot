@@ -1,8 +1,12 @@
 const ALLOWED_COMMAND_TYPES = new Set([
   'post_now',
+  'repost_card',
   'skip_card',
   'pause_daily_post',
   'resume_daily_post',
+  'reset_cycle',
+  'clear_queue',
+  'update_setting',
   'sync_arkhamdb',
 ]);
 
@@ -12,6 +16,13 @@ const COMMAND_ALIASES = {
 };
 
 const ADMIN_ROLES = new Set(['owner', 'admin']);
+const SETTINGS_KEYS = new Set([
+  'daily_post_enabled',
+  'daily_post_times',
+  'daily_post_days',
+  'timezone',
+]);
+const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
 async function hmacSha256(keyBytes, data) {
   const key = await crypto.subtle.importKey(
@@ -113,7 +124,7 @@ function corsHeaders(allowedOrigin) {
   if (!allowedOrigin) return {};
   return {
     'access-control-allow-origin': allowedOrigin,
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
     'access-control-allow-headers': 'content-type,x-telegram-init-data',
     vary: 'Origin',
   };
@@ -133,6 +144,78 @@ function preflightResponse(allowedOrigin) {
 function normalizeCommandType(raw) {
   const normalized = COMMAND_ALIASES[raw] || raw;
   return ALLOWED_COMMAND_TYPES.has(normalized) ? normalized : null;
+}
+
+function supabaseHeaders(env, extra = {}) {
+  return {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    ...extra,
+  };
+}
+
+function rowsToSettings(rows) {
+  return Object.fromEntries((rows || []).map((row) => [row.key, row.value]));
+}
+
+async function fetchSettingsRows(env) {
+  const base = env.SUPABASE_URL.replace(/\/$/, '');
+  const resp = await fetch(
+    `${base}/rest/v1/bot_settings?select=key,value,description,updated_by,updated_at&order=key.asc`,
+    { headers: supabaseHeaders(env) },
+  );
+  if (!resp.ok) throw new Error('settings_fetch_failed');
+  return resp.json();
+}
+
+function isValidTime(value) {
+  if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return false;
+  const [hour, minute] = value.split(':').map(Number);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
+function validateTimezone(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const timezone = value.trim();
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch {
+    return null;
+  }
+}
+
+function validateSettingsPatch(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { error: 'invalid_json' };
+  }
+  const settings = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (!SETTINGS_KEYS.has(key)) return { error: 'unsupported_setting', key };
+    if (key === 'daily_post_enabled') {
+      if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'daily_post_times') {
+      if (!Array.isArray(value) || value.length === 0 || !value.every(isValidTime)) {
+        return { error: 'invalid_setting_value', key };
+      }
+      settings[key] = value;
+    }
+    if (key === 'daily_post_days') {
+      if (!Array.isArray(value) || value.length === 0 || !value.every((day) => WEEKDAY_CODES.has(day))) {
+        return { error: 'invalid_setting_value', key };
+      }
+      settings[key] = value;
+    }
+    if (key === 'timezone') {
+      const timezone = validateTimezone(value);
+      if (!timezone) return { error: 'invalid_setting_value', key };
+      settings[key] = timezone;
+    }
+  }
+  if (Object.keys(settings).length === 0) return { error: 'settings_required' };
+  return { settings };
 }
 
 function safeLog(data) {
@@ -216,6 +299,94 @@ async function handleStatus(request, env, ao) {
     result.error = 'status_fetch_failed';
   }
   return withCors(jsonResponse(result), ao);
+}
+
+async function handleGetSettings(request, env, user, ao) {
+  const access = await getAdminAccess(env, user.id);
+  safeLog({
+    path: '/settings',
+    method: 'GET',
+    initData_present: true,
+    initData_length: null,
+    telegram_user_id_present: true,
+    admin: access.admin,
+    admin_source: access.source,
+    status: access.admin ? 200 : 403,
+  });
+
+  if (!access.admin) {
+    return withCors(jsonResponse({
+      error: 'unauthorized',
+      role: access.role,
+      admin_source: access.source,
+    }, 403), ao);
+  }
+
+  try {
+    const rows = await fetchSettingsRows(env);
+    return withCors(jsonResponse({ ok: true, settings: rowsToSettings(rows), rows }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'settings_fetch_failed' }, 500), ao);
+  }
+}
+
+async function handlePatchSettings(request, env, user, ao) {
+  const access = await getAdminAccess(env, user.id);
+  safeLog({
+    path: '/settings',
+    method: 'PATCH',
+    initData_present: true,
+    initData_length: null,
+    telegram_user_id_present: true,
+    admin: access.admin,
+    admin_source: access.source,
+    status: access.admin ? 200 : 403,
+  });
+
+  if (!access.admin) {
+    return withCors(jsonResponse({
+      error: 'unauthorized',
+      role: access.role,
+      admin_source: access.source,
+    }, 403), ao);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return withCors(jsonResponse({ error: 'invalid_json' }, 400), ao);
+  }
+
+  const validation = validateSettingsPatch(body);
+  if (validation.error) {
+    return withCors(jsonResponse(validation, 400), ao);
+  }
+
+  const rows = Object.entries(validation.settings).map(([key, value]) => ({
+    key,
+    value,
+    updated_by: String(user.id),
+  }));
+
+  try {
+    const base = env.SUPABASE_URL.replace(/\/$/, '');
+    const resp = await fetch(`${base}/rest/v1/bot_settings?on_conflict=key`, {
+      method: 'POST',
+      headers: supabaseHeaders(env, {
+        'content-type': 'application/json',
+        prefer: 'resolution=merge-duplicates,return=representation',
+      }),
+      body: JSON.stringify(rows),
+    });
+    if (!resp.ok) {
+      return withCors(jsonResponse({ error: 'settings_upsert_failed' }, 500), ao);
+    }
+    const currentRows = await fetchSettingsRows(env);
+    return withCors(jsonResponse({ ok: true, settings: rowsToSettings(currentRows), rows: currentRows }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'settings_upsert_failed' }, 500), ao);
+  }
 }
 
 async function handleBotCommand(request, env, user, ao) {
@@ -329,6 +500,23 @@ export default {
       return handleMe(request, env, user, ao);
     }
 
+    if (pathname === '/settings' && (request.method === 'GET' || request.method === 'PATCH')) {
+      const initData = request.headers.get('x-telegram-init-data') || '';
+      safeLog({
+        path: '/settings',
+        method: request.method,
+        initData_present: Boolean(initData),
+        initData_length: initData.length,
+        telegram_user_id_present: null,
+        admin: null,
+        status: null,
+      });
+      const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
+      if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
+      if (request.method === 'GET') return handleGetSettings(request, env, user, ao);
+      return handlePatchSettings(request, env, user, ao);
+    }
+
     if ((pathname === '/bot-command' || pathname === '/') && request.method === 'POST') {
       const initData = request.headers.get('x-telegram-init-data') || '';
       safeLog({
@@ -345,7 +533,7 @@ export default {
       return handleBotCommand(request, env, user, ao);
     }
 
-    if (pathname === '/me' || pathname === '/status' || pathname === '/bot-command' || pathname === '/') {
+    if (pathname === '/me' || pathname === '/status' || pathname === '/settings' || pathname === '/bot-command' || pathname === '/') {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 
