@@ -14,7 +14,7 @@
   --tg-separator: var(--tg-theme-section-separator-color, rgba(7, 14, 22, 0.72));
   --tg-danger: var(--tg-theme-destructive-text-color, #e5655f);
   --tg-danger-bg: #e5655f;
-  --panel-width: 384px;
+  --panel-width: 920px;
   color: var(--tg-text);
   background: var(--tg-bg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -456,6 +456,10 @@ button {
   background: #102132;
 }
 
+.tg-switch-row input:disabled + .tg-switch {
+  opacity: 0.42;
+}
+
 .tg-day-grid,
 .tg-action-grid {
   display: grid;
@@ -653,15 +657,26 @@ button {
   }
 }
 
-@media (min-width: 900px) {
-  body {
-    background: #0f0f10;
+@media (min-width: 700px) {
+  .app {
+    padding-left: 28px;
+    padding-right: 28px;
   }
 
-  .app {
-    margin-top: 25px;
-    margin-bottom: 25px;
-    border-radius: 6px;
-    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.34);
+  .tg-summary,
+  .tg-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .tg-search-line {
+    grid-template-columns: minmax(0, 1fr) 140px;
+  }
+
+  .tg-action-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .tg-day-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }

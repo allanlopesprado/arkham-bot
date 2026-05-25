@@ -355,6 +355,20 @@ function ActionRow({ icon, label, caption, onClick, disabled, loading, danger })
   );
 }
 
+function MenuRow({ icon, label, caption, value, onClick, disabled }) {
+  return (
+    <button className="tg-row tg-row--action" onClick={onClick} disabled={disabled} type="button">
+      {icon && <Icon name={icon} />}
+      <div className="tg-row__main">
+        <span className="tg-row__label">{label}</span>
+        {caption && <span className="tg-row__caption">{caption}</span>}
+      </div>
+      {value !== undefined && <span className="tg-row__value">{value}</span>}
+      <Icon name="chevron" className="tg-chevron" />
+    </button>
+  );
+}
+
 function Section({ title, footer, children }) {
   return (
     <section className="tg-section">
@@ -409,11 +423,11 @@ function SelectField({ label, value, onChange, children, hint }) {
   );
 }
 
-function SwitchField({ label, checked, onChange }) {
+function SwitchField({ label, checked, onChange, disabled = false }) {
   return (
     <label className="tg-switch-row">
       <span className="tg-row__label">{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
       <span className="tg-switch" aria-hidden="true" />
     </label>
   );
@@ -490,7 +504,7 @@ function App() {
   const [loadingCmd, setLoadingCmd] = useState(null);
   const [loadingMe, setLoadingMe] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState('manage');
+  const [activeTab, setActiveTab] = useState('menu');
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [timesInput, setTimesInput] = useState(DEFAULT_SETTINGS.daily_post_times.join(', '));
   const [settingsResult, setSettingsResult] = useState(null);
@@ -510,7 +524,6 @@ function App() {
     const tg = getTelegramWebApp();
     if (tg) {
       tg.ready?.();
-      tg.expand?.();
       try { tg.setHeaderColor?.('secondary_bg_color'); } catch {}
       try { tg.setBackgroundColor?.('bg_color'); } catch {}
       try { tg.setBottomBarColor?.('secondary_bg_color'); } catch {}
@@ -521,8 +534,8 @@ function App() {
   useEffect(() => {
     const backButton = getTelegramWebApp()?.BackButton;
     if (!backButton) return undefined;
-    const goHome = () => setActiveTab('manage');
-    if (activeTab === 'manage') {
+    const goHome = () => setActiveTab('menu');
+    if (activeTab === 'menu') {
       backButton.hide?.();
     } else {
       backButton.show?.();
@@ -827,24 +840,23 @@ function App() {
         <div className="tg-profile__subtitle">Admin Console</div>
       </header>
 
-      <section className="tg-summary" aria-label="Resumo">
-        <SummaryItem icon="server" label="Worker" value={workerValue} />
-        <SummaryItem icon="shield" label="Acesso" value={adminValue} />
-        <SummaryItem icon="cards" label="Cards" value={cardsValue} />
-        <SummaryItem icon="queue" label="Fila" value={queueValue} />
-      </section>
-
       {isOutsideTelegram && <Notice>Abra pelo Telegram para autenticar.</Notice>}
       {!apiConfigured && <Notice tone="err">Worker nao configurado.</Notice>}
 
-      <nav className="tg-tabs" aria-label="Abas">
-        <TabButton active={activeTab === 'manage'} onClick={() => setActiveTab('manage')}>Gestao</TabButton>
-        <TabButton active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')}>Agenda</TabButton>
-        <TabButton active={activeTab === 'queue'} onClick={() => setActiveTab('queue')}>Fila</TabButton>
-        <TabButton active={activeTab === 'status'} onClick={() => setActiveTab('status')}>Saude</TabButton>
-      </nav>
+      {activeTab === 'menu' && (
+        <>
+          <Section title="Settings">
+            <MenuRow icon="send" label="Postar carta" caption="Buscar carta, escolher destino e publicar" onClick={() => setActiveTab('post')} />
+            <MenuRow icon="settings" label="Controles" caption="Pausar, sincronizar, resetar ciclo e limpar fila" onClick={() => setActiveTab('controls')} />
+            <MenuRow icon="clock" label="Agenda" caption={`${settings.daily_post_times.join(', ')} | ${settings.timezone}`} onClick={() => setActiveTab('schedule')} />
+            <MenuRow icon="queue" label="Fila" caption="Comandos recentes e cancelamento" value={queueValue} onClick={() => setActiveTab('queue')} />
+            <MenuRow icon="server" label="Saude" caption="Worker, acesso, cards e diagnostico" value={workerValue} onClick={() => setActiveTab('status')} />
+          </Section>
+        </>
+      )}
 
-      {activeTab === 'manage' && (
+
+      {activeTab === 'post' && (
         <>
           <Section title="Postar carta">
             <div className="tg-form-row">
@@ -901,47 +913,27 @@ function App() {
                 </SelectField>
               </div>
             )}
-            <div className="tg-action-grid">
-              <MiniButton icon="send" label="Postar agora" onClick={() => enqueue('post_now', cardCode ? { card_code: cardCode } : {})} loading={loadingCmd === 'post_now'} disabled={actionsDisabled} />
-              <MiniButton icon="repeat" label="Repostar" onClick={() => enqueue('repost_card', { card_code: cardCode })} loading={loadingCmd === 'repost_card'} disabled={actionsDisabled || !cardCode} />
-              <MiniButton icon="skip" label="Pular" onClick={() => enqueue('skip_card', { card_code: cardCode })} loading={loadingCmd === 'skip_card'} disabled={actionsDisabled || !cardCode} />
-            </div>
+            <ActionRow icon="send" label="Postar agora" caption={cardCode ? `Carta ${cardCode}` : 'Escolha automatica'} onClick={() => enqueue('post_now', cardCode ? { card_code: cardCode } : {})} loading={loadingCmd === 'post_now'} disabled={actionsDisabled} />
+            <ActionRow icon="repeat" label="Repostar carta" caption={cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta'} onClick={() => enqueue('repost_card', { card_code: cardCode })} loading={loadingCmd === 'repost_card'} disabled={actionsDisabled || !cardCode} />
+            <ActionRow icon="skip" label="Pular carta" caption={cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta'} onClick={() => enqueue('skip_card', { card_code: cardCode })} loading={loadingCmd === 'skip_card'} disabled={actionsDisabled || !cardCode} />
           </Section>
+        </>
+      )}
 
-          <Section title="Controles">
-            <div className="tg-action-grid">
-              <MiniButton icon={settings.daily_post_enabled ? 'pause' : 'play'} label={settings.daily_post_enabled ? 'Pausar diario' : 'Retomar diario'} onClick={() => enqueue(settings.daily_post_enabled ? 'pause_daily_post' : 'resume_daily_post')} loading={loadingCmd === 'pause_daily_post' || loadingCmd === 'resume_daily_post'} disabled={actionsDisabled} />
-              <MiniButton icon="sync" label="Sincronizar ArkhamDB" onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
-              <MiniButton icon="reset" label="Resetar ciclo" onClick={() => enqueue('reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
-              <MiniButton icon="trash" label="Limpar fila" onClick={() => enqueue('clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
-            </div>
+      {activeTab === 'controls' && (
+        <>
+          <Section title="Mode Settings">
+            <SwitchField
+              label="Postagem diaria"
+              checked={settings.daily_post_enabled}
+              disabled={actionsDisabled}
+              onChange={(checked) => enqueue(checked ? 'resume_daily_post' : 'pause_daily_post')}
+            />
+            <div className="tg-section__footer">Ativa ou pausa a rotina automatica de carta diaria.</div>
+            <ActionRow icon="sync" label="Sincronizar ArkhamDB" caption="Atualiza cartas e pacotes" onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
+            <ActionRow icon="reset" label="Resetar ciclo" caption="Permite repetir cartas ja usadas" onClick={() => enqueue('reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
+            <ActionRow icon="trash" label="Limpar fila" caption="Cancela comandos pendentes" onClick={() => enqueue('clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
           </Section>
-
-          <Section title="Operacao">
-            <Row icon="clock" label="Postagem diaria" value={settings.daily_post_enabled ? 'ativa' : 'pausada'} badgeTone={settings.daily_post_enabled ? 'ok' : 'warn'} caption={`${settings.daily_post_times.join(', ')} | ${settings.timezone}`} />
-            <Row icon="queue" label="Fila pendente" value={overview?.counts?.pending_commands ?? '-'} />
-            <Row icon="cards" label="Cartas postadas" value={overview?.counts?.posted_cards ?? '-'} />
-            <ActionRow icon="refresh" label="Atualizar gestao" onClick={() => { fetchOverview(); fetchCommands(); }} loading={loadingOverview || loadingCommands} disabled={!apiConfigured} />
-          </Section>
-
-
-          {result && (
-            <Section title="Resultado">
-              <Row
-                icon="result"
-                label={result.ok ? 'Sucesso' : 'Erro'}
-                value={result.command_type || '-'}
-                badgeTone={result.ok ? 'ok' : 'err'}
-                caption={result.friendly}
-              />
-              {result.detail && (
-                <details className="tg-details">
-                  <summary>Detalhes</summary>
-                  <pre className="diag-pre">{result.detail}</pre>
-                </details>
-              )}
-            </Section>
-          )}
         </>
       )}
 
@@ -1005,6 +997,13 @@ function App() {
 
       {activeTab === 'status' && (
         <>
+          <Section title="Resumo">
+            <Row icon="server" label="Worker" value={workerValue} badgeTone={sysStatus?.ok ? 'ok' : 'err'} />
+            <Row icon="shield" label="Acesso" value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} />
+            <Row icon="cards" label="Cards" value={cardsValue} />
+            <Row icon="queue" label="Fila" value={queueValue} />
+          </Section>
+
           <Section title="Conta">
             <Row icon="plug" label="Telegram WebApp" value={diag.webAppDetected ? 'sim' : 'nao'} badgeTone={statusTone(diag.webAppDetected)} />
             <Row icon="key" label="initData" value={diag.initDataPresent ? 'presente' : 'ausente'} badgeTone={statusTone(diag.initDataPresent)} />
@@ -1037,6 +1036,24 @@ function App() {
             </details>
           </Section>
         </>
+      )}
+
+      {result && activeTab !== 'status' && (
+        <Section title="Resultado">
+          <Row
+            icon="result"
+            label={result.ok ? 'Sucesso' : 'Erro'}
+            value={result.command_type || '-'}
+            badgeTone={result.ok ? 'ok' : 'err'}
+            caption={result.friendly}
+          />
+          {result.detail && (
+            <details className="tg-details">
+              <summary>Detalhes</summary>
+              <pre className="diag-pre">{result.detail}</pre>
+            </details>
+          )}
+        </Section>
       )}
     </div>
   );
