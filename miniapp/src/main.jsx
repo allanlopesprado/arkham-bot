@@ -610,11 +610,42 @@ function CardResult({ card, selected, onSelect }) {
   );
 }
 
+// ─── Auth gate screens ────────────────────────────────────────────────────────
+
+function GateScreen({ children }) {
+  return (
+    <div className="gate">
+      <div className="gate-inner">{children}</div>
+    </div>
+  );
+}
+
+function LoadingGate() {
+  return (
+    <GateScreen>
+      <Spinner />
+    </GateScreen>
+  );
+}
+
+function NoTelegramGate({ copy }) {
+  return (
+    <GateScreen>
+      <Icon name="bot" className="gate-icon" />
+      <p className="gate-title">Arkham Bot</p>
+      <p className="gate-text">{copy.outsideTelegram}</p>
+    </GateScreen>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
   const [language, setLanguage] = useState(getInitialLanguage);
   const copy = I18N[language];
+
+  // 'loading' | 'no_telegram' | 'unauthorized' | 'ready'
+  const [authState, setAuthState] = useState('loading');
 
   const [me, setMe] = useState(null);
   const [sysStatus, setSysStatus] = useState(null);
@@ -631,7 +662,6 @@ function App() {
   const [activeTab, setActiveTab] = useState('menu');
 
   const [loadingCmd, setLoadingCmd] = useState(null);
-  const [loadingMe, setLoadingMe] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [loadingCommands, setLoadingCommands] = useState(false);
@@ -643,9 +673,8 @@ function App() {
   const searchTimerRef = useRef(null);
 
   const apiConfigured = Boolean(getApiBase());
-  const isOutsideTelegram = !tg() || !initData();
   const isAdmin = me?.admin === true;
-  const actionsDisabled = !isAdmin || isOutsideTelegram || !apiConfigured || loadingCmd !== null;
+  const actionsDisabled = !isAdmin || !apiConfigured || loadingCmd !== null;
 
   // ── Telegram setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -663,14 +692,11 @@ function App() {
       try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
     };
 
-    // Re-expand when viewport changes (e.g. keyboard opens/closes)
     const onViewportChanged = ({ isStateStable }) => { if (isStateStable) app.expand?.(); };
 
     app.onEvent?.('themeChanged', applyColors);
     app.onEvent?.('viewportChanged', onViewportChanged);
-    // safeAreaChanged fires when device safe areas update (rotation, etc.)
     app.onEvent?.('safeAreaChanged', () => {});
-    // contentSafeAreaChanged fires when Telegram UI insets change
     app.onEvent?.('contentSafeAreaChanged', () => {});
 
     return () => {
@@ -698,27 +724,48 @@ function App() {
     readLangStorage((lang) => setLanguage(lang));
   }, []);
 
-  // ── Initial data load ───────────────────────────────────────────────────────
+  // ── Auth gate: check before loading anything else ───────────────────────────
   useEffect(() => {
-    fetchMe();
-    fetchStatus();
-    fetchOverview();
-    fetchCommands();
+    if (!tg() || !initData()) {
+      setAuthState('no_telegram');
+      return;
+    }
+    if (!apiConfigured) {
+      // No API configured — still show UI in dev mode but warn
+      setAuthState('ready');
+      return;
+    }
+    apiFetch('/me').then(({ ok, json }) => {
+      if (ok && json?.admin === true) {
+        setMe(json);
+        setAuthState('ready');
+        fetchStatus();
+        fetchOverview();
+        fetchCommands();
+      } else {
+        // Unauthorized: show native alert then close per Telegram docs
+        const msg = copy.errors.unauthorized?.[0] || 'Access denied.';
+        const app = tg();
+        if (app?.showAlert) {
+          app.showAlert(msg, () => app.close?.());
+        } else {
+          app?.close?.();
+        }
+        setAuthState('unauthorized');
+      }
+    }).catch(() => {
+      setAuthState('ready'); // network error: degrade gracefully, let UI handle it
+    });
   }, []);
 
   // ── API calls ───────────────────────────────────────────────────────────────
 
   async function fetchMe() {
     if (!apiConfigured) return;
-    setLoadingMe(true);
     try {
       const { json } = await apiFetch('/me');
       setMe(json);
-    } catch {
-      setMe({ ok: false, error: 'network_error' });
-    } finally {
-      setLoadingMe(false);
-    }
+    } catch {}
   }
 
   async function fetchStatus() {
@@ -955,17 +1002,20 @@ function App() {
 
   // ── Derived values ──────────────────────────────────────────────────────────
 
-  const adminValue = loadingMe ? copy.checking
-    : !apiConfigured ? copy.noApi
+  const adminValue = !apiConfigured ? copy.noApi
     : me?.ok && isAdmin ? (me.role || 'admin')
     : me?.ok ? (me.role || 'none')
-    : me?.error === 'network_error' ? copy.noNetwork
     : copy.pending;
 
   const workerValue = loadingStatus ? '…' : sysStatus?.ok ? copy.online : copy.offline;
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
+
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+
+  if (authState === 'loading' || authState === 'unauthorized') return <LoadingGate />;
+  if (authState === 'no_telegram') return <NoTelegramGate copy={copy} />;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -983,7 +1033,6 @@ function App() {
         <div className="header-subtitle">{copy.subtitle}</div>
       </header>
 
-      {isOutsideTelegram && <Notice>{copy.outsideTelegram}</Notice>}
       {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured} {copy.defineApiUrl}</Notice>}
 
       {/* ── MENU ── */}
