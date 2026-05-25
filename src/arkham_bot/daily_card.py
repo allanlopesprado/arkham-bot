@@ -5,6 +5,7 @@ import random
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from html import escape
 from urllib.parse import urljoin
 
 from PIL import Image
@@ -38,6 +39,12 @@ from .text_formatters import format_card_back_caption, format_card_caption
 
 
 logger = logging.getLogger(__name__)
+DEFAULT_DISCUSSION_MESSAGE = "Investigators, ready for another revealed mystery? The Card of the Day is on the table!"
+
+
+def _telegram_html_text(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    return escape(text) if text else None
 
 
 @dataclass(slots=True)
@@ -100,6 +107,8 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
         card = None
         card_code = None
         card_image_bytes = None
+        ai_pre_message = None
+        ai_post_question = None
 
         try:
             if specific_card_code:
@@ -145,6 +154,8 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
                 ai_choice = await choose_daily_card_with_ai(unposted_cards)
                 if ai_choice:
                     card = next((candidate for candidate in unposted_cards if candidate.get('code') == ai_choice.selected_card_code), None) or random.choice(unposted_cards)
+                    ai_pre_message = _telegram_html_text(ai_choice.pre_message)
+                    ai_post_question = _telegram_html_text(ai_choice.post_question)
                     logger.info(f"AI Card Selected: {card.get('name')} ({card.get('code')}). Reason: {ai_choice.reason}")
                 else:
                     card = random.choice(unposted_cards)
@@ -192,11 +203,20 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
 
         message = None
         telegram_attempts = 3
+        pre_message_sent = False
 
         while telegram_attempts > 0:
             try:
                 caption = format_card_caption(card, is_interactive=False)
                 card_image_bytes.seek(0)
+
+                if ai_pre_message and not pre_message_sent:
+                    await bot.send_message(
+                        chat_id=TELEGRAM_CHAT_ID,
+                        text=ai_pre_message,
+                        parse_mode=ParseMode.HTML,
+                    )
+                    pre_message_sent = True
 
                 message = await bot.send_photo(
                     chat_id=TELEGRAM_CHAT_ID,
@@ -281,8 +301,13 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
         await _pin_new_daily_card(bot, card_code, message.message_id)
 
         try:
-            discussion_message = "Investigators, ready for another revealed mystery? The Card of the Day is on the table!"
-            await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=discussion_message, reply_to_message_id=message.message_id)
+            discussion_message = ai_post_question or _telegram_html_text(DEFAULT_DISCUSSION_MESSAGE)
+            await bot.send_message(
+                chat_id=TELEGRAM_CHAT_ID,
+                text=discussion_message,
+                parse_mode=ParseMode.HTML,
+                reply_to_message_id=message.message_id,
+            )
         except TelegramError as exc:
             logger.warning(f"Could not send discussion message: {exc}")
 

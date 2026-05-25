@@ -103,6 +103,14 @@ jobs:
           git reset --hard origin/main
 
           echo "== Python env =="
+          if [ -f .env ]; then
+            if grep -q '^AI_DAILY_CARD_ENABLED=' .env; then
+              sed -i 's/^AI_DAILY_CARD_ENABLED=.*/AI_DAILY_CARD_ENABLED=true/' .env
+            else
+              printf '\nAI_DAILY_CARD_ENABLED=true\n' >> .env
+            fi
+          fi
+
           source venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt

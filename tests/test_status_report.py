@@ -19,6 +19,8 @@ def test_format_status_report_includes_operational_fields():
         "supabase_status": "ok",
         "cards_count": "1234",
         "packs_count": "42",
+        "ai_daily_card_enabled": True,
+        "ai_model": "gpt-4.1-mini",
         "bot_commands_enabled": True,
         "is_admin": True,
         "admin_source": "owner",
@@ -32,6 +34,7 @@ def test_format_status_report_includes_operational_fields():
     assert "Agendamento" in text
     assert "Supabase: <b>ok</b>" in text
     assert "Cartas: <code>1234</code>" in text
+    assert "IA diaria: <b>ativo</b>" in text
     assert "Fila pendente/retry: <code>0</code>" in text
 
 
@@ -51,6 +54,8 @@ def test_format_status_report_escapes_values():
         "supabase_status": "nao configurado",
         "cards_count": "-",
         "packs_count": "-",
+        "ai_daily_card_enabled": False,
+        "ai_model": "sem OPENAI_API_KEY",
         "bot_commands_enabled": False,
         "is_admin": False,
         "admin_source": "none",

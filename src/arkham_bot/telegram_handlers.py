@@ -166,6 +166,8 @@ def _format_status_report(payload: dict) -> str:
         f"- Supabase: {_bold(payload['supabase_status'])}",
         f"- Cartas: {_code(payload['cards_count'])}",
         f"- Packs: {_code(payload['packs_count'])}",
+        f"- IA diaria: {_bold(_active_inactive(payload['ai_daily_card_enabled']))}",
+        f"- Modelo IA: {_code(payload['ai_model'])}",
         f"- Worker de comandos: {_bold(_active_inactive(payload['bot_commands_enabled']))}",
         "",
         "<b>Admin</b>",
@@ -228,11 +230,14 @@ def _collect_status_payload(update: Update) -> dict:
     from zoneinfo import ZoneInfo
 
     from .config import (
+        AI_DAILY_CARD_ENABLED,
+        AI_MODEL,
         BOT_COMMANDS_POLLING_ENABLED,
         DAILY_POST_DAYS,
         DAILY_POST_ENABLED,
         DAILY_POST_TIMES,
         DAILY_SCHEDULER_STATE_FILE,
+        OPENAI_API_KEY,
         SUPABASE_ENABLED,
         TELEGRAM_CHAT_ID,
         TIMEZONE,
@@ -310,6 +315,8 @@ def _collect_status_payload(update: Update) -> dict:
         "supabase_status": supabase_status,
         "cards_count": cards_count,
         "packs_count": packs_count,
+        "ai_daily_card_enabled": bool(AI_DAILY_CARD_ENABLED and OPENAI_API_KEY),
+        "ai_model": AI_MODEL if OPENAI_API_KEY else "sem OPENAI_API_KEY",
         "bot_commands_enabled": BOT_COMMANDS_POLLING_ENABLED,
         "is_admin": is_admin,
         "admin_source": admin_source(user_id),
