@@ -108,6 +108,27 @@ def validate_factions_payload(payload: object, context: str = "factions") -> lis
     return [validate_faction_payload(faction, f"{context}[{index}]") for index, faction in enumerate(factions)]
 
 
+def validate_deck_payload(payload: object, context: str = "deck") -> dict:
+    deck = ensure_dict(payload, context)
+    deck_id = deck.get("id")
+    if deck_id is not None and not isinstance(deck_id, (str, int)):
+        raise ArkhamDBPayloadError(f"{context}.id must be a string, integer, or null.")
+    _validate_optional_string(deck, "name", context)
+    _validate_optional_string(deck, "investigator_code", context)
+    _validate_optional_string(deck, "investigator_name", context)
+    _validate_optional_dict(deck, "slots", context)
+    _validate_optional_dict(deck, "sideSlots", context)
+    _validate_optional_string(deck, "description_md", context)
+    _validate_optional_number(deck, "xp", context)
+    _validate_optional_number(deck, "xp_spent", context)
+    _validate_optional_number(deck, "xp_adjustment", context)
+    _validate_optional_number(deck, "exile_string", context)
+    _validate_optional_string(deck, "date_creation", context)
+    _validate_optional_string(deck, "date_update", context)
+    _validate_optional_string(deck, "user_name", context)
+    return deck
+
+
 def validate_decklist_payload(payload: object, context: str = "decklist") -> dict:
     decklist = ensure_dict(payload, context)
     decklist_id = decklist.get("id")
@@ -116,6 +137,11 @@ def validate_decklist_payload(payload: object, context: str = "decklist") -> dic
     _validate_optional_string(decklist, "name", context)
     _validate_optional_dict(decklist, "slots", context)
     return decklist
+
+
+def validate_decklists_payload(payload: object, context: str = "decklists") -> list[dict]:
+    decklists = ensure_list(payload, context)
+    return [validate_decklist_payload(item, f"{context}[{index}]") for index, item in enumerate(decklists)]
 
 
 def validate_faq_payload(payload: object, context: str = "faq") -> dict | list | None:

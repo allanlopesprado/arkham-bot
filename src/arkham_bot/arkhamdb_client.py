@@ -8,7 +8,9 @@ from .arkhamdb_models import (
     ArkhamDBHTTPError,
     validate_card_payload,
     validate_cards_payload,
+    validate_deck_payload,
     validate_decklist_payload,
+    validate_decklists_payload,
     validate_factions_payload,
     validate_faq_payload,
     validate_packs_payload,
@@ -95,8 +97,16 @@ def _taboos_url() -> str:
     return f"{BASE_URL}api/public/taboos/"
 
 
+def _deck_url(deck_id: str) -> str:
+    return f"{BASE_URL}api/public/deck/{deck_id}"
+
+
 def _decklist_url(decklist_id: str) -> str:
     return f"{BASE_URL}api/public/decklist/{decklist_id}"
+
+
+def _decklists_by_date_url(date: str) -> str:
+    return f"{BASE_URL}api/public/decklists/by_date/{date}"
 
 
 async def _request_json_async(url: str, context: str):
@@ -147,8 +157,19 @@ def fetch_taboos_sync() -> list[dict] | dict:
 
 
 @network_retry_sync
+def fetch_deck_sync(deck_id: str) -> dict:
+    return validate_deck_payload(_request_json_sync(_deck_url(deck_id), f"deck {deck_id}"), f"deck {deck_id}")
+
+
+@network_retry_sync
 def fetch_decklist_sync(decklist_id: str) -> dict:
     return validate_decklist_payload(_request_json_sync(_decklist_url(decklist_id), f"decklist {decklist_id}"), f"decklist {decklist_id}")
+
+
+@network_retry_sync
+def fetch_decklists_by_date_sync(date: str) -> list[dict]:
+    """Fetch published decklists by date. date format: YYYY-MM-DD."""
+    return validate_decklists_payload(_request_json_sync(_decklists_by_date_url(date), f"decklists/by_date/{date}"), f"decklists/by_date/{date}")
 
 
 async def fetch_card_by_code_async(card_code: str) -> dict:
