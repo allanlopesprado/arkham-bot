@@ -80,7 +80,10 @@ async def _execute_command(command: dict[str, Any]) -> dict[str, Any]:
 
     if command_type in {"post_now", "repost_card"}:
         card_code = payload.get("card_code")
-        result = await post_daily_card(specific_card_code=card_code)
+        result = await post_daily_card(
+            specific_card_code=card_code,
+            target_chat_id=command.get("target_chat_id"),
+        )
         if not result.success:
             raise RuntimeError(result.error or f"{command_type} failed")
         return {"card_code": result.card_code, "message_id": result.message_id}

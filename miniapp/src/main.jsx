@@ -40,6 +40,11 @@ const ERROR_MESSAGES = {
   invalid_setting_value: { friendly: 'Configuracao invalida.', detail: 'invalid_setting_value' },
   unsupported_setting: { friendly: 'Configuracao nao suportada.', detail: 'unsupported_setting' },
   settings_required: { friendly: 'Nenhuma configuracao para salvar.', detail: 'settings_required' },
+  overview_fetch_failed: { friendly: 'Falha ao carregar gestao.', detail: 'overview_fetch_failed' },
+  commands_fetch_failed: { friendly: 'Falha ao carregar fila.', detail: 'commands_fetch_failed' },
+  cards_search_failed: { friendly: 'Falha ao buscar cartas.', detail: 'cards_search_failed' },
+  command_cancel_failed: { friendly: 'Falha ao cancelar comando.', detail: 'command_cancel_failed' },
+  command_not_cancellable: { friendly: 'Comando nao pode mais ser cancelado.', detail: 'command_not_cancellable' },
 };
 
 const WEEKDAYS = [
@@ -130,6 +135,30 @@ const icons = {
       <path d="M3 12A9 9 0 0 1 18.2 5.5" />
       <path d="M18 2v4h4" />
       <path d="M6 22v-4H2" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </>
+  ),
+  queue: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h10" />
+    </>
+  ),
+  chat: (
+    <>
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
     </>
   ),
   save: (
@@ -368,6 +397,18 @@ function Field({ label, children, hint }) {
   );
 }
 
+function SelectField({ label, value, onChange, children, hint }) {
+  return (
+    <label className="tg-field">
+      <span className="tg-field__label">{label}</span>
+      <select className="tg-select" value={value} onChange={(event) => onChange(event.target.value)}>
+        {children}
+      </select>
+      {hint && <span className="tg-field__hint">{hint}</span>}
+    </label>
+  );
+}
+
 function SwitchField({ label, checked, onChange }) {
   return (
     <label className="tg-switch-row">
@@ -375,6 +416,68 @@ function SwitchField({ label, checked, onChange }) {
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span className="tg-switch" aria-hidden="true" />
     </label>
+  );
+}
+
+function MiniButton({ icon, label, onClick, disabled, loading, danger }) {
+  return (
+    <button
+      className={`tg-mini-button ${danger ? 'danger' : ''}`.trim()}
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+    >
+      {loading ? <span className="spinner" /> : icon && <Icon name={icon} />}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+  try {
+    return new Date(value).toLocaleString('pt-BR');
+  } catch {
+    return value;
+  }
+}
+
+function commandCaption(command) {
+  const parts = [
+    command.status,
+    command.created_at ? formatDateTime(command.created_at) : null,
+    command.last_error || null,
+  ].filter(Boolean);
+  return parts.join(' | ');
+}
+
+function CommandRow({ command, onCancel, loading }) {
+  const cancellable = ['pending', 'retrying'].includes(command.status);
+  return (
+    <div className="tg-command-row">
+      <div className="tg-command-row__main">
+        <span className="tg-row__label">{command.command_type}</span>
+        <span className="tg-row__caption">{commandCaption(command)}</span>
+      </div>
+      <Badge tone={command.status === 'failed' ? 'err' : command.status === 'executed' ? 'ok' : 'warn'}>
+        {command.status}
+      </Badge>
+      {cancellable && (
+        <button className="tg-icon-button" type="button" onClick={() => onCancel(command.id)} disabled={loading} aria-label="Cancelar comando">
+          {loading ? <span className="spinner" /> : <Icon name="x" />}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CardResult({ card, selected, onSelect }) {
+  return (
+    <button className={`tg-card-result ${selected ? 'active' : ''}`.trim()} type="button" onClick={() => onSelect(card)}>
+      <span className="tg-card-result__code">{card.code}</span>
+      <span className="tg-card-result__name">{card.name || card.real_name}</span>
+      <span className="tg-card-result__meta">{[card.type_code, card.faction_name, card.pack_name].filter(Boolean).join(' | ')}</span>
+    </button>
   );
 }
 
@@ -393,6 +496,15 @@ function App() {
   const [settingsResult, setSettingsResult] = useState(null);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [overview, setOverview] = useState(null);
+  const [loadingOverview, setLoadingOverview] = useState(false);
+  const [commands, setCommands] = useState([]);
+  const [loadingCommands, setLoadingCommands] = useState(false);
+  const [cancellingCommand, setCancellingCommand] = useState(null);
+  const [cardQuery, setCardQuery] = useState('');
+  const [cardResults, setCardResults] = useState([]);
+  const [searchingCards, setSearchingCards] = useState(false);
+  const [targetChatId, setTargetChatId] = useState('');
 
   useEffect(() => {
     const tg = getTelegramWebApp();
@@ -406,7 +518,7 @@ function App() {
     setDiag(buildDiag());
   }, []);
 
-  useEffect(() => { fetchMe(); fetchStatus(); fetchSettings(); }, []);
+  useEffect(() => { fetchMe(); fetchStatus(); fetchSettings(); fetchOverview(); fetchCommands(); }, []);
 
   const isAdmin = me?.admin === true;
   const apiConfigured = diag.apiConfigured;
@@ -438,6 +550,102 @@ function App() {
       setSysStatus({ ok: false, error: 'network_error' });
     } finally {
       setLoadingStatus(false);
+    }
+  }
+
+  async function fetchOverview() {
+    const url = buildApiUrl('/overview');
+    if (!url) return;
+    setLoadingOverview(true);
+    try {
+      const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
+      } else {
+        setOverview(json);
+        if (json.settings) applySettings(json.settings);
+      }
+    } catch {
+      setResult({ ok: false, friendly: 'Falha de rede ao carregar gestao.', detail: '', at: new Date() });
+    } finally {
+      setLoadingOverview(false);
+    }
+  }
+
+  async function fetchCommands(status = '') {
+    const suffix = status ? `?status=${encodeURIComponent(status)}` : '';
+    const url = buildApiUrl(`/commands${suffix}`);
+    if (!url) return;
+    setLoadingCommands(true);
+    try {
+      const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
+      } else {
+        setCommands(json.commands || []);
+      }
+    } catch {
+      setResult({ ok: false, friendly: 'Falha de rede ao carregar fila.', detail: '', at: new Date() });
+    } finally {
+      setLoadingCommands(false);
+    }
+  }
+
+  async function searchCards() {
+    const query = cardQuery.trim();
+    if (query.length < 2) {
+      setCardResults([]);
+      return;
+    }
+    const url = buildApiUrl(`/cards?q=${encodeURIComponent(query)}`);
+    if (!url) return;
+    setSearchingCards(true);
+    try {
+      const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
+      } else {
+        setCardResults(json.cards || []);
+      }
+    } catch {
+      setResult({ ok: false, friendly: 'Falha de rede ao buscar cartas.', detail: '', at: new Date() });
+    } finally {
+      setSearchingCards(false);
+    }
+  }
+
+  async function cancelCommand(commandId) {
+    const url = buildApiUrl(`/commands/${commandId}`);
+    if (!url) return;
+    setCancellingCommand(commandId);
+    try {
+      const resp = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-telegram-init-data': getTelegramInitData() },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        haptic('notification', 'error');
+        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
+      } else {
+        haptic('notification', 'success');
+        setResult({ ok: true, command_type: json.command?.command_type || 'cancel', friendly: 'Comando cancelado.', detail: '', at: new Date() });
+        fetchCommands();
+        fetchOverview();
+      }
+    } catch {
+      haptic('notification', 'error');
+      setResult({ ok: false, friendly: 'Falha de rede ao cancelar comando.', detail: '', at: new Date() });
+    } finally {
+      setCancellingCommand(null);
     }
   }
 
@@ -547,7 +755,7 @@ function App() {
       const resp = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-telegram-init-data': getTelegramInitData() },
-        body: JSON.stringify({ command_type, payload }),
+        body: JSON.stringify({ command_type, payload, target_chat_id: targetChatId || null }),
       });
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
@@ -570,6 +778,8 @@ function App() {
           at: new Date(),
         });
         fetchStatus();
+        fetchCommands();
+        fetchOverview();
       }
     } catch {
       haptic('notification', 'error');
@@ -577,7 +787,7 @@ function App() {
     } finally {
       setLoadingCmd(null);
     }
-  }, [loadingCmd]);
+  }, [loadingCmd, targetChatId]);
 
   const adminValue = loadingMe
     ? 'verificando'
@@ -592,19 +802,9 @@ function App() {
             : 'pendente';
 
   const workerValue = loadingStatus ? '...' : sysStatus?.ok ? 'online' : 'offline';
-  const cardsValue = loadingStatus ? '...' : (sysStatus?.total_cards ?? '-');
-  const syncValue = sysStatus?.last_sync ? new Date(sysStatus.last_sync).toLocaleDateString('pt-BR') : '-';
-
-  const actions = [
-    { cmd: 'post_now', icon: 'send', label: 'Postar agora', caption: cardCode ? `Carta ${cardCode}` : 'Carta diaria' },
-    { cmd: 'repost_card', icon: 'repeat', label: 'Repostar carta', caption: cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta', payload: cardCode ? { card_code: cardCode } : {}, needsCard: true },
-    { cmd: 'skip_card', icon: 'skip', label: 'Pular carta', caption: cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta', payload: cardCode ? { card_code: cardCode } : {} },
-    { cmd: 'pause_daily_post', icon: 'pause', label: 'Pausar diario', caption: 'Desativa proximas postagens' },
-    { cmd: 'resume_daily_post', icon: 'play', label: 'Retomar diario', caption: 'Reativa o agendamento' },
-    { cmd: 'reset_cycle', icon: 'reset', label: 'Resetar ciclo', caption: 'Reinicia controle de cartas' },
-    { cmd: 'clear_queue', icon: 'trash', label: 'Limpar fila', caption: 'Remove comandos pendentes' },
-    { cmd: 'sync_arkhamdb', icon: 'sync', label: 'Sincronizar ArkhamDB', caption: 'Atualiza dados no Supabase', payload: { sync_faq: false } },
-  ];
+  const cardsValue = loadingOverview ? '...' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
+  const queueValue = loadingOverview ? '...' : (overview?.counts?.pending_commands ?? 0);
+  const targetChats = overview?.target_chats?.filter((chat) => chat.enabled !== false) || [];
 
   return (
     <div className="app">
@@ -618,113 +818,99 @@ function App() {
         <SummaryItem icon="server" label="Worker" value={workerValue} />
         <SummaryItem icon="shield" label="Acesso" value={adminValue} />
         <SummaryItem icon="cards" label="Cards" value={cardsValue} />
-        <SummaryItem icon="clock" label="Sync" value={syncValue} />
+        <SummaryItem icon="queue" label="Fila" value={queueValue} />
       </section>
 
       {isOutsideTelegram && <Notice>Abra pelo Telegram para autenticar.</Notice>}
       {!apiConfigured && <Notice tone="err">Worker nao configurado.</Notice>}
 
       <nav className="tg-tabs" aria-label="Abas">
-        <TabButton active={activeTab === 'manage'} onClick={() => setActiveTab('manage')}>Gestão</TabButton>
-        <TabButton active={activeTab === 'status'} onClick={() => setActiveTab('status')}>Status</TabButton>
+        <TabButton active={activeTab === 'manage'} onClick={() => setActiveTab('manage')}>Gestao</TabButton>
+        <TabButton active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')}>Agenda</TabButton>
+        <TabButton active={activeTab === 'queue'} onClick={() => setActiveTab('queue')}>Fila</TabButton>
+        <TabButton active={activeTab === 'status'} onClick={() => setActiveTab('status')}>Saude</TabButton>
       </nav>
 
       {activeTab === 'manage' && (
         <>
-          <Section title="Postagem diária">
-            <SwitchField
-              label="daily_post_enabled"
-              checked={settings.daily_post_enabled}
-              onChange={(checked) => setSettings((current) => ({ ...current, daily_post_enabled: checked }))}
-            />
+          <Section title="Postar carta">
             <div className="tg-form-row">
-              <Field label="daily_post_times" hint="Exemplo: 09:00, 21:30">
-                <input
-                  className="tg-input tg-input--boxed"
-                  type="text"
-                  value={timesInput}
-                  onChange={(event) => setTimesInput(event.target.value)}
-                  placeholder="09:00, 21:30"
-                  inputMode="text"
-                />
+              <Field label="Buscar por codigo ou nome">
+                <div className="tg-search-line">
+                  <input
+                    className="tg-input tg-input--boxed"
+                    type="text"
+                    value={cardQuery}
+                    onChange={(event) => setCardQuery(event.target.value)}
+                    placeholder="01001 ou Shrivelling"
+                    inputMode="text"
+                  />
+                  <MiniButton icon="search" label="Buscar" onClick={searchCards} loading={searchingCards} disabled={!isAdmin || isOutsideTelegram || !apiConfigured || cardQuery.trim().length < 2} />
+                </div>
               </Field>
             </div>
-            <div className="tg-form-row">
-              <span className="tg-field__label">daily_post_days</span>
-              <div className="tg-day-grid">
-                {WEEKDAYS.map((day) => (
-                  <button
-                    key={day.code}
-                    className={`tg-day ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()}
-                    type="button"
-                    onClick={() => toggleDay(day.code)}
-                  >
-                    {day.label}
-                  </button>
+            {cardResults.length > 0 && (
+              <div className="tg-card-results">
+                {cardResults.map((card) => (
+                  <CardResult
+                    key={card.code}
+                    card={card}
+                    selected={cardCode === card.code}
+                    onSelect={(selected) => {
+                      setCardCode(selected.code);
+                      setCardQuery(`${selected.code} - ${selected.name || selected.real_name}`);
+                    }}
+                  />
                 ))}
               </div>
-            </div>
+            )}
             <div className="tg-form-row">
-              <Field label="timezone">
+              <Field label="Carta selecionada" hint="Postar agora pode usar carta vazia para escolha automatica. Repostar e pular exigem codigo.">
                 <input
                   className="tg-input tg-input--boxed"
                   type="text"
-                  value={settings.timezone}
-                  onChange={(event) => setSettings((current) => ({ ...current, timezone: event.target.value }))}
-                  placeholder="America/Sao_Paulo"
+                  placeholder="Codigo da carta, ex: 01001"
+                  value={cardCode}
+                  onChange={(e) => setCardCode(e.target.value.trim())}
                   inputMode="text"
                 />
               </Field>
             </div>
-            <ActionRow icon="refresh" label="Recarregar configuracoes" onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
-            <ActionRow icon="save" label="Salvar configuracoes" onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />
-          </Section>
-
-          {settingsResult && (
-            <Section title="Configuracoes">
-              <Row
-                icon="settings"
-                label={settingsResult.ok ? 'Sucesso' : 'Erro'}
-                value={settingsResult.ok ? 'ok' : 'erro'}
-                badgeTone={settingsResult.ok ? 'ok' : 'err'}
-                caption={settingsResult.friendly}
-              />
-              {settingsResult.detail && (
-                <details className="tg-details">
-                  <summary>Detalhes</summary>
-                  <pre className="diag-pre">{settingsResult.detail}</pre>
-                </details>
-              )}
-            </Section>
-          )}
-
-          <Section title="Carta alvo" footer="Usada por Postar agora, Repostar carta e Pular carta.">
-            <div className="tg-input-row">
-              <Icon name="target" />
-              <input
-                className="tg-input"
-                type="text"
-                placeholder="Codigo da carta, ex: 01001"
-                value={cardCode}
-                onChange={(e) => setCardCode(e.target.value.trim())}
-                inputMode="text"
-              />
+            {targetChats.length > 0 && (
+              <div className="tg-form-row">
+                <SelectField label="Destino" value={targetChatId} onChange={setTargetChatId}>
+                  <option value="">Chat padrao do bot</option>
+                  {targetChats.map((chat) => (
+                    <option key={chat.chat_id} value={chat.chat_id}>
+                      {chat.title || chat.chat_id}
+                    </option>
+                  ))}
+                </SelectField>
+              </div>
+            )}
+            <div className="tg-action-grid">
+              <MiniButton icon="send" label="Postar agora" onClick={() => enqueue('post_now', cardCode ? { card_code: cardCode } : {})} loading={loadingCmd === 'post_now'} disabled={actionsDisabled} />
+              <MiniButton icon="repeat" label="Repostar" onClick={() => enqueue('repost_card', { card_code: cardCode })} loading={loadingCmd === 'repost_card'} disabled={actionsDisabled || !cardCode} />
+              <MiniButton icon="skip" label="Pular" onClick={() => enqueue('skip_card', { card_code: cardCode })} loading={loadingCmd === 'skip_card'} disabled={actionsDisabled || !cardCode} />
             </div>
           </Section>
 
-          <Section title="Ações rápidas" footer={!isAdmin && me && !isOutsideTelegram && apiConfigured ? 'Usuario sem permissao administrativa.' : undefined}>
-            {actions.map(({ cmd, icon, label, caption, payload, needsCard }) => (
-              <ActionRow
-                key={cmd}
-                icon={icon}
-                label={label}
-                caption={caption}
-                loading={loadingCmd === cmd}
-                disabled={actionsDisabled || (needsCard && !cardCode) || (cmd === 'skip_card' && !cardCode)}
-                onClick={() => enqueue(cmd, payload || (cardCode ? { card_code: cardCode } : {}))}
-              />
-            ))}
+          <Section title="Controles">
+            <div className="tg-action-grid">
+              <MiniButton icon={settings.daily_post_enabled ? 'pause' : 'play'} label={settings.daily_post_enabled ? 'Pausar diario' : 'Retomar diario'} onClick={() => enqueue(settings.daily_post_enabled ? 'pause_daily_post' : 'resume_daily_post')} loading={loadingCmd === 'pause_daily_post' || loadingCmd === 'resume_daily_post'} disabled={actionsDisabled} />
+              <MiniButton icon="sync" label="Sincronizar ArkhamDB" onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
+              <MiniButton icon="reset" label="Resetar ciclo" onClick={() => enqueue('reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
+              <MiniButton icon="trash" label="Limpar fila" onClick={() => enqueue('clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
+            </div>
           </Section>
+
+          <Section title="Operacao">
+            <Row icon="clock" label="Postagem diaria" value={settings.daily_post_enabled ? 'ativa' : 'pausada'} badgeTone={settings.daily_post_enabled ? 'ok' : 'warn'} caption={`${settings.daily_post_times.join(', ')} | ${settings.timezone}`} />
+            <Row icon="queue" label="Fila pendente" value={overview?.counts?.pending_commands ?? '-'} />
+            <Row icon="cards" label="Cartas postadas" value={overview?.counts?.posted_cards ?? '-'} />
+            <ActionRow icon="refresh" label="Atualizar gestao" onClick={() => { fetchOverview(); fetchCommands(); }} loading={loadingOverview || loadingCommands} disabled={!apiConfigured} />
+          </Section>
+
 
           {result && (
             <Section title="Resultado">
@@ -746,6 +932,64 @@ function App() {
         </>
       )}
 
+      {activeTab === 'schedule' && (
+        <>
+          <Section title="Agenda de postagem">
+            <SwitchField
+              label="daily_post_enabled"
+              checked={settings.daily_post_enabled}
+              onChange={(checked) => setSettings((current) => ({ ...current, daily_post_enabled: checked }))}
+            />
+            <div className="tg-form-row">
+              <Field label="daily_post_times" hint="Exemplo: 09:00, 21:30">
+                <input className="tg-input tg-input--boxed" type="text" value={timesInput} onChange={(event) => setTimesInput(event.target.value)} placeholder="09:00, 21:30" inputMode="text" />
+              </Field>
+            </div>
+            <div className="tg-form-row">
+              <span className="tg-field__label">daily_post_days</span>
+              <div className="tg-day-grid">
+                {WEEKDAYS.map((day) => (
+                  <button key={day.code} className={`tg-day ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()} type="button" onClick={() => toggleDay(day.code)}>
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="tg-form-row">
+              <Field label="timezone">
+                <input className="tg-input tg-input--boxed" type="text" value={settings.timezone} onChange={(event) => setSettings((current) => ({ ...current, timezone: event.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
+              </Field>
+            </div>
+            <ActionRow icon="refresh" label="Recarregar configuracoes" onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
+            <ActionRow icon="save" label="Salvar configuracoes" onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />
+          </Section>
+
+          {settingsResult && (
+            <Section title="Configuracoes">
+              <Row icon="settings" label={settingsResult.ok ? 'Sucesso' : 'Erro'} value={settingsResult.ok ? 'ok' : 'erro'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              {settingsResult.detail && (
+                <details className="tg-details">
+                  <summary>Detalhes</summary>
+                  <pre className="diag-pre">{settingsResult.detail}</pre>
+                </details>
+              )}
+            </Section>
+          )}
+        </>
+      )}
+
+      {activeTab === 'queue' && (
+        <>
+          <Section title="Fila de comandos">
+            <ActionRow icon="refresh" label="Atualizar fila" onClick={() => fetchCommands()} loading={loadingCommands} disabled={!apiConfigured} />
+            {commands.length === 0 && <Row icon="queue" label="Nenhum comando recente" value="-" />}
+            {commands.map((command) => (
+              <CommandRow key={command.id} command={command} onCancel={cancelCommand} loading={cancellingCommand === command.id} />
+            ))}
+          </Section>
+        </>
+      )}
+
       {activeTab === 'status' && (
         <>
           <Section title="Conta">
@@ -759,8 +1003,8 @@ function App() {
             <Row icon="server" label="Worker" value={sysStatus?.ok ? 'online' : 'offline'} badgeTone={statusTone(sysStatus?.ok)} />
             <Row icon="cards" label="Cards" value={loadingStatus ? '...' : (sysStatus?.total_cards ?? '-')} />
             <Row icon="packs" label="Packs" value={loadingStatus ? '...' : (sysStatus?.total_packs ?? '-')} />
-            <Row icon="clock" label="Ultimo sync" value={sysStatus?.last_sync ? new Date(sysStatus.last_sync).toLocaleString('pt-BR') : '-'} mono />
-            <ActionRow icon="refresh" label="Atualizar status" onClick={fetchStatus} loading={loadingStatus} disabled={!apiConfigured} />
+            <Row icon="clock" label="Ultimo sync" value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus.last_sync).toLocaleString('pt-BR') : '-'} mono />
+            <ActionRow icon="refresh" label="Atualizar status" onClick={() => { fetchStatus(); fetchOverview(); }} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} />
           </Section>
 
           <Section title="Diagnostico">

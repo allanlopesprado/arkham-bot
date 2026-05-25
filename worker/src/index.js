@@ -154,14 +154,43 @@ function supabaseHeaders(env, extra = {}) {
   };
 }
 
+function supabaseBase(env) {
+  return env.SUPABASE_URL.replace(/\/$/, '');
+}
+
+function boundedLimit(raw, fallback = 20, max = 50) {
+  const value = Number(raw || fallback);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(1, Math.min(Math.floor(value), max));
+}
+
+function contentRangeCount(resp) {
+  return parseInt(resp.headers.get('content-range')?.split('/')[1] || '0', 10) || 0;
+}
+
+async function fetchSupabaseJson(env, path, options = {}) {
+  const resp = await fetch(`${supabaseBase(env)}${path}`, {
+    ...options,
+    headers: supabaseHeaders(env, options.headers || {}),
+  });
+  if (!resp.ok) throw new Error('supabase_fetch_failed');
+  return resp.json();
+}
+
+async function fetchCount(env, table, filters = '') {
+  const resp = await fetch(`${supabaseBase(env)}/rest/v1/${table}?select=*&limit=1${filters}`, {
+    headers: supabaseHeaders(env, { prefer: 'count=exact' }),
+  });
+  return resp.ok ? contentRangeCount(resp) : null;
+}
+
 function rowsToSettings(rows) {
   return Object.fromEntries((rows || []).map((row) => [row.key, row.value]));
 }
 
 async function fetchSettingsRows(env) {
-  const base = env.SUPABASE_URL.replace(/\/$/, '');
   const resp = await fetch(
-    `${base}/rest/v1/bot_settings?select=key,value,description,updated_by,updated_at&order=key.asc`,
+    `${supabaseBase(env)}/rest/v1/bot_settings?select=key,value,description,updated_by,updated_at&order=key.asc`,
     { headers: supabaseHeaders(env) },
   );
   if (!resp.ok) throw new Error('settings_fetch_failed');
@@ -216,6 +245,44 @@ function validateSettingsPatch(body) {
   }
   if (Object.keys(settings).length === 0) return { error: 'settings_required' };
   return { settings };
+}
+
+async function requireAdmin(request, env, ao, path) {
+  const initData = request.headers.get('x-telegram-init-data') || '';
+  safeLog({
+    path,
+    method: request.method,
+    initData_present: Boolean(initData),
+    initData_length: initData.length,
+    telegram_user_id_present: null,
+    admin: null,
+    status: null,
+  });
+  const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
+  if (!user) {
+    return { response: withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao) };
+  }
+  const access = await getAdminAccess(env, user.id);
+  safeLog({
+    path,
+    method: request.method,
+    initData_present: true,
+    initData_length: null,
+    telegram_user_id_present: true,
+    admin: access.admin,
+    admin_source: access.source,
+    status: access.admin ? 200 : 403,
+  });
+  if (!access.admin) {
+    return {
+      response: withCors(jsonResponse({
+        error: 'unauthorized',
+        role: access.role,
+        admin_source: access.source,
+      }, 403), ao),
+    };
+  }
+  return { user, access };
 }
 
 function safeLog(data) {
@@ -299,6 +366,129 @@ async function handleStatus(request, env, ao) {
     result.error = 'status_fetch_failed';
   }
   return withCors(jsonResponse(result), ao);
+}
+
+async function handleOverview(request, env, user, ao) {
+  try {
+    const [
+      settingsRows,
+      recentCommands,
+      recentPosts,
+      recentErrors,
+      targetChats,
+      cardsCount,
+      packsCount,
+      postedCount,
+      pendingCount,
+      retryingCount,
+      processingCount,
+      failedCount,
+    ] = await Promise.all([
+      fetchSettingsRows(env),
+      fetchSupabaseJson(env, '/rest/v1/bot_commands?select=id,command_type,status,created_at,updated_at,executed_at,last_error,payload,result,requested_by_name&order=created_at.desc&limit=12'),
+      fetchSupabaseJson(env, '/rest/v1/bot_posting_history?select=id,card_code,card_name,status,created_at,telegram_message_id&order=created_at.desc&limit=8'),
+      fetchSupabaseJson(env, '/rest/v1/bot_errors?select=id,context,error_message,card_code,created_at&order=created_at.desc&limit=5'),
+      fetchSupabaseJson(env, '/rest/v1/target_chats?select=chat_id,title,message_thread_id,enabled,updated_at&order=created_at.desc&limit=20'),
+      fetchCount(env, 'arkham_cards'),
+      fetchCount(env, 'arkham_packs'),
+      fetchCount(env, 'bot_posted_cards'),
+      fetchCount(env, 'bot_commands', '&status=eq.pending'),
+      fetchCount(env, 'bot_commands', '&status=eq.retrying'),
+      fetchCount(env, 'bot_commands', '&status=eq.processing'),
+      fetchCount(env, 'bot_commands', '&status=eq.failed'),
+    ]);
+
+    const lastSync = recentCommands.find((cmd) => cmd.command_type === 'sync_arkhamdb')?.created_at || null;
+    return withCors(jsonResponse({
+      ok: true,
+      settings: rowsToSettings(settingsRows),
+      settings_rows: settingsRows,
+      counts: {
+        cards: cardsCount,
+        packs: packsCount,
+        posted_cards: postedCount,
+        pending_commands: pendingCount,
+        retrying_commands: retryingCount,
+        processing_commands: processingCount,
+        failed_commands: failedCount,
+      },
+      recent_commands: recentCommands,
+      recent_posts: recentPosts,
+      recent_errors: recentErrors,
+      target_chats: targetChats,
+      last_sync: lastSync,
+      user: { id: user.id },
+    }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'overview_fetch_failed' }, 500), ao);
+  }
+}
+
+async function handleCommands(request, env, ao) {
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status') || '';
+  const limit = boundedLimit(url.searchParams.get('limit'), 30, 50);
+  const filters = status ? `&status=eq.${encodeURIComponent(status)}` : '';
+  try {
+    const rows = await fetchSupabaseJson(
+      env,
+      `/rest/v1/bot_commands?select=id,command_type,status,created_at,updated_at,executed_at,last_error,next_attempt_at,scheduled_for,attempt_count,max_attempts,payload,result,requested_by_name${filters}&order=created_at.desc&limit=${limit}`,
+    );
+    return withCors(jsonResponse({ ok: true, commands: rows }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'commands_fetch_failed' }, 500), ao);
+  }
+}
+
+async function handleCancelCommand(request, env, user, ao, commandId) {
+  if (!/^[0-9a-f-]{16,}$/i.test(commandId)) {
+    return withCors(jsonResponse({ error: 'invalid_command_id' }, 400), ao);
+  }
+
+  try {
+    const resp = await fetch(`${supabaseBase(env)}/rest/v1/bot_commands?id=eq.${encodeURIComponent(commandId)}&status=in.(pending,retrying)`, {
+      method: 'PATCH',
+      headers: supabaseHeaders(env, {
+        'content-type': 'application/json',
+        prefer: 'return=representation',
+      }),
+      body: JSON.stringify({
+        status: 'cancelled',
+        last_error: `Cancelled from Mini App by ${user.id}`,
+      }),
+    });
+    if (!resp.ok) return withCors(jsonResponse({ error: 'command_cancel_failed' }, 500), ao);
+    const rows = await resp.json();
+    if (!rows.length) return withCors(jsonResponse({ error: 'command_not_cancellable' }, 409), ao);
+    return withCors(jsonResponse({ ok: true, command: rows[0] }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'command_cancel_failed' }, 500), ao);
+  }
+}
+
+function cardSearchPath(request) {
+  const url = new URL(request.url);
+  const query = (url.searchParams.get('q') || '').trim().replace(/[^\w\s:'-]/g, ' ');
+  const limit = boundedLimit(url.searchParams.get('limit'), 15, 25);
+  if (query.length < 2) return null;
+  const params = new URLSearchParams({
+    select: 'code,name,real_name,type_code,faction_name,pack_name,spoiler_level',
+    or: `(code.ilike.*${query}*,name.ilike.*${query}*,real_name.ilike.*${query}*)`,
+    order: 'code.asc',
+    limit: String(limit),
+  });
+  return `/rest/v1/arkham_cards?${params.toString()}`;
+}
+
+async function handleCardsSearch(request, env, ao) {
+  const path = cardSearchPath(request);
+  if (!path) return withCors(jsonResponse({ ok: true, cards: [] }), ao);
+  try {
+    const rows = await fetchSupabaseJson(env, path);
+    return withCors(jsonResponse({ ok: true, cards: rows }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'cards_search_failed' }, 500), ao);
+  }
 }
 
 async function handleGetSettings(request, env, user, ao) {
@@ -500,6 +690,12 @@ export default {
       return handleMe(request, env, user, ao);
     }
 
+    if (pathname === '/overview' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/overview');
+      if (auth.response) return auth.response;
+      return handleOverview(request, env, auth.user, ao);
+    }
+
     if (pathname === '/settings' && (request.method === 'GET' || request.method === 'PATCH')) {
       const initData = request.headers.get('x-telegram-init-data') || '';
       safeLog({
@@ -515,6 +711,25 @@ export default {
       if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
       if (request.method === 'GET') return handleGetSettings(request, env, user, ao);
       return handlePatchSettings(request, env, user, ao);
+    }
+
+    if (pathname === '/commands' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/commands');
+      if (auth.response) return auth.response;
+      return handleCommands(request, env, ao);
+    }
+
+    if (pathname.startsWith('/commands/') && request.method === 'PATCH') {
+      const auth = await requireAdmin(request, env, ao, '/commands/:id');
+      if (auth.response) return auth.response;
+      const commandId = pathname.split('/').filter(Boolean)[1] || '';
+      return handleCancelCommand(request, env, auth.user, ao, commandId);
+    }
+
+    if (pathname === '/cards' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/cards');
+      if (auth.response) return auth.response;
+      return handleCardsSearch(request, env, ao);
     }
 
     if ((pathname === '/bot-command' || pathname === '/') && request.method === 'POST') {
@@ -533,7 +748,7 @@ export default {
       return handleBotCommand(request, env, user, ao);
     }
 
-    if (pathname === '/me' || pathname === '/status' || pathname === '/settings' || pathname === '/bot-command' || pathname === '/') {
+    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/bot-command' || pathname === '/') {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 

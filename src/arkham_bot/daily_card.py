@@ -74,12 +74,12 @@ async def _unpin_previous_daily_card(bot: Bot) -> None:
         logger.warning(f"Could not unpin previous daily card {message_id}: {exc}")
 
 
-async def _pin_new_daily_card(bot: Bot, card_code: str, message_id: int) -> None:
+async def _pin_new_daily_card(bot: Bot, chat_id: str, card_code: str, message_id: int) -> None:
     try:
         await _unpin_previous_daily_card(bot)
-        await bot.pin_chat_message(chat_id=TELEGRAM_CHAT_ID, message_id=message_id, disable_notification=True)
+        await bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
         save_last_pinned_daily_card({
-            "chat_id": TELEGRAM_CHAT_ID,
+            "chat_id": chat_id,
             "message_id": message_id,
             "card_code": card_code,
             "posted_date": datetime.now().date().isoformat(),
@@ -91,10 +91,11 @@ async def _pin_new_daily_card(bot: Bot, card_code: str, message_id: int) -> None
         logger.warning(f"Could not persist pin state for {card_code}: {exc}", exc_info=True)
 
 
-async def post_daily_card(specific_card_code=None) -> DailyPostResult:
+async def post_daily_card(specific_card_code=None, target_chat_id: str | None = None) -> DailyPostResult:
     """Posts the daily ArkhamDB card once. Never exits the process."""
 
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    chat_id = str(target_chat_id or TELEGRAM_CHAT_ID or "").strip()
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
         error = "Telegram token or chat id not configured."
         logger.error(error)
         return DailyPostResult(success=False, error=error)
@@ -137,7 +138,7 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
                 if not unposted_cards:
                     logger.warning("All cards posted. Resetting cycle and file.")
                     await bot.send_message(
-                        chat_id=TELEGRAM_CHAT_ID,
+                        chat_id=chat_id,
                         text="🚨 **POSTING CYCLE RESET** 🚨\nAll non-spoiler cards have been posted.",
                         parse_mode=ParseMode.MARKDOWN,
                     )
@@ -212,14 +213,14 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
 
                 if ai_pre_message and not pre_message_sent:
                     await bot.send_message(
-                        chat_id=TELEGRAM_CHAT_ID,
+                        chat_id=chat_id,
                         text=ai_pre_message,
                         parse_mode=ParseMode.HTML,
                     )
                     pre_message_sent = True
 
                 message = await bot.send_photo(
-                    chat_id=TELEGRAM_CHAT_ID,
+                    chat_id=chat_id,
                     photo=card_image_bytes,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
@@ -273,7 +274,7 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
                 if found_back_image:
                     try:
                         await bot.send_photo(
-                            chat_id=TELEGRAM_CHAT_ID,
+                            chat_id=chat_id,
                             photo=back_image_bytes,
                             caption=back_caption,
                             parse_mode=ParseMode.HTML,
@@ -289,7 +290,7 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
                         back_caption = re.sub(r"\n+🔗 <a href='[^']+'>View on ArkhamDB</a>$", "", back_caption)
                     try:
                         await bot.send_message(
-                            chat_id=TELEGRAM_CHAT_ID,
+                            chat_id=chat_id,
                             text=back_caption,
                             parse_mode=ParseMode.HTML,
                             reply_to_message_id=message.message_id,
@@ -298,12 +299,12 @@ async def post_daily_card(specific_card_code=None) -> DailyPostResult:
                     except TelegramError as exc:
                         logger.error(f"Failed to send back side as text: {exc}")
 
-        await _pin_new_daily_card(bot, card_code, message.message_id)
+        await _pin_new_daily_card(bot, chat_id, card_code, message.message_id)
 
         try:
             discussion_message = ai_post_question or _telegram_html_text(DEFAULT_DISCUSSION_MESSAGE)
             await bot.send_message(
-                chat_id=TELEGRAM_CHAT_ID,
+                chat_id=chat_id,
                 text=discussion_message,
                 parse_mode=ParseMode.HTML,
                 reply_to_message_id=message.message_id,
