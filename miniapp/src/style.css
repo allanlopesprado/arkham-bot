@@ -166,27 +166,19 @@ button { -webkit-tap-highlight-color: transparent; border: 0; }
   text-align: left;
 }
 
-/* Dividers between rows */
-.row + .row::before,
-.row + .toggle-row::before,
-.toggle-row + .row::before,
-.toggle-row + .toggle-row::before,
-.details::before,
+/* ── Row dividers ────────────────────────────────────────────────────────────
+ * Pseudo-elements don't work reliably inside flex containers, so we apply
+ * border-top directly on the element that follows another row.
+ */
+.row + .row,
+.row + .toggle-row,
+.toggle-row + .row,
+.toggle-row + .toggle-row,
 .command-row + .command-row,
 .form-row + .form-row,
 .card-results + .form-row {
   border-top: 1px solid var(--sep);
-  margin-left: 52px; /* indent from icon */
 }
-
-/* Full-width divider for non-icon rows */
-.details::before,
-.form-row + .form-row {
-  margin-left: 0;
-}
-
-.command-row + .command-row { border-top: 1px solid var(--sep); margin-left: 0; }
-.command-row:first-child { border-top: 0; }
 
 /* ── Action Row (clickable) ──────────────────────────────────────────────────── */
 
@@ -538,14 +530,7 @@ select.input { padding: 0 12px; cursor: pointer; appearance: auto; }
 
 /* ── Details / Diagnostic ─────────────────────────────────────────────────────── */
 
-.details { position: relative; background: transparent; }
-
-.details::before {
-  content: "";
-  display: block;
-  border-top: 1px solid var(--sep);
-  margin-left: 0;
-}
+.details { position: relative; background: transparent; border-top: 1px solid var(--sep); }
 
 .details summary {
   display: flex;
