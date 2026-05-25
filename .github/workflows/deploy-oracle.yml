@@ -1,0 +1,101 @@
+name: Deploy Oracle Bot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "main.py"
+      - "src/**"
+      - "scripts/**"
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "pyproject.toml"
+      - ".github/workflows/deploy-oracle.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: oracle-production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-deploy:
+    name: Validate and deploy to Oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install local validation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Validate Python package
+        run: |
+          python -m compileall -q .
+          python -m pytest -q
+          python main.py --help
+
+      - name: Prepare SSH
+        shell: bash
+        env:
+          ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          ORACLE_KNOWN_HOSTS: ${{ secrets.ORACLE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_PRIVATE_KEY" > ~/.ssh/oracle_deploy_key
+          chmod 600 ~/.ssh/oracle_deploy_key
+          printf '%s\n' "$ORACLE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy on Oracle
+        shell: bash
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i ~/.ssh/oracle_deploy_key \
+            -o StrictHostKeyChecking=yes \
+            "$ORACLE_USER@$ORACLE_HOST" \
+            'bash -se' <<'REMOTE'
+          set -euo pipefail
+
+          APP_DIR="/opt/arkham_bot"
+          SERVICE_NAME="arkham-bot"
+
+          cd "$APP_DIR"
+
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+          python -m compileall -q .
+          python main.py healthcheck --strict
+
+          sudo systemctl restart "$SERVICE_NAME"
+          sleep 5
+
+          sudo systemctl is-active --quiet "$SERVICE_NAME"
+          sudo systemctl status "$SERVICE_NAME" --no-pager -l
+          sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager -l
+          REMOTE
