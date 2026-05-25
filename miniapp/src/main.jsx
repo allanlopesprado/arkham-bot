@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
@@ -24,13 +24,29 @@ function getTelegramInitData() {
   return window.Telegram?.WebApp?.initData || '';
 }
 
+function getTelegramDiagnostics() {
+  const webApp = window.Telegram?.WebApp;
+  const initData = webApp?.initData || '';
+  return {
+    webAppDetected: Boolean(webApp),
+    initDataPresent: Boolean(initData),
+    initDataLength: initData.length,
+  };
+}
+
 function App() {
   const [status, setStatus] = useState('Ready');
   const [cardCode, setCardCode] = useState('01001');
   const [referenceCards, setReferenceCards] = useState([]);
+  const [telegramDiagnostics, setTelegramDiagnostics] = useState(() => getTelegramDiagnostics());
   const supabase = useMemo(() => {
     if (!supabaseUrl || !supabaseAnonKey) return null;
     return createClient(supabaseUrl, supabaseAnonKey);
+  }, []);
+
+  useEffect(() => {
+    window.Telegram?.WebApp?.ready?.();
+    setTelegramDiagnostics(getTelegramDiagnostics());
   }, []);
 
   async function loadReferenceCards() {
@@ -84,6 +100,9 @@ function App() {
       <section className="card">
         <h2>Status</h2>
         <p>{status}</p>
+        <p>Telegram WebApp detectado: {telegramDiagnostics.webAppDetected ? 'sim' : 'nao'}</p>
+        <p>initData presente: {telegramDiagnostics.initDataPresent ? 'sim' : 'nao'}</p>
+        <p>initData length: {telegramDiagnostics.initDataLength}</p>
         <button onClick={loadReferenceCards}>Carregar cartas públicas</button>
       </section>
 
