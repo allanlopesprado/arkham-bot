@@ -26,36 +26,271 @@ function haptic(type, value) {
   } catch {}
 }
 
-const ERROR_MESSAGES = {
-  invalid_telegram_init_data: { friendly: 'Abra pelo Telegram para autenticar.', detail: 'initData invalido.' },
-  unauthorized: { friendly: 'Usuario sem permissao administrativa.', detail: 'O Telegram ID nao esta cadastrado como admin.' },
-  not_found: { friendly: 'Endpoint nao encontrado.', detail: 'Verifique VITE_COMMANDS_API_URL.' },
-  origin_not_allowed: { friendly: 'Origem nao autorizada.', detail: 'Verifique ALLOWED_ORIGINS no Worker.' },
-  bot_command_insert_failed: { friendly: 'Falha ao criar comando.', detail: 'Verifique Worker e Supabase.' },
-  command_type_required: { friendly: 'Tipo de comando nao informado.', detail: 'command_type_required' },
-  unsupported_command_type: { friendly: 'Comando nao suportado.', detail: 'unsupported_command_type' },
-  method_not_allowed: { friendly: 'Metodo HTTP nao permitido.', detail: 'method_not_allowed' },
-  settings_fetch_failed: { friendly: 'Falha ao carregar configuracoes.', detail: 'settings_fetch_failed' },
-  settings_upsert_failed: { friendly: 'Falha ao salvar configuracoes.', detail: 'settings_upsert_failed' },
-  invalid_setting_value: { friendly: 'Configuracao invalida.', detail: 'invalid_setting_value' },
-  unsupported_setting: { friendly: 'Configuracao nao suportada.', detail: 'unsupported_setting' },
-  settings_required: { friendly: 'Nenhuma configuracao para salvar.', detail: 'settings_required' },
-  overview_fetch_failed: { friendly: 'Falha ao carregar gestao.', detail: 'overview_fetch_failed' },
-  commands_fetch_failed: { friendly: 'Falha ao carregar fila.', detail: 'commands_fetch_failed' },
-  cards_search_failed: { friendly: 'Falha ao buscar cartas.', detail: 'cards_search_failed' },
-  command_cancel_failed: { friendly: 'Falha ao cancelar comando.', detail: 'command_cancel_failed' },
-  command_not_cancellable: { friendly: 'Comando nao pode mais ser cancelado.', detail: 'command_not_cancellable' },
+const WEEKDAYS = [
+  { code: 'mon', pt: 'Seg', en: 'Mon' },
+  { code: 'tue', pt: 'Ter', en: 'Tue' },
+  { code: 'wed', pt: 'Qua', en: 'Wed' },
+  { code: 'thu', pt: 'Qui', en: 'Thu' },
+  { code: 'fri', pt: 'Sex', en: 'Fri' },
+  { code: 'sat', pt: 'Sab', en: 'Sat' },
+  { code: 'sun', pt: 'Dom', en: 'Sun' },
+];
+
+const LANGUAGE_STORAGE_KEY = 'arkham-bot-miniapp-language';
+
+const I18N = {
+  pt: {
+    locale: 'pt-BR',
+    languageName: 'Portugues',
+    languageCaption: 'Alternar para English',
+    appSubtitle: 'Console Admin',
+    settings: 'Settings',
+    outsideTelegram: 'Abra pelo Telegram para autenticar.',
+    workerNotConfigured: 'Worker nao configurado.',
+    defineCommandsApi: 'Defina VITE_COMMANDS_API_URL.',
+    postCard: 'Postar carta',
+    postCardCaption: 'Buscar carta, escolher destino e publicar',
+    controls: 'Controles',
+    controlsCaption: 'Pausar, sincronizar, resetar ciclo e limpar fila',
+    schedule: 'Agenda',
+    queue: 'Fila',
+    queueCaption: 'Comandos recentes e cancelamento',
+    health: 'Saude',
+    healthCaption: 'Worker, acesso, cards e diagnostico',
+    language: 'Idioma',
+    searchByCodeOrName: 'Buscar por codigo ou nome',
+    searchPlaceholder: '01001 ou Shrivelling',
+    search: 'Buscar',
+    selectedCard: 'Carta selecionada',
+    selectedCardHint: 'Postar agora pode usar carta vazia para escolha automatica. Repostar e pular exigem codigo.',
+    selectedCardPlaceholder: 'Codigo da carta, ex: 01001',
+    destination: 'Destino',
+    defaultChat: 'Chat padrao do bot',
+    postNow: 'Postar agora',
+    automaticChoice: 'Escolha automatica',
+    card: 'Carta',
+    repostCard: 'Repostar carta',
+    skipCard: 'Pular carta',
+    informCardCode: 'Informe o codigo da carta',
+    modeSettings: 'Mode Settings',
+    dailyPost: 'Postagem diaria',
+    dailyPostFooter: 'Ativa ou pausa a rotina automatica de carta diaria.',
+    syncArkhamDB: 'Sincronizar ArkhamDB',
+    syncCaption: 'Atualiza cartas e pacotes',
+    resetCycle: 'Resetar ciclo',
+    resetCaption: 'Permite repetir cartas ja usadas',
+    clearQueue: 'Limpar fila',
+    clearQueueCaption: 'Cancela comandos pendentes',
+    scheduleTitle: 'Agenda de postagem',
+    timesHint: 'Exemplo: 09:00, 21:30',
+    reloadSettings: 'Recarregar configuracoes',
+    saveSettings: 'Salvar configuracoes',
+    settingsResult: 'Configuracoes',
+    result: 'Resultado',
+    success: 'Sucesso',
+    error: 'Erro',
+    details: 'Detalhes',
+    commandQueue: 'Fila de comandos',
+    refreshQueue: 'Atualizar fila',
+    noRecentCommands: 'Nenhum comando recente',
+    cancelCommand: 'Cancelar comando',
+    summary: 'Resumo',
+    worker: 'Worker',
+    access: 'Acesso',
+    cards: 'Cards',
+    account: 'Conta',
+    telegramWebApp: 'Telegram WebApp',
+    initData: 'initData',
+    admin: 'Admin',
+    recheckAuth: 'Reverificar autenticacao',
+    system: 'Sistema',
+    packs: 'Packs',
+    lastSync: 'Ultimo sync',
+    refreshStatus: 'Atualizar status',
+    diagnostic: 'Diagnostico',
+    showDetails: 'Mostrar detalhes',
+    apiConfigured: 'API configurada',
+    apiBase: 'Endpoint base',
+    userUnsafe: 'Usuario unsafe',
+    initDataPresent: 'initData presente',
+    initDataLength: 'initData length',
+    role: 'Role',
+    adminSource: 'Admin source',
+    yes: 'sim',
+    no: 'nao',
+    checking: 'verificando',
+    noApi: 'sem API',
+    noNetwork: 'sem rede',
+    pending: 'pendente',
+    notConfigured: 'nao configurado',
+    online: 'online',
+    offline: 'offline',
+    commandQueued: 'Comando enfileirado.',
+    commandCancelled: 'Comando cancelado.',
+    networkOverview: 'Falha de rede ao carregar gestao.',
+    networkQueue: 'Falha de rede ao carregar fila.',
+    networkCards: 'Falha de rede ao buscar cartas.',
+    networkCancel: 'Falha de rede ao cancelar comando.',
+    networkSettingsLoad: 'Falha de rede ao carregar configuracoes.',
+    networkSettingsSave: 'Falha de rede ao salvar configuracoes.',
+    networkWorker: 'Falha de rede ao chamar o Worker.',
+    invalidTime: 'Horarios devem usar HH:MM.',
+    selectAtLeastOneDay: 'Selecione pelo menos um dia.',
+    timezoneRequired: 'Timezone obrigatorio.',
+    settingsSaved: 'Configuracoes salvas.',
+    unknownError: 'Erro desconhecido.',
+    errors: {
+      invalid_telegram_init_data: ['Abra pelo Telegram para autenticar.', 'initData invalido.'],
+      unauthorized: ['Usuario sem permissao administrativa.', 'O Telegram ID nao esta cadastrado como admin.'],
+      not_found: ['Endpoint nao encontrado.', 'Verifique VITE_COMMANDS_API_URL.'],
+      origin_not_allowed: ['Origem nao autorizada.', 'Verifique ALLOWED_ORIGINS no Worker.'],
+      bot_command_insert_failed: ['Falha ao criar comando.', 'Verifique Worker e Supabase.'],
+      command_type_required: ['Tipo de comando nao informado.', 'command_type_required'],
+      unsupported_command_type: ['Comando nao suportado.', 'unsupported_command_type'],
+      method_not_allowed: ['Metodo HTTP nao permitido.', 'method_not_allowed'],
+      settings_fetch_failed: ['Falha ao carregar configuracoes.', 'settings_fetch_failed'],
+      settings_upsert_failed: ['Falha ao salvar configuracoes.', 'settings_upsert_failed'],
+      invalid_setting_value: ['Configuracao invalida.', 'invalid_setting_value'],
+      unsupported_setting: ['Configuracao nao suportada.', 'unsupported_setting'],
+      settings_required: ['Nenhuma configuracao para salvar.', 'settings_required'],
+      overview_fetch_failed: ['Falha ao carregar gestao.', 'overview_fetch_failed'],
+      commands_fetch_failed: ['Falha ao carregar fila.', 'commands_fetch_failed'],
+      cards_search_failed: ['Falha ao buscar cartas.', 'cards_search_failed'],
+      command_cancel_failed: ['Falha ao cancelar comando.', 'command_cancel_failed'],
+      command_not_cancellable: ['Comando nao pode mais ser cancelado.', 'command_not_cancellable'],
+    },
+  },
+  en: {
+    locale: 'en-US',
+    languageName: 'English',
+    languageCaption: 'Switch to Portugues',
+    appSubtitle: 'Admin Console',
+    settings: 'Settings',
+    outsideTelegram: 'Open from Telegram to authenticate.',
+    workerNotConfigured: 'Worker is not configured.',
+    defineCommandsApi: 'Set VITE_COMMANDS_API_URL.',
+    postCard: 'Post Card',
+    postCardCaption: 'Search a card, choose target, and publish',
+    controls: 'Controls',
+    controlsCaption: 'Pause, sync, reset cycle, and clear queue',
+    schedule: 'Schedule',
+    queue: 'Queue',
+    queueCaption: 'Recent commands and cancellation',
+    health: 'Health',
+    healthCaption: 'Worker, access, cards, and diagnostics',
+    language: 'Language',
+    searchByCodeOrName: 'Search by code or name',
+    searchPlaceholder: '01001 or Shrivelling',
+    search: 'Search',
+    selectedCard: 'Selected card',
+    selectedCardHint: 'Post now can use an empty card for automatic choice. Repost and skip require a code.',
+    selectedCardPlaceholder: 'Card code, e.g. 01001',
+    destination: 'Destination',
+    defaultChat: 'Bot default chat',
+    postNow: 'Post now',
+    automaticChoice: 'Automatic choice',
+    card: 'Card',
+    repostCard: 'Repost card',
+    skipCard: 'Skip card',
+    informCardCode: 'Enter the card code',
+    modeSettings: 'Mode Settings',
+    dailyPost: 'Daily post',
+    dailyPostFooter: 'Enables or pauses the automatic daily card routine.',
+    syncArkhamDB: 'Sync ArkhamDB',
+    syncCaption: 'Updates cards and packs',
+    resetCycle: 'Reset cycle',
+    resetCaption: 'Allows cards already used to repeat',
+    clearQueue: 'Clear queue',
+    clearQueueCaption: 'Cancels pending commands',
+    scheduleTitle: 'Posting schedule',
+    timesHint: 'Example: 09:00, 21:30',
+    reloadSettings: 'Reload settings',
+    saveSettings: 'Save settings',
+    settingsResult: 'Settings',
+    result: 'Result',
+    success: 'Success',
+    error: 'Error',
+    details: 'Details',
+    commandQueue: 'Command queue',
+    refreshQueue: 'Refresh queue',
+    noRecentCommands: 'No recent commands',
+    cancelCommand: 'Cancel command',
+    summary: 'Summary',
+    worker: 'Worker',
+    access: 'Access',
+    cards: 'Cards',
+    account: 'Account',
+    telegramWebApp: 'Telegram WebApp',
+    initData: 'initData',
+    admin: 'Admin',
+    recheckAuth: 'Recheck authentication',
+    system: 'System',
+    packs: 'Packs',
+    lastSync: 'Last sync',
+    refreshStatus: 'Refresh status',
+    diagnostic: 'Diagnostic',
+    showDetails: 'Show details',
+    apiConfigured: 'API configured',
+    apiBase: 'Base endpoint',
+    userUnsafe: 'Unsafe user',
+    initDataPresent: 'initData present',
+    initDataLength: 'initData length',
+    role: 'Role',
+    adminSource: 'Admin source',
+    yes: 'yes',
+    no: 'no',
+    checking: 'checking',
+    noApi: 'no API',
+    noNetwork: 'no network',
+    pending: 'pending',
+    notConfigured: 'not configured',
+    online: 'online',
+    offline: 'offline',
+    commandQueued: 'Command queued.',
+    commandCancelled: 'Command cancelled.',
+    networkOverview: 'Network failure while loading management data.',
+    networkQueue: 'Network failure while loading queue.',
+    networkCards: 'Network failure while searching cards.',
+    networkCancel: 'Network failure while cancelling command.',
+    networkSettingsLoad: 'Network failure while loading settings.',
+    networkSettingsSave: 'Network failure while saving settings.',
+    networkWorker: 'Network failure while calling the Worker.',
+    invalidTime: 'Times must use HH:MM.',
+    selectAtLeastOneDay: 'Select at least one day.',
+    timezoneRequired: 'Timezone is required.',
+    settingsSaved: 'Settings saved.',
+    unknownError: 'Unknown error.',
+    errors: {
+      invalid_telegram_init_data: ['Open from Telegram to authenticate.', 'Invalid initData.'],
+      unauthorized: ['User has no admin permission.', 'The Telegram ID is not registered as admin.'],
+      not_found: ['Endpoint not found.', 'Check VITE_COMMANDS_API_URL.'],
+      origin_not_allowed: ['Origin is not allowed.', 'Check ALLOWED_ORIGINS in the Worker.'],
+      bot_command_insert_failed: ['Failed to create command.', 'Check Worker and Supabase.'],
+      command_type_required: ['Command type was not provided.', 'command_type_required'],
+      unsupported_command_type: ['Unsupported command.', 'unsupported_command_type'],
+      method_not_allowed: ['HTTP method is not allowed.', 'method_not_allowed'],
+      settings_fetch_failed: ['Failed to load settings.', 'settings_fetch_failed'],
+      settings_upsert_failed: ['Failed to save settings.', 'settings_upsert_failed'],
+      invalid_setting_value: ['Invalid setting.', 'invalid_setting_value'],
+      unsupported_setting: ['Unsupported setting.', 'unsupported_setting'],
+      settings_required: ['No settings to save.', 'settings_required'],
+      overview_fetch_failed: ['Failed to load management data.', 'overview_fetch_failed'],
+      commands_fetch_failed: ['Failed to load queue.', 'commands_fetch_failed'],
+      cards_search_failed: ['Failed to search cards.', 'cards_search_failed'],
+      command_cancel_failed: ['Failed to cancel command.', 'command_cancel_failed'],
+      command_not_cancellable: ['Command can no longer be cancelled.', 'command_not_cancellable'],
+    },
+  },
 };
 
-const WEEKDAYS = [
-  { code: 'mon', label: 'Seg' },
-  { code: 'tue', label: 'Ter' },
-  { code: 'wed', label: 'Qua' },
-  { code: 'thu', label: 'Qui' },
-  { code: 'fri', label: 'Sex' },
-  { code: 'sat', label: 'Sab' },
-  { code: 'sun', label: 'Dom' },
-];
+function getInitialLanguage() {
+  try {
+    const stored = window.localStorage?.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === 'en' || stored === 'pt') return stored;
+  } catch {}
+  const code = getTelegramUserUnsafe()?.language_code || navigator.language || '';
+  return code.toLowerCase().startsWith('en') ? 'en' : 'pt';
+}
 
 const DEFAULT_SETTINGS = {
   daily_post_enabled: true,
@@ -271,6 +506,14 @@ const icons = {
       <path d="M12 8h.01" />
     </>
   ),
+  language: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a13.5 13.5 0 0 1 0 18" />
+      <path d="M12 3a13.5 13.5 0 0 0 0 18" />
+    </>
+  ),
   chevron: <path d="m9 18 6-6-6-6" />,
 };
 
@@ -291,8 +534,10 @@ function Icon({ name, className = '' }) {
   );
 }
 
-function resolveError(code, fallback) {
-  return ERROR_MESSAGES[code] || { friendly: fallback || 'Erro desconhecido.', detail: code || '' };
+function resolveError(code, fallback, copy) {
+  const localized = copy.errors[code];
+  if (localized) return { friendly: localized[0], detail: localized[1] };
+  return { friendly: fallback || copy.unknownError, detail: code || '' };
 }
 
 function buildDiag() {
@@ -447,37 +692,37 @@ function MiniButton({ icon, label, onClick, disabled, loading, danger }) {
   );
 }
 
-function formatDateTime(value) {
+function formatDateTime(value, locale) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString('pt-BR');
+    return new Date(value).toLocaleString(locale);
   } catch {
     return value;
   }
 }
 
-function commandCaption(command) {
+function commandCaption(command, locale) {
   const parts = [
     command.status,
-    command.created_at ? formatDateTime(command.created_at) : null,
+    command.created_at ? formatDateTime(command.created_at, locale) : null,
     command.last_error || null,
   ].filter(Boolean);
   return parts.join(' | ');
 }
 
-function CommandRow({ command, onCancel, loading }) {
+function CommandRow({ command, onCancel, loading, copy }) {
   const cancellable = ['pending', 'retrying'].includes(command.status);
   return (
     <div className="tg-command-row">
       <div className="tg-command-row__main">
         <span className="tg-row__label">{command.command_type}</span>
-        <span className="tg-row__caption">{commandCaption(command)}</span>
+        <span className="tg-row__caption">{commandCaption(command, copy.locale)}</span>
       </div>
       <Badge tone={command.status === 'failed' ? 'err' : command.status === 'executed' ? 'ok' : 'warn'}>
         {command.status}
       </Badge>
       {cancellable && (
-        <button className="tg-icon-button" type="button" onClick={() => onCancel(command.id)} disabled={loading} aria-label="Cancelar comando">
+        <button className="tg-icon-button" type="button" onClick={() => onCancel(command.id)} disabled={loading} aria-label={copy.cancelCommand}>
           {loading ? <span className="spinner" /> : <Icon name="x" />}
         </button>
       )}
@@ -496,6 +741,8 @@ function CardResult({ card, selected, onSelect }) {
 }
 
 function App() {
+  const [language, setLanguage] = useState(getInitialLanguage);
+  const copy = I18N[language];
   const [diag, setDiag] = useState(() => buildDiag());
   const [me, setMe] = useState(null);
   const [sysStatus, setSysStatus] = useState(null);
@@ -519,6 +766,12 @@ function App() {
   const [cardResults, setCardResults] = useState([]);
   const [searchingCards, setSearchingCards] = useState(false);
   const [targetChatId, setTargetChatId] = useState('');
+
+  function toggleLanguage() {
+    const nextLanguage = language === 'pt' ? 'en' : 'pt';
+    setLanguage(nextLanguage);
+    try { window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, nextLanguage); } catch {}
+  }
 
   useEffect(() => {
     const tg = getTelegramWebApp();
@@ -587,14 +840,14 @@ function App() {
       const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
       } else {
         setOverview(json);
         if (json.settings) applySettings(json.settings);
       }
     } catch {
-      setResult({ ok: false, friendly: 'Falha de rede ao carregar gestao.', detail: '', at: new Date() });
+      setResult({ ok: false, friendly: copy.networkOverview, detail: '', at: new Date() });
     } finally {
       setLoadingOverview(false);
     }
@@ -609,13 +862,13 @@ function App() {
       const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
       } else {
         setCommands(json.commands || []);
       }
     } catch {
-      setResult({ ok: false, friendly: 'Falha de rede ao carregar fila.', detail: '', at: new Date() });
+      setResult({ ok: false, friendly: copy.networkQueue, detail: '', at: new Date() });
     } finally {
       setLoadingCommands(false);
     }
@@ -634,13 +887,13 @@ function App() {
       const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
       } else {
         setCardResults(json.cards || []);
       }
     } catch {
-      setResult({ ok: false, friendly: 'Falha de rede ao buscar cartas.', detail: '', at: new Date() });
+      setResult({ ok: false, friendly: copy.networkCards, detail: '', at: new Date() });
     } finally {
       setSearchingCards(false);
     }
@@ -659,17 +912,17 @@ function App() {
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         haptic('notification', 'error');
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
       } else {
         haptic('notification', 'success');
-        setResult({ ok: true, command_type: json.command?.command_type || 'cancel', friendly: 'Comando cancelado.', detail: '', at: new Date() });
+        setResult({ ok: true, command_type: json.command?.command_type || 'cancel', friendly: copy.commandCancelled, detail: '', at: new Date() });
         fetchCommands();
         fetchOverview();
       }
     } catch {
       haptic('notification', 'error');
-      setResult({ ok: false, friendly: 'Falha de rede ao cancelar comando.', detail: '', at: new Date() });
+      setResult({ ok: false, friendly: copy.networkCancel, detail: '', at: new Date() });
     } finally {
       setCancellingCommand(null);
     }
@@ -689,14 +942,14 @@ function App() {
       const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setSettingsResult({ ok: false, friendly: error.friendly, detail: error.detail, at: new Date() });
       } else {
         applySettings(json.settings);
         setSettingsResult(null);
       }
     } catch {
-      setSettingsResult({ ok: false, friendly: 'Falha de rede ao carregar configuracoes.', detail: '', at: new Date() });
+      setSettingsResult({ ok: false, friendly: copy.networkSettingsLoad, detail: '', at: new Date() });
     } finally {
       setLoadingSettings(false);
     }
@@ -706,23 +959,23 @@ function App() {
     const times = parseTimesInput(timesInput);
     if (!validateTimes(times)) {
       haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: 'Horarios devem usar HH:MM.', detail: 'Exemplo: 09:00, 21:30', at: new Date() });
+      setSettingsResult({ ok: false, friendly: copy.invalidTime, detail: copy.timesHint, at: new Date() });
       return;
     }
     if (!settings.daily_post_days.length) {
       haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: 'Selecione pelo menos um dia.', detail: '', at: new Date() });
+      setSettingsResult({ ok: false, friendly: copy.selectAtLeastOneDay, detail: '', at: new Date() });
       return;
     }
     if (!settings.timezone.trim()) {
       haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: 'Timezone obrigatorio.', detail: '', at: new Date() });
+      setSettingsResult({ ok: false, friendly: copy.timezoneRequired, detail: '', at: new Date() });
       return;
     }
 
     const url = buildApiUrl('/settings');
     if (!url) {
-      setSettingsResult({ ok: false, friendly: 'Worker nao configurado.', detail: 'Defina VITE_COMMANDS_API_URL.', at: new Date() });
+      setSettingsResult({ ok: false, friendly: copy.workerNotConfigured, detail: copy.defineCommandsApi, at: new Date() });
       return;
     }
 
@@ -736,7 +989,7 @@ function App() {
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         haptic('notification', 'error');
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setSettingsResult({
           ok: false,
           friendly: error.friendly,
@@ -746,11 +999,11 @@ function App() {
       } else {
         haptic('notification', 'success');
         applySettings(json.settings);
-        setSettingsResult({ ok: true, friendly: 'Configuracoes salvas.', detail: '', at: new Date() });
+        setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '', at: new Date() });
       }
     } catch {
       haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: 'Falha de rede ao salvar configuracoes.', detail: '', at: new Date() });
+      setSettingsResult({ ok: false, friendly: copy.networkSettingsSave, detail: '', at: new Date() });
     } finally {
       setSavingSettings(false);
     }
@@ -773,7 +1026,7 @@ function App() {
     haptic('impact', 'light');
     const url = buildApiUrl('/bot-command');
     if (!url) {
-      setResult({ ok: false, friendly: 'Worker nao configurado.', detail: 'Defina VITE_COMMANDS_API_URL.', at: new Date() });
+      setResult({ ok: false, friendly: copy.workerNotConfigured, detail: copy.defineCommandsApi, at: new Date() });
       return;
     }
     setLoadingCmd(command_type);
@@ -786,7 +1039,7 @@ function App() {
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         haptic('notification', 'error');
-        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        const error = resolveError(json.error, `HTTP ${resp.status}`, copy);
         setResult({
           ok: false,
           command_type,
@@ -799,7 +1052,7 @@ function App() {
         setResult({
           ok: true,
           command_type: json.command?.command_type || command_type,
-          friendly: 'Comando enfileirado.',
+          friendly: copy.commandQueued,
           detail: json.command?.id ? `ID: ${json.command.id}` : '',
           at: new Date(),
         });
@@ -809,25 +1062,25 @@ function App() {
       }
     } catch {
       haptic('notification', 'error');
-      setResult({ ok: false, command_type, friendly: 'Falha de rede ao chamar o Worker.', detail: '', at: new Date() });
+      setResult({ ok: false, command_type, friendly: copy.networkWorker, detail: '', at: new Date() });
     } finally {
       setLoadingCmd(null);
     }
-  }, [loadingCmd, targetChatId]);
+  }, [loadingCmd, targetChatId, copy]);
 
   const adminValue = loadingMe
-    ? 'verificando'
+    ? copy.checking
     : !apiConfigured
-      ? 'sem API'
+      ? copy.noApi
       : me?.ok && isAdmin
         ? me.role || 'admin'
         : me?.ok
           ? me.role || 'none'
           : me?.error === 'network_error'
-            ? 'sem rede'
-            : 'pendente';
+            ? copy.noNetwork
+            : copy.pending;
 
-  const workerValue = loadingStatus ? '...' : sysStatus?.ok ? 'online' : 'offline';
+  const workerValue = loadingStatus ? '...' : sysStatus?.ok ? copy.online : copy.offline;
   const cardsValue = loadingOverview ? '...' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '...' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((chat) => chat.enabled !== false) || [];
@@ -837,20 +1090,21 @@ function App() {
       <header className="tg-profile">
         <div className="tg-avatar" aria-hidden="true"><Icon name="bot" /></div>
         <div className="tg-profile__title">Arkham Bot</div>
-        <div className="tg-profile__subtitle">Admin Console</div>
+        <div className="tg-profile__subtitle">{copy.appSubtitle}</div>
       </header>
 
-      {isOutsideTelegram && <Notice>Abra pelo Telegram para autenticar.</Notice>}
-      {!apiConfigured && <Notice tone="err">Worker nao configurado.</Notice>}
+      {isOutsideTelegram && <Notice>{copy.outsideTelegram}</Notice>}
+      {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured}</Notice>}
 
       {activeTab === 'menu' && (
         <>
-          <Section title="Settings">
-            <MenuRow icon="send" label="Postar carta" caption="Buscar carta, escolher destino e publicar" onClick={() => setActiveTab('post')} />
-            <MenuRow icon="settings" label="Controles" caption="Pausar, sincronizar, resetar ciclo e limpar fila" onClick={() => setActiveTab('controls')} />
-            <MenuRow icon="clock" label="Agenda" caption={`${settings.daily_post_times.join(', ')} | ${settings.timezone}`} onClick={() => setActiveTab('schedule')} />
-            <MenuRow icon="queue" label="Fila" caption="Comandos recentes e cancelamento" value={queueValue} onClick={() => setActiveTab('queue')} />
-            <MenuRow icon="server" label="Saude" caption="Worker, acesso, cards e diagnostico" value={workerValue} onClick={() => setActiveTab('status')} />
+          <Section title={copy.settings}>
+            <MenuRow icon="send" label={copy.postCard} caption={copy.postCardCaption} onClick={() => setActiveTab('post')} />
+            <MenuRow icon="settings" label={copy.controls} caption={copy.controlsCaption} onClick={() => setActiveTab('controls')} />
+            <MenuRow icon="clock" label={copy.schedule} caption={`${settings.daily_post_times.join(', ')} | ${settings.timezone}`} onClick={() => setActiveTab('schedule')} />
+            <MenuRow icon="queue" label={copy.queue} caption={copy.queueCaption} value={queueValue} onClick={() => setActiveTab('queue')} />
+            <MenuRow icon="server" label={copy.health} caption={copy.healthCaption} value={workerValue} onClick={() => setActiveTab('status')} />
+            <MenuRow icon="language" label={copy.language} caption={copy.languageCaption} value={copy.languageName} onClick={toggleLanguage} />
           </Section>
         </>
       )}
@@ -858,19 +1112,19 @@ function App() {
 
       {activeTab === 'post' && (
         <>
-          <Section title="Postar carta">
+          <Section title={copy.postCard}>
             <div className="tg-form-row">
-              <Field label="Buscar por codigo ou nome">
+              <Field label={copy.searchByCodeOrName}>
                 <div className="tg-search-line">
                   <input
                     className="tg-input tg-input--boxed"
                     type="text"
                     value={cardQuery}
                     onChange={(event) => setCardQuery(event.target.value)}
-                    placeholder="01001 ou Shrivelling"
+                    placeholder={copy.searchPlaceholder}
                     inputMode="text"
                   />
-                  <MiniButton icon="search" label="Buscar" onClick={searchCards} loading={searchingCards} disabled={!isAdmin || isOutsideTelegram || !apiConfigured || cardQuery.trim().length < 2} />
+                  <MiniButton icon="search" label={copy.search} onClick={searchCards} loading={searchingCards} disabled={!isAdmin || isOutsideTelegram || !apiConfigured || cardQuery.trim().length < 2} />
                 </div>
               </Field>
             </div>
@@ -890,11 +1144,11 @@ function App() {
               </div>
             )}
             <div className="tg-form-row">
-              <Field label="Carta selecionada" hint="Postar agora pode usar carta vazia para escolha automatica. Repostar e pular exigem codigo.">
+              <Field label={copy.selectedCard} hint={copy.selectedCardHint}>
                 <input
                   className="tg-input tg-input--boxed"
                   type="text"
-                  placeholder="Codigo da carta, ex: 01001"
+                  placeholder={copy.selectedCardPlaceholder}
                   value={cardCode}
                   onChange={(e) => setCardCode(e.target.value.trim())}
                   inputMode="text"
@@ -903,8 +1157,8 @@ function App() {
             </div>
             {targetChats.length > 0 && (
               <div className="tg-form-row">
-                <SelectField label="Destino" value={targetChatId} onChange={setTargetChatId}>
-                  <option value="">Chat padrao do bot</option>
+                <SelectField label={copy.destination} value={targetChatId} onChange={setTargetChatId}>
+                  <option value="">{copy.defaultChat}</option>
                   {targetChats.map((chat) => (
                     <option key={chat.chat_id} value={chat.chat_id}>
                       {chat.title || chat.chat_id}
@@ -913,40 +1167,40 @@ function App() {
                 </SelectField>
               </div>
             )}
-            <ActionRow icon="send" label="Postar agora" caption={cardCode ? `Carta ${cardCode}` : 'Escolha automatica'} onClick={() => enqueue('post_now', cardCode ? { card_code: cardCode } : {})} loading={loadingCmd === 'post_now'} disabled={actionsDisabled} />
-            <ActionRow icon="repeat" label="Repostar carta" caption={cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta'} onClick={() => enqueue('repost_card', { card_code: cardCode })} loading={loadingCmd === 'repost_card'} disabled={actionsDisabled || !cardCode} />
-            <ActionRow icon="skip" label="Pular carta" caption={cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta'} onClick={() => enqueue('skip_card', { card_code: cardCode })} loading={loadingCmd === 'skip_card'} disabled={actionsDisabled || !cardCode} />
+            <ActionRow icon="send" label={copy.postNow} caption={cardCode ? `${copy.card} ${cardCode}` : copy.automaticChoice} onClick={() => enqueue('post_now', cardCode ? { card_code: cardCode } : {})} loading={loadingCmd === 'post_now'} disabled={actionsDisabled} />
+            <ActionRow icon="repeat" label={copy.repostCard} caption={cardCode ? `${copy.card} ${cardCode}` : copy.informCardCode} onClick={() => enqueue('repost_card', { card_code: cardCode })} loading={loadingCmd === 'repost_card'} disabled={actionsDisabled || !cardCode} />
+            <ActionRow icon="skip" label={copy.skipCard} caption={cardCode ? `${copy.card} ${cardCode}` : copy.informCardCode} onClick={() => enqueue('skip_card', { card_code: cardCode })} loading={loadingCmd === 'skip_card'} disabled={actionsDisabled || !cardCode} />
           </Section>
         </>
       )}
 
       {activeTab === 'controls' && (
         <>
-          <Section title="Mode Settings">
+          <Section title={copy.modeSettings}>
             <SwitchField
-              label="Postagem diaria"
+              label={copy.dailyPost}
               checked={settings.daily_post_enabled}
               disabled={actionsDisabled}
               onChange={(checked) => enqueue(checked ? 'resume_daily_post' : 'pause_daily_post')}
             />
-            <div className="tg-section__footer">Ativa ou pausa a rotina automatica de carta diaria.</div>
-            <ActionRow icon="sync" label="Sincronizar ArkhamDB" caption="Atualiza cartas e pacotes" onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
-            <ActionRow icon="reset" label="Resetar ciclo" caption="Permite repetir cartas ja usadas" onClick={() => enqueue('reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
-            <ActionRow icon="trash" label="Limpar fila" caption="Cancela comandos pendentes" onClick={() => enqueue('clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
+            <div className="tg-section__footer">{copy.dailyPostFooter}</div>
+            <ActionRow icon="sync" label={copy.syncArkhamDB} caption={copy.syncCaption} onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
+            <ActionRow icon="reset" label={copy.resetCycle} caption={copy.resetCaption} onClick={() => enqueue('reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
+            <ActionRow icon="trash" label={copy.clearQueue} caption={copy.clearQueueCaption} onClick={() => enqueue('clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
           </Section>
         </>
       )}
 
       {activeTab === 'schedule' && (
         <>
-          <Section title="Agenda de postagem">
+          <Section title={copy.scheduleTitle}>
             <SwitchField
               label="daily_post_enabled"
               checked={settings.daily_post_enabled}
               onChange={(checked) => setSettings((current) => ({ ...current, daily_post_enabled: checked }))}
             />
             <div className="tg-form-row">
-              <Field label="daily_post_times" hint="Exemplo: 09:00, 21:30">
+              <Field label="daily_post_times" hint={copy.timesHint}>
                 <input className="tg-input tg-input--boxed" type="text" value={timesInput} onChange={(event) => setTimesInput(event.target.value)} placeholder="09:00, 21:30" inputMode="text" />
               </Field>
             </div>
@@ -955,7 +1209,7 @@ function App() {
               <div className="tg-day-grid">
                 {WEEKDAYS.map((day) => (
                   <button key={day.code} className={`tg-day ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()} type="button" onClick={() => toggleDay(day.code)}>
-                    {day.label}
+                    {day[language]}
                   </button>
                 ))}
               </div>
@@ -965,16 +1219,16 @@ function App() {
                 <input className="tg-input tg-input--boxed" type="text" value={settings.timezone} onChange={(event) => setSettings((current) => ({ ...current, timezone: event.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
               </Field>
             </div>
-            <ActionRow icon="refresh" label="Recarregar configuracoes" onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
-            <ActionRow icon="save" label="Salvar configuracoes" onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />
+            <ActionRow icon="refresh" label={copy.reloadSettings} onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
+            <ActionRow icon="save" label={copy.saveSettings} onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />
           </Section>
 
           {settingsResult && (
-            <Section title="Configuracoes">
-              <Row icon="settings" label={settingsResult.ok ? 'Sucesso' : 'Erro'} value={settingsResult.ok ? 'ok' : 'erro'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+            <Section title={copy.settingsResult}>
+              <Row icon="settings" label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'error'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
               {settingsResult.detail && (
                 <details className="tg-details">
-                  <summary>Detalhes</summary>
+                  <summary>{copy.details}</summary>
                   <pre className="diag-pre">{settingsResult.detail}</pre>
                 </details>
               )}
@@ -985,11 +1239,11 @@ function App() {
 
       {activeTab === 'queue' && (
         <>
-          <Section title="Fila de comandos">
-            <ActionRow icon="refresh" label="Atualizar fila" onClick={() => fetchCommands()} loading={loadingCommands} disabled={!apiConfigured} />
-            {commands.length === 0 && <Row icon="queue" label="Nenhum comando recente" value="-" />}
+          <Section title={copy.commandQueue}>
+            <ActionRow icon="refresh" label={copy.refreshQueue} onClick={() => fetchCommands()} loading={loadingCommands} disabled={!apiConfigured} />
+            {commands.length === 0 && <Row icon="queue" label={copy.noRecentCommands} value="-" />}
             {commands.map((command) => (
-              <CommandRow key={command.id} command={command} onCancel={cancelCommand} loading={cancellingCommand === command.id} />
+              <CommandRow key={command.id} command={command} onCancel={cancelCommand} loading={cancellingCommand === command.id} copy={copy} />
             ))}
           </Section>
         </>
@@ -997,41 +1251,41 @@ function App() {
 
       {activeTab === 'status' && (
         <>
-          <Section title="Resumo">
-            <Row icon="server" label="Worker" value={workerValue} badgeTone={sysStatus?.ok ? 'ok' : 'err'} />
-            <Row icon="shield" label="Acesso" value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} />
-            <Row icon="cards" label="Cards" value={cardsValue} />
-            <Row icon="queue" label="Fila" value={queueValue} />
+          <Section title={copy.summary}>
+            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={sysStatus?.ok ? 'ok' : 'err'} />
+            <Row icon="shield" label={copy.access} value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} />
+            <Row icon="cards" label={copy.cards} value={cardsValue} />
+            <Row icon="queue" label={copy.queue} value={queueValue} />
           </Section>
 
-          <Section title="Conta">
-            <Row icon="plug" label="Telegram WebApp" value={diag.webAppDetected ? 'sim' : 'nao'} badgeTone={statusTone(diag.webAppDetected)} />
-            <Row icon="key" label="initData" value={diag.initDataPresent ? 'presente' : 'ausente'} badgeTone={statusTone(diag.initDataPresent)} />
-            <Row icon="shield" label="Admin" value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} caption={me?.admin_source ? `source: ${me.admin_source}` : undefined} />
-            <ActionRow icon="refresh" label="Reverificar autenticacao" onClick={fetchMe} loading={loadingMe} disabled={!apiConfigured} />
+          <Section title={copy.account}>
+            <Row icon="plug" label={copy.telegramWebApp} value={diag.webAppDetected ? copy.yes : copy.no} badgeTone={statusTone(diag.webAppDetected)} />
+            <Row icon="key" label={copy.initData} value={diag.initDataPresent ? copy.yes : copy.no} badgeTone={statusTone(diag.initDataPresent)} />
+            <Row icon="shield" label={copy.admin} value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} caption={me?.admin_source ? `source: ${me.admin_source}` : undefined} />
+            <ActionRow icon="refresh" label={copy.recheckAuth} onClick={fetchMe} loading={loadingMe} disabled={!apiConfigured} />
           </Section>
 
-          <Section title="Sistema">
-            <Row icon="server" label="Worker" value={sysStatus?.ok ? 'online' : 'offline'} badgeTone={statusTone(sysStatus?.ok)} />
-            <Row icon="cards" label="Cards" value={loadingStatus ? '...' : (sysStatus?.total_cards ?? '-')} />
-            <Row icon="packs" label="Packs" value={loadingStatus ? '...' : (sysStatus?.total_packs ?? '-')} />
-            <Row icon="clock" label="Ultimo sync" value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus.last_sync).toLocaleString('pt-BR') : '-'} mono />
-            <ActionRow icon="refresh" label="Atualizar status" onClick={() => { fetchStatus(); fetchOverview(); }} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} />
+          <Section title={copy.system}>
+            <Row icon="server" label={copy.worker} value={sysStatus?.ok ? copy.online : copy.offline} badgeTone={statusTone(sysStatus?.ok)} />
+            <Row icon="cards" label={copy.cards} value={loadingStatus ? '...' : (sysStatus?.total_cards ?? '-')} />
+            <Row icon="packs" label={copy.packs} value={loadingStatus ? '...' : (sysStatus?.total_packs ?? '-')} />
+            <Row icon="clock" label={copy.lastSync} value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus.last_sync).toLocaleString(copy.locale) : '-'} mono />
+            <ActionRow icon="refresh" label={copy.refreshStatus} onClick={() => { fetchStatus(); fetchOverview(); }} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} />
           </Section>
 
-          <Section title="Diagnostico">
+          <Section title={copy.diagnostic}>
             <details className="tg-details">
-              <summary><Icon name="info" />Mostrar detalhes</summary>
+              <summary><Icon name="info" />{copy.showDetails}</summary>
               <pre className="diag-pre">{[
-                `Telegram WebApp: ${diag.webAppDetected}`,
-                `initData presente: ${diag.initDataPresent}`,
-                `initData length: ${diag.initDataLength}`,
-                `Usuario unsafe: ${diag.userDetectedViaUnsafe}`,
-                `API configurada: ${diag.apiConfigured}`,
-                `Endpoint base: ${diag.apiBase}`,
-                `Admin: ${Boolean(me?.admin)}`,
-                `Role: ${me?.role || '-'}`,
-                `Admin source: ${me?.admin_source || '-'}`,
+                `${copy.telegramWebApp}: ${diag.webAppDetected}`,
+                `${copy.initDataPresent}: ${diag.initDataPresent}`,
+                `${copy.initDataLength}: ${diag.initDataLength}`,
+                `${copy.userUnsafe}: ${diag.userDetectedViaUnsafe}`,
+                `${copy.apiConfigured}: ${diag.apiConfigured}`,
+                `${copy.apiBase}: ${diag.apiBase}`,
+                `${copy.admin}: ${Boolean(me?.admin)}`,
+                `${copy.role}: ${me?.role || '-'}`,
+                `${copy.adminSource}: ${me?.admin_source || '-'}`,
               ].join('\n')}</pre>
             </details>
           </Section>
@@ -1039,17 +1293,17 @@ function App() {
       )}
 
       {result && activeTab !== 'status' && (
-        <Section title="Resultado">
+        <Section title={copy.result}>
           <Row
             icon="result"
-            label={result.ok ? 'Sucesso' : 'Erro'}
+            label={result.ok ? copy.success : copy.error}
             value={result.command_type || '-'}
             badgeTone={result.ok ? 'ok' : 'err'}
             caption={result.friendly}
           />
           {result.detail && (
             <details className="tg-details">
-              <summary>Detalhes</summary>
+              <summary>{copy.details}</summary>
               <pre className="diag-pre">{result.detail}</pre>
             </details>
           )}
