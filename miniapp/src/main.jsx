@@ -44,7 +44,7 @@ const I18N = {
     languageName: 'Portugues',
     languageCaption: 'Alternar para English',
     appSubtitle: 'Console Admin',
-    settings: 'Settings',
+    settings: 'Configuracoes',
     outsideTelegram: 'Abra pelo Telegram para autenticar.',
     workerNotConfigured: 'Worker nao configurado.',
     defineCommandsApi: 'Defina VITE_COMMANDS_API_URL.',
@@ -72,8 +72,16 @@ const I18N = {
     repostCard: 'Repostar carta',
     skipCard: 'Pular carta',
     informCardCode: 'Informe o codigo da carta',
-    modeSettings: 'Mode Settings',
+    modeSettings: 'Modos de operacao',
     dailyPost: 'Postagem diaria',
+    automaticPosting: 'Publicacao automatica',
+    automaticPostingCaption: 'Liga ou pausa a carta diaria',
+    postTimes: 'Horarios de postagem',
+    postTimesCaption: 'Use horarios de 24 horas separados por virgula',
+    postDays: 'Dias da semana',
+    postDaysCaption: 'Escolha quando a rotina pode publicar',
+    timezoneLabel: 'Fuso horario',
+    timezoneCaption: 'Padrao usado para calcular os horarios',
     dailyPostFooter: 'Ativa ou pausa a rotina automatica de carta diaria.',
     syncArkhamDB: 'Sincronizar ArkhamDB',
     syncCaption: 'Atualiza cartas e pacotes',
@@ -195,6 +203,14 @@ const I18N = {
     informCardCode: 'Enter the card code',
     modeSettings: 'Mode Settings',
     dailyPost: 'Daily post',
+    automaticPosting: 'Automatic posting',
+    automaticPostingCaption: 'Turns the daily card on or off',
+    postTimes: 'Posting times',
+    postTimesCaption: 'Use 24-hour times separated by commas',
+    postDays: 'Weekdays',
+    postDaysCaption: 'Choose when the routine may publish',
+    timezoneLabel: 'Timezone',
+    timezoneCaption: 'Default timezone used to calculate posting times',
     dailyPostFooter: 'Enables or pauses the automatic daily card routine.',
     syncArkhamDB: 'Sync ArkhamDB',
     syncCaption: 'Updates cards and packs',
@@ -551,7 +567,7 @@ function buildDiag() {
     initDataLength: initData.length,
     userDetectedViaUnsafe: Boolean(user),
     apiConfigured: Boolean(apiBase),
-    apiBase: apiBase || 'nao configurado',
+    apiBase: apiBase || '',
   };
 }
 
@@ -672,6 +688,19 @@ function SwitchField({ label, checked, onChange, disabled = false }) {
   return (
     <label className="tg-switch-row">
       <span className="tg-row__label">{label}</span>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
+      <span className="tg-switch" aria-hidden="true" />
+    </label>
+  );
+}
+
+function SettingToggleRow({ label, caption, checked, onChange, disabled = false }) {
+  return (
+    <label className="tg-switch-row tg-switch-row--rich">
+      <div className="tg-row__main">
+        <span className="tg-row__label">{label}</span>
+        {caption && <span className="tg-row__caption">{caption}</span>}
+      </div>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
       <span className="tg-switch" aria-hidden="true" />
     </label>
@@ -1194,18 +1223,20 @@ function App() {
       {activeTab === 'schedule' && (
         <>
           <Section title={copy.scheduleTitle}>
-            <SwitchField
-              label="daily_post_enabled"
+            <SettingToggleRow
+              label={copy.automaticPosting}
+              caption={copy.automaticPostingCaption}
               checked={settings.daily_post_enabled}
               onChange={(checked) => setSettings((current) => ({ ...current, daily_post_enabled: checked }))}
             />
             <div className="tg-form-row">
-              <Field label="daily_post_times" hint={copy.timesHint}>
+              <Field label={copy.postTimes} hint={`${copy.postTimesCaption}. ${copy.timesHint}`}>
                 <input className="tg-input tg-input--boxed" type="text" value={timesInput} onChange={(event) => setTimesInput(event.target.value)} placeholder="09:00, 21:30" inputMode="text" />
               </Field>
             </div>
             <div className="tg-form-row">
-              <span className="tg-field__label">daily_post_days</span>
+              <span className="tg-field__label">{copy.postDays}</span>
+              <span className="tg-field__hint">{copy.postDaysCaption}</span>
               <div className="tg-day-grid">
                 {WEEKDAYS.map((day) => (
                   <button key={day.code} className={`tg-day ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()} type="button" onClick={() => toggleDay(day.code)}>
@@ -1215,7 +1246,7 @@ function App() {
               </div>
             </div>
             <div className="tg-form-row">
-              <Field label="timezone">
+              <Field label={copy.timezoneLabel} hint={copy.timezoneCaption}>
                 <input className="tg-input tg-input--boxed" type="text" value={settings.timezone} onChange={(event) => setSettings((current) => ({ ...current, timezone: event.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
               </Field>
             </div>
@@ -1282,7 +1313,7 @@ function App() {
                 `${copy.initDataLength}: ${diag.initDataLength}`,
                 `${copy.userUnsafe}: ${diag.userDetectedViaUnsafe}`,
                 `${copy.apiConfigured}: ${diag.apiConfigured}`,
-                `${copy.apiBase}: ${diag.apiBase}`,
+                `${copy.apiBase}: ${diag.apiBase || copy.notConfigured}`,
                 `${copy.admin}: ${Boolean(me?.admin)}`,
                 `${copy.role}: ${me?.role || '-'}`,
                 `${copy.adminSource}: ${me?.admin_source || '-'}`,
