@@ -1,3 +1,16 @@
+const ALLOWED_COMMAND_TYPES = new Set([
+  'post_now',
+  'skip_card',
+  'pause_daily_post',
+  'resume_daily_post',
+  'sync_arkhamdb',
+]);
+
+const COMMAND_ALIASES = {
+  pause_daily: 'pause_daily_post',
+  resume_daily: 'resume_daily_post',
+};
+
 async function hmacSha256(keyBytes, data) {
   const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data)));
@@ -45,6 +58,8 @@ function withCors(response, request, env) {
   const allowedOrigin = getAllowedOrigin(request, env);
   if (allowedOrigin) {
     response.headers.set('access-control-allow-origin', allowedOrigin);
+    response.headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
+    response.headers.set('access-control-allow-headers', 'content-type,x-telegram-init-data');
     response.headers.set('vary', 'Origin');
   }
   return response;
@@ -57,16 +72,30 @@ function preflightResponse(request, env) {
     status: 204,
     headers: {
       'access-control-allow-origin': allowedOrigin,
-      'access-control-allow-methods': 'POST,OPTIONS',
+      'access-control-allow-methods': 'GET,POST,OPTIONS',
       'access-control-allow-headers': 'content-type,x-telegram-init-data',
       'vary': 'Origin',
     },
   });
 }
 
+function normalizeCommandType(commandType) {
+  const normalized = COMMAND_ALIASES[commandType] || commandType;
+  return ALLOWED_COMMAND_TYPES.has(normalized) ? normalized : null;
+}
+
+function isCommandRoute(pathname) {
+  return pathname === '/' || pathname === '/bot-command';
+}
+
 async function insertBotCommand(env, user, body) {
+  const commandType = normalizeCommandType(body.command_type);
+  if (!commandType) {
+    return jsonResponse({ error: 'unsupported_command_type' }, 400);
+  }
+
   const payload = {
-    command_type: body.command_type,
+    command_type: commandType,
     payload: body.payload || {},
     requested_by_telegram_user_id: user.id,
     requested_by_name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || String(user.id),
@@ -83,22 +112,42 @@ async function insertBotCommand(env, user, body) {
     body: JSON.stringify(payload),
   });
   if (!resp.ok) {
-    return jsonResponse({ error: await resp.text() }, 500);
+    return jsonResponse({ error: 'bot_command_insert_failed' }, 500);
   }
   return jsonResponse({ ok: true, command: (await resp.json())[0] });
 }
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+
     if (request.method === 'OPTIONS') return preflightResponse(request, env);
-    if (!getAllowedOrigin(request, env)) return jsonResponse({ error: 'origin_not_allowed' }, 403);
-    if (new URL(request.url).pathname !== '/bot-command') return withCors(jsonResponse({ error: 'not_found' }, 404), request, env);
-    if (request.method !== 'POST') return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), request, env);
+
+    if (url.pathname === '/health' && request.method === 'GET') {
+      return withCors(jsonResponse({ ok: true }), request, env);
+    }
+
+    if (!getAllowedOrigin(request, env)) {
+      return jsonResponse({ error: 'origin_not_allowed' }, 403);
+    }
+    if (!isCommandRoute(url.pathname)) {
+      return withCors(jsonResponse({ error: 'not_found' }, 404), request, env);
+    }
+    if (request.method !== 'POST') {
+      return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), request, env);
+    }
+
     const initData = request.headers.get('x-telegram-init-data') || '';
     const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
-    if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), request, env);
+    if (!user) {
+      return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), request, env);
+    }
+
     const body = await request.json();
-    if (!body.command_type) return withCors(jsonResponse({ error: 'command_type_required' }, 400), request, env);
+    if (!body.command_type) {
+      return withCors(jsonResponse({ error: 'command_type_required' }, 400), request, env);
+    }
+
     const response = await insertBotCommand(env, user, body);
     return withCors(response, request, env);
   }

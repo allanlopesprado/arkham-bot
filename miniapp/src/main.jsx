@@ -7,6 +7,19 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const commandsApiUrl = import.meta.env.VITE_COMMANDS_API_URL;
 
+function getCommandsEndpoint() {
+  if (!commandsApiUrl) return '';
+  try {
+    const url = new URL(commandsApiUrl);
+    if (!url.pathname || url.pathname === '/') {
+      url.pathname = '/bot-command';
+    }
+    return url.toString();
+  } catch {
+    return commandsApiUrl;
+  }
+}
+
 function getTelegramInitData() {
   return window.Telegram?.WebApp?.initData || '';
 }
@@ -39,11 +52,12 @@ function App() {
   }
 
   async function enqueue(command_type, payload = {}) {
-    if (!commandsApiUrl) {
+    const endpoint = getCommandsEndpoint();
+    if (!endpoint) {
       setStatus('VITE_COMMANDS_API_URL is not configured. Use the Worker for critical commands.');
       return;
     }
-    const resp = await fetch(commandsApiUrl, {
+    const resp = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
