@@ -45,7 +45,7 @@ function resolveError(code, fallback) {
   return ERROR_MESSAGES[code] || { friendly: fallback || 'Erro desconhecido.', detail: code || '' };
 }
 
-// ─── Diagnostics (safe — never exposes initData raw) ──────────────────────────
+// ─── Diagnostics ──────────────────────────────────────────────────────────────
 
 function buildDiag() {
   const tg = getTelegramWebApp();
@@ -62,40 +62,32 @@ function buildDiag() {
   };
 }
 
-// ─── Icon badge component ─────────────────────────────────────────────────────
-
-function IconBadge({ emoji, color = '#5288c1' }) {
-  return (
-    <span
-      className="tg-row__icon"
-      style={{ '--badge-color': color }}
-    >
-      {emoji}
-    </span>
-  );
-}
-
 // ─── Row components ───────────────────────────────────────────────────────────
 
-function InfoRow({ icon, iconColor, label, value, valueClass = '' }) {
+function InfoRow({ icon, label, value, valueClass = '' }) {
   return (
     <div className="tg-row">
-      {icon && <IconBadge emoji={icon} color={iconColor} />}
+      {icon && <span className="tg-row__icon">{icon}</span>}
       <span className="tg-row__label">{label}</span>
       <span className={`tg-row__value ${valueClass}`}>{value}</span>
     </div>
   );
 }
 
-function ActionRow({ icon, iconColor, label, onClick, disabled, loading, danger, primary }) {
+function ActionRow({ icon, label, onClick, disabled, loading, danger, primary }) {
   return (
     <button
-      className={`tg-row tg-row--action${danger ? ' danger' : ''}${primary ? ' primary-action' : ''}${loading ? ' tg-row--loading' : ''}`}
+      className={[
+        'tg-row tg-row--action',
+        danger  ? 'danger'         : '',
+        primary ? 'primary-action' : '',
+        loading ? 'tg-row--loading': '',
+      ].join(' ').trim()}
       onClick={onClick}
       disabled={disabled || loading}
       type="button"
     >
-      {icon && <IconBadge emoji={icon} color={iconColor} />}
+      {icon && <span className="tg-row__icon" style={danger ? { color: 'var(--tg-danger)' } : primary ? { color: 'var(--tg-link)' } : {}}>{icon}</span>}
       <span className="tg-row__label">{label}</span>
       {loading
         ? <span className="spinner" />
@@ -117,7 +109,6 @@ function App() {
   const [loadingMe, setLoadingMe] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
-  // ─── Init Telegram SDK ──────────────────────────────────────────────────────
   useEffect(() => {
     const tg = getTelegramWebApp();
     if (tg) {
@@ -137,7 +128,6 @@ function App() {
   const isOutsideTelegram = !diag.webAppDetected || !diag.initDataPresent;
   const actionsDisabled = !isAdmin || isOutsideTelegram || !apiConfigured || loadingCmd !== null;
 
-  // ─── /me ────────────────────────────────────────────────────────────────────
   async function fetchMe() {
     const url = buildApiUrl('/me');
     if (!url) return;
@@ -149,7 +139,6 @@ function App() {
     finally { setLoadingMe(false); }
   }
 
-  // ─── /status ────────────────────────────────────────────────────────────────
   async function fetchStatus() {
     const url = buildApiUrl('/status');
     if (!url) return;
@@ -161,7 +150,6 @@ function App() {
     finally { setLoadingStatus(false); }
   }
 
-  // ─── Enqueue ─────────────────────────────────────────────────────────────────
   const enqueue = useCallback(async (command_type, payload = {}) => {
     if (loadingCmd) return;
     haptic('impact', 'light');
@@ -197,7 +185,6 @@ function App() {
     } finally { setLoadingCmd(null); }
   }, [loadingCmd]);
 
-  // ─── Helper: admin/connection status label ────────────────────────────────────
   function adminLabel() {
     if (loadingMe) return ['…', ''];
     if (!apiConfigured) return ['sem API', 'warn'];
@@ -210,73 +197,66 @@ function App() {
 
   const [adminVal, adminClass] = adminLabel();
 
-  // ─── Actions list ─────────────────────────────────────────────────────────────
   const actions = [
-    { cmd: 'post_now',         icon: '📤', iconColor: '#0a84ff', label: 'Postar agora',    payload: cardCode ? { card_code: cardCode } : {} },
-    { cmd: 'skip_card',        icon: '⏭',  iconColor: '#636366', label: 'Pular carta',     payload: cardCode ? { card_code: cardCode } : {} },
-    { cmd: 'pause_daily_post', icon: '⏸',  iconColor: '#ff9f0a', label: 'Pausar diário' },
-    { cmd: 'resume_daily_post',icon: '▶',  iconColor: '#32d74b', label: 'Retomar diário' },
-    { cmd: 'sync_arkhamdb',    icon: '🔄', iconColor: '#5e5ce6', label: 'Sync ArkhamDB',   payload: { sync_faq: false } },
+    { cmd: 'post_now',         icon: '📤', label: 'Postar agora',    payload: cardCode ? { card_code: cardCode } : {} },
+    { cmd: 'skip_card',        icon: '⏭',  label: 'Pular carta',     payload: cardCode ? { card_code: cardCode } : {} },
+    { cmd: 'pause_daily_post', icon: '⏸',  label: 'Pausar diário' },
+    { cmd: 'resume_daily_post',icon: '▶',  label: 'Retomar diário' },
+    { cmd: 'sync_arkhamdb',    icon: '🔄', label: 'Sync ArkhamDB',   payload: { sync_faq: false } },
   ];
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="app">
 
       {/* Header */}
       <div className="tg-header">
-        <div className="tg-header__title">Arkham Bot</div>
-        <div className="tg-header__sub">Painel de controle administrativo</div>
+        <div className="tg-header__title">Arkham Bot Admin</div>
+        <div className="tg-header__sub">Painel de controle</div>
       </div>
 
-      {/* Aviso fora do Telegram */}
+      {/* Avisos */}
       {isOutsideTelegram && (
         <div className="tg-notice">
-          ⚠️ Aberto fora do Telegram — initData indisponível. Autenticação não funcionará.
+          ⚠ Aberto fora do Telegram — initData indisponível. Autenticação não funcionará.
         </div>
       )}
-
-      {/* Aviso sem API */}
       {!apiConfigured && (
         <div className="tg-notice">
           Worker não configurado. Defina VITE_COMMANDS_API_URL e publique o Pages.
         </div>
       )}
 
-      {/* Seção: Conexão */}
+      {/* Conexão */}
       <div className="tg-section">
         <div className="tg-section__label">Conexão</div>
         <div className="tg-section__body">
-          <InfoRow icon="✈️" iconColor="#0a84ff" label="Telegram WebApp" value={diag.webAppDetected ? 'sim' : 'não'} valueClass={diag.webAppDetected ? 'ok' : 'err'} />
-          <InfoRow icon="🔑" iconColor="#ff9f0a" label="initData"        value={diag.initDataPresent ? `sim · ${diag.initDataLength}c` : 'não'} valueClass={diag.initDataPresent ? 'ok' : 'err'} />
-          <InfoRow icon="🛡️" iconColor="#32d74b" label="Admin"           value={adminVal} valueClass={adminClass} />
-          <InfoRow icon="🌐" iconColor="#5e5ce6" label="API"             value={diag.apiConfigured ? 'configurada' : 'não configurada'} valueClass={diag.apiConfigured ? 'ok' : 'err'} />
+          <InfoRow icon="✈️" label="Telegram WebApp" value={diag.webAppDetected ? 'sim' : 'não'} valueClass={diag.webAppDetected ? 'ok' : 'err'} />
+          <InfoRow icon="🔑" label="initData"        value={diag.initDataPresent ? `sim · ${diag.initDataLength}c` : 'não'} valueClass={diag.initDataPresent ? 'ok' : 'err'} />
+          <InfoRow icon="🛡"  label="Admin"           value={adminVal} valueClass={adminClass} />
+          <InfoRow icon="🌐" label="API"             value={diag.apiConfigured ? 'configurada' : 'não configurada'} valueClass={diag.apiConfigured ? 'ok' : 'err'} />
         </div>
         <div className="tg-section__body" style={{ marginTop: 1 }}>
           <button className="tg-btn-inline" onClick={fetchMe} disabled={loadingMe}>
-            {loadingMe
-              ? <><span className="spinner" style={{ width: 14, height: 14, marginRight: 4 }} />Verificando…</>
-              : '↺  Reverificar autenticação'
-            }
+            {loadingMe ? 'Verificando…' : '↺  Reverificar autenticação'}
           </button>
         </div>
       </div>
 
-      {/* Seção: Sistema */}
+      {/* Sistema */}
       <div className="tg-section">
         <div className="tg-section__label">Sistema</div>
         <div className="tg-section__body">
           {loadingStatus && (
             <div className="tg-row">
-              <span className="tg-row__value" style={{ color: 'var(--tg-hint)' }}>Carregando…</span>
+              <span className="tg-row__label" style={{ color: 'var(--tg-hint)' }}>Carregando…</span>
             </div>
           )}
           {sysStatus && !loadingStatus && <>
-            <InfoRow icon="⚡" iconColor={sysStatus.ok ? '#32d74b' : '#ff453a'} label="Worker"      value={sysStatus.ok ? 'online' : 'offline'} valueClass={sysStatus.ok ? 'ok' : 'err'} />
-            <InfoRow icon="🃏" iconColor="#0a84ff"   label="Cards"       value={sysStatus.total_cards ?? '—'} />
-            <InfoRow icon="📦" iconColor="#ff9f0a"   label="Packs"       value={sysStatus.total_packs ?? '—'} />
-            <InfoRow icon="🔄" iconColor="#5e5ce6"   label="Último sync" value={sysStatus.last_sync ? new Date(sysStatus.last_sync).toLocaleString('pt-BR') : '—'} valueClass="mono" />
-            <InfoRow icon="📋" iconColor="#636366"   label="Último cmd"  value={sysStatus.last_command ?? '—'} valueClass="mono" />
+            <InfoRow icon="⚡" label="Worker"      value={sysStatus.ok ? 'online' : 'offline'} valueClass={sysStatus.ok ? 'ok' : 'err'} />
+            <InfoRow icon="🃏" label="Cards"       value={sysStatus.total_cards ?? '—'} />
+            <InfoRow icon="📦" label="Packs"       value={sysStatus.total_packs ?? '—'} />
+            <InfoRow icon="🔄" label="Último sync" value={sysStatus.last_sync ? new Date(sysStatus.last_sync).toLocaleString('pt-BR') : '—'} valueClass="mono" />
+            <InfoRow icon="📋" label="Último cmd"  value={sysStatus.last_command ?? '—'} valueClass="mono" />
           </>}
           {!sysStatus && !loadingStatus && (
             <div className="tg-row">
@@ -286,15 +266,12 @@ function App() {
         </div>
         <div className="tg-section__body" style={{ marginTop: 1 }}>
           <button className="tg-btn-inline" onClick={fetchStatus} disabled={loadingStatus}>
-            {loadingStatus
-              ? <><span className="spinner" style={{ width: 14, height: 14, marginRight: 4 }} />Atualizando…</>
-              : '↺  Atualizar status'
-            }
+            {loadingStatus ? 'Atualizando…' : '↺  Atualizar status'}
           </button>
         </div>
       </div>
 
-      {/* Seção: Carta alvo */}
+      {/* Carta alvo */}
       <div className="tg-section">
         <div className="tg-section__label">Carta alvo</div>
         <div className="tg-section__body">
@@ -312,7 +289,7 @@ function App() {
         <div className="tg-section__footer">Usado por "Postar agora" e "Pular carta".</div>
       </div>
 
-      {/* Seção: Ações */}
+      {/* Ações */}
       <div className="tg-section">
         <div className="tg-section__label">Ações</div>
         {!isAdmin && me && !isOutsideTelegram && apiConfigured && (
@@ -321,11 +298,10 @@ function App() {
           </div>
         )}
         <div className="tg-section__body">
-          {actions.map(({ cmd, icon, iconColor, label, payload }) => (
+          {actions.map(({ cmd, icon, label, payload }) => (
             <ActionRow
               key={cmd}
               icon={icon}
-              iconColor={iconColor}
               label={label}
               loading={loadingCmd === cmd}
               disabled={actionsDisabled}
@@ -341,8 +317,7 @@ function App() {
           <div className="tg-section__label">Última ação</div>
           <div className="tg-result">
             <div className={`tg-result__status ${result.ok ? 'ok' : 'err'}`}>
-              <span className={`status-dot ${result.ok ? 'ok' : 'err'}`} />
-              {result.ok ? 'Sucesso' : 'Erro'}
+              {result.ok ? '✓ Sucesso' : '✗ Erro'}
               <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 'auto', color: 'var(--tg-hint)' }}>
                 {result.at?.toLocaleTimeString('pt-BR')}
               </span>
@@ -358,10 +333,10 @@ function App() {
         </div>
       )}
 
-      {/* Diagnóstico (recolhido por padrão) */}
+      {/* Diagnóstico */}
       <div className="tg-section">
         <details>
-          <summary>🔧 Diagnóstico</summary>
+          <summary>Diagnóstico</summary>
           <pre className="diag-pre">{[
             `Telegram WebApp: ${diag.webAppDetected}`,
             `initData presente: ${diag.initDataPresent}`,
