@@ -77,6 +77,54 @@ input {
   color: var(--tg-hint);
 }
 
+.tg-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 12px;
+  border-top: 1px solid var(--tg-separator);
+  border-bottom: 1px solid var(--tg-separator);
+  background: var(--tg-separator);
+}
+
+.tg-summary__item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-areas:
+    "icon label"
+    "icon value";
+  align-items: center;
+  min-height: 62px;
+  padding: 10px 20px;
+  background: var(--tg-section-bg);
+}
+
+.tg-summary__item .tg-icon {
+  grid-area: icon;
+}
+
+.tg-summary__label {
+  grid-area: label;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tg-hint);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tg-summary__value {
+  grid-area: value;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tg-text);
+  font-size: 15px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tg-section {
   margin: 0 0 12px;
 }
@@ -327,6 +375,15 @@ input {
 @media (min-width: 700px) {
   .app {
     padding-top: 16px;
+  }
+
+  .tg-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-left: 16px;
+    margin-right: 16px;
+    border: 1px solid var(--tg-separator);
+    border-radius: 10px;
+    overflow: hidden;
   }
 
   .tg-list {

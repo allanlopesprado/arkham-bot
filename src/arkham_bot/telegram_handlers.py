@@ -1,6 +1,8 @@
 import io
 import logging
 import re
+from datetime import UTC, datetime
+from html import escape
 from urllib.parse import urljoin
 
 from PIL import Image
@@ -31,6 +33,7 @@ from .text_formatters import format_card_back_caption, format_card_caption
 
 
 logger = logging.getLogger(__name__)
+BOT_STARTED_AT = datetime.now(UTC)
 
 
 async def _check_rate_limit(update: Update) -> bool:
@@ -73,6 +76,158 @@ async def _send_long_or_private(update: Update, text: str, *, private_threshold:
         await update.message.reply_text("Não consegui enviar no privado. Envie /start para o bot no privado e tente novamente.")
 
 
+def _yes_no(value: bool) -> str:
+    return "sim" if value else "nao"
+
+
+def _format_uptime(now: datetime) -> str:
+    seconds = max(0, int((now - BOT_STARTED_AT).total_seconds()))
+    days, remainder = divmod(seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, _ = divmod(remainder, 60)
+    if days:
+        return f"{days}d {hours}h {minutes}m"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
+def _format_list(value) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) or "-"
+    if value in (None, ""):
+        return "-"
+    return str(value)
+
+
+def _as_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "sim", "on"}
+    return bool(value)
+
+
+def _safe_status_value(value) -> str:
+    return escape(str(value if value not in (None, "") else "-"))
+
+
+def _format_status_report(payload: dict) -> str:
+    lines = [
+        "<b>Arkham Bot - Status</b>",
+        "",
+        "<b>Runtime</b>",
+        f"Bot: {_safe_status_value(payload['bot'])}",
+        f"Uptime: {_safe_status_value(payload['uptime'])}",
+        f"Horario local: {_safe_status_value(payload['local_time'])}",
+        "",
+        "<b>Telegram</b>",
+        f"Chat configurado: {_yes_no(payload['telegram_chat_configured'])}",
+        f"Usuario: {_safe_status_value(payload['telegram_user_id'])}",
+        "",
+        "<b>Postagem diaria</b>",
+        f"Ativa: {_yes_no(payload['daily_post_enabled'])}",
+        f"Horarios: {_safe_status_value(_format_list(payload['daily_post_times']))}",
+        f"Dias: {_safe_status_value(_format_list(payload['daily_post_days']))}",
+        f"Ultimo status: {_safe_status_value(payload['last_daily_post_status'])}",
+        f"Ultima carta: {_safe_status_value(payload['last_daily_post_card_code'])}",
+        "",
+        "<b>Infra</b>",
+        f"Supabase configurado: {_yes_no(payload['supabase_configured'])}",
+        f"Supabase leitura: {_safe_status_value(payload['supabase_status'])}",
+        f"Worker comandos: {_yes_no(payload['bot_commands_enabled'])}",
+        "",
+        "<b>Admin</b>",
+    ]
+    if payload["is_admin"]:
+        lines.extend([
+            f"Acesso: {_safe_status_value(payload['admin_source'])}",
+            f"Comandos pendentes/retry: {_safe_status_value(payload['pending_commands'])}",
+        ])
+    else:
+        lines.append("Acesso: nao")
+    return "\n".join(lines)
+
+
+def _collect_status_payload(update: Update) -> dict:
+    from zoneinfo import ZoneInfo
+
+    from .config import (
+        BOT_COMMANDS_POLLING_ENABLED,
+        DAILY_POST_DAYS,
+        DAILY_POST_ENABLED,
+        DAILY_POST_TIMES,
+        DAILY_SCHEDULER_STATE_FILE,
+        SUPABASE_ENABLED,
+        TELEGRAM_CHAT_ID,
+        TIMEZONE,
+    )
+    from .local_storage import load_json_file
+    from .scheduler import _as_list
+
+    user_id = update.effective_user.id if update.effective_user else None
+    is_admin = is_admin_user(user_id)
+    now = datetime.now(UTC)
+    timezone_name = TIMEZONE
+    daily_post_enabled = DAILY_POST_ENABLED
+    daily_post_times = DAILY_POST_TIMES
+    daily_post_days = DAILY_POST_DAYS
+    supabase_status = "nao configurado"
+    pending_commands = "-"
+
+    try:
+        from .repositories.settings_repo import get_all_settings
+
+        settings = get_all_settings()
+        if settings:
+            daily_post_enabled = _as_bool(settings.get("daily_post_enabled"), daily_post_enabled)
+            daily_post_times = _as_list(settings.get("daily_post_times", daily_post_times), daily_post_times)
+            daily_post_days = _as_list(settings.get("daily_post_days", daily_post_days), daily_post_days)
+            timezone_name = str(settings.get("timezone", timezone_name) or timezone_name)
+            supabase_status = "ok"
+        elif SUPABASE_ENABLED:
+            supabase_status = "sem settings"
+    except Exception as exc:
+        logger.warning("status_settings_lookup_failed: %s", exc)
+        supabase_status = "erro"
+
+    if is_admin:
+        try:
+            from .repositories.commands_repo import fetch_pending_commands
+
+            pending_commands = str(len(fetch_pending_commands(50)))
+        except Exception as exc:
+            logger.warning("status_commands_lookup_failed: %s", exc)
+            pending_commands = "erro"
+
+    try:
+        local_time = datetime.now(ZoneInfo(timezone_name)).strftime("%Y-%m-%d %H:%M:%S %Z")
+    except Exception:
+        local_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    state = load_json_file(DAILY_SCHEDULER_STATE_FILE, default={}) or {}
+    return {
+        "bot": "online",
+        "uptime": _format_uptime(now),
+        "local_time": local_time,
+        "telegram_chat_configured": bool(TELEGRAM_CHAT_ID),
+        "telegram_user_id": user_id or "-",
+        "daily_post_enabled": _as_bool(daily_post_enabled),
+        "daily_post_times": daily_post_times,
+        "daily_post_days": daily_post_days,
+        "last_daily_post_status": state.get("last_daily_post_status", "-"),
+        "last_daily_post_card_code": state.get("last_daily_post_card_code", "-"),
+        "supabase_configured": SUPABASE_ENABLED,
+        "supabase_status": supabase_status,
+        "bot_commands_enabled": BOT_COMMANDS_POLLING_ENABLED,
+        "is_admin": is_admin,
+        "admin_source": admin_source(user_id),
+        "pending_commands": pending_commands,
+    }
+
+
 async def bot_started_message(application):
     """Sends a message to the group as soon as the bot starts."""
     if TELEGRAM_CHAT_ID:
@@ -83,10 +238,11 @@ async def bot_started_message(application):
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Responds to the /status command with a simple message."""
+    """Responds to the /status command with operational information."""
     if not await _check_rate_limit(update):
         return
-    await update.message.reply_text("Bot is online and running!")
+    payload = _collect_status_payload(update)
+    await update.message.reply_text(_format_status_report(payload), parse_mode=ParseMode.HTML)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

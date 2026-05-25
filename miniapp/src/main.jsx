@@ -250,6 +250,16 @@ function Notice({ tone = 'warn', children }) {
   return <div className={`tg-notice ${tone}`.trim()}>{children}</div>;
 }
 
+function SummaryItem({ icon, label, value }) {
+  return (
+    <div className="tg-summary__item">
+      <Icon name={icon} />
+      <span className="tg-summary__label">{label}</span>
+      <strong className="tg-summary__value">{value}</strong>
+    </div>
+  );
+}
+
 function App() {
   const [diag, setDiag] = useState(() => buildDiag());
   const [me, setMe] = useState(null);
@@ -364,6 +374,10 @@ function App() {
             ? 'sem rede'
             : 'pendente';
 
+  const workerValue = loadingStatus ? '...' : sysStatus?.ok ? 'online' : 'offline';
+  const cardsValue = loadingStatus ? '...' : (sysStatus?.total_cards ?? '-');
+  const syncValue = sysStatus?.last_sync ? new Date(sysStatus.last_sync).toLocaleDateString('pt-BR') : '-';
+
   const actions = [
     { cmd: 'post_now', icon: 'send', label: 'Postar agora', caption: cardCode ? `Carta ${cardCode}` : 'Carta diaria' },
     { cmd: 'skip_card', icon: 'skip', label: 'Pular carta', caption: cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta', payload: cardCode ? { card_code: cardCode } : {} },
@@ -379,6 +393,13 @@ function App() {
         <div className="tg-profile__title">Arkham Bot</div>
         <div className="tg-profile__subtitle">Admin Console</div>
       </header>
+
+      <section className="tg-summary" aria-label="Resumo">
+        <SummaryItem icon="server" label="Worker" value={workerValue} />
+        <SummaryItem icon="shield" label="Acesso" value={adminValue} />
+        <SummaryItem icon="cards" label="Cards" value={cardsValue} />
+        <SummaryItem icon="clock" label="Sync" value={syncValue} />
+      </section>
 
       {isOutsideTelegram && <Notice>Abra pelo Telegram para autenticar.</Notice>}
       {!apiConfigured && <Notice tone="err">Worker nao configurado.</Notice>}
