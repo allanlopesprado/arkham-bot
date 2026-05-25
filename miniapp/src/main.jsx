@@ -518,6 +518,19 @@ function App() {
     setDiag(buildDiag());
   }, []);
 
+  useEffect(() => {
+    const backButton = getTelegramWebApp()?.BackButton;
+    if (!backButton) return undefined;
+    const goHome = () => setActiveTab('manage');
+    if (activeTab === 'manage') {
+      backButton.hide?.();
+    } else {
+      backButton.show?.();
+      backButton.onClick?.(goHome);
+    }
+    return () => backButton.offClick?.(goHome);
+  }, [activeTab]);
+
   useEffect(() => { fetchMe(); fetchStatus(); fetchSettings(); fetchOverview(); fetchCommands(); }, []);
 
   const isAdmin = me?.admin === true;

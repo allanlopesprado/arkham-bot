@@ -14,7 +14,7 @@
   --tg-separator: var(--tg-theme-section-separator-color, rgba(7, 14, 22, 0.72));
   --tg-danger: var(--tg-theme-destructive-text-color, #e5655f);
   --tg-danger-bg: #e5655f;
-  --panel-width: 760px;
+  --panel-width: 384px;
   color: var(--tg-text);
   background: var(--tg-bg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -49,11 +49,16 @@ button {
   width: 100%;
   max-width: var(--panel-width);
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top, 0) + 26px) 18px calc(env(safe-area-inset-bottom, 0) + 30px);
+  min-height: var(--tg-viewport-stable-height, 100vh);
+  background: var(--tg-bg);
+  padding:
+    calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, 0px)) + 18px)
+    16px
+    calc(var(--tg-content-safe-area-inset-bottom, var(--tg-safe-area-inset-bottom, 0px)) + 18px);
 }
 
 .tg-profile {
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 4px;
@@ -96,9 +101,9 @@ button {
 
 .tg-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
-  margin: 0 0 28px;
+  margin: 0 0 26px;
 }
 
 .tg-summary__item {
@@ -141,7 +146,7 @@ button {
 
 .tg-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
   margin: 0 0 30px;
 }
@@ -152,7 +157,7 @@ button {
   background: var(--tg-secondary-bg);
   color: var(--tg-hint);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -162,11 +167,11 @@ button {
 }
 
 .tg-section {
-  margin: 0 0 30px;
+  margin: 0 0 28px;
 }
 
 .tg-section__title {
-  padding: 0 10px 14px;
+  padding: 0 12px 14px;
   color: var(--tg-text);
   font-size: 18px;
   font-weight: 750;
@@ -458,7 +463,7 @@ button {
 }
 
 .tg-day-grid {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 8px;
 }
 
@@ -623,30 +628,16 @@ button {
 
 @media (max-width: 640px) {
   .app {
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .tg-profile {
     padding-bottom: 20px;
   }
 
-  .tg-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-bottom: 18px;
-  }
-
-  .tg-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-bottom: 20px;
-  }
-
   .tg-section {
     margin-bottom: 24px;
-  }
-
-  .tg-day-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .tg-search-line,
@@ -663,8 +654,14 @@ button {
 }
 
 @media (min-width: 900px) {
+  body {
+    background: #0f0f10;
+  }
+
   .app {
-    margin-left: 54px;
-    margin-right: auto;
+    margin-top: 25px;
+    margin-bottom: 25px;
+    border-radius: 6px;
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.34);
   }
 }
