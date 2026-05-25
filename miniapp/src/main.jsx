@@ -513,27 +513,21 @@ function ActionRow({ icon, label, caption, onClick, disabled, loading, danger })
   );
 }
 
-function MenuRow({ icon, label, caption, value, onClick, disabled }) {
+function MenuRow({ icon, label, value, onClick, disabled }) {
   return (
     <button className="row row-action" onClick={onClick} disabled={disabled} type="button">
       {icon && <Icon name={icon} />}
-      <div className="row-main">
-        <span className="row-label">{label}</span>
-        {caption && <span className="row-caption">{caption}</span>}
-      </div>
+      <span className="row-label">{label}</span>
       {value !== undefined && <span className="row-value">{value}</span>}
       <Icon name="chevron" className="chevron" />
     </button>
   );
 }
 
-function ToggleRow({ label, caption, checked, onChange, disabled = false }) {
+function ToggleRow({ label, checked, onChange, disabled = false }) {
   return (
     <label className="toggle-row">
-      <div className="row-main">
-        <span className="row-label">{label}</span>
-        {caption && <span className="row-caption">{caption}</span>}
-      </div>
+      <span className="row-label">{label}</span>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="toggle" aria-hidden="true" />
     </label>
@@ -1059,10 +1053,9 @@ function App() {
       {/* ── CONTROLS ── */}
       {activeTab === 'controls' && (
         <>
-          <Section title={copy.modeSettings} footer={copy.dailyPostFooter}>
+          <Section title={copy.modeSettings} footer={copy.automaticPostingCaption}>
             <ToggleRow
               label={copy.automaticPosting}
-              caption={copy.automaticPostingCaption}
               checked={settings.daily_post_enabled}
               disabled={actionsDisabled}
               onChange={(checked) => confirmThenEnqueue(
@@ -1072,13 +1065,13 @@ function App() {
             />
           </Section>
 
-          <Section title={copy.maintenance}>
-            <ActionRow icon="sync" label={copy.syncArkhamDB} caption={copy.syncCaption} onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
+          <Section title={copy.maintenance} footer={copy.syncCaption}>
+            <ActionRow icon="sync" label={copy.syncArkhamDB} onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
           </Section>
 
           <Section title={copy.dangerZone} danger>
-            <ActionRow icon="reset" label={copy.resetCycle} caption={copy.resetCaption} onClick={() => confirmThenEnqueue(copy.confirmReset, 'reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
-            <ActionRow icon="trash" label={copy.clearQueue} caption={copy.clearQueueCaption} onClick={() => confirmThenEnqueue(copy.confirmClear, 'clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
+            <ActionRow icon="reset" label={copy.resetCycle} onClick={() => confirmThenEnqueue(copy.confirmReset, 'reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
+            <ActionRow icon="trash" label={copy.clearQueue} onClick={() => confirmThenEnqueue(copy.confirmClear, 'clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
           </Section>
         </>
       )}
@@ -1086,10 +1079,9 @@ function App() {
       {/* ── SCHEDULE ── */}
       {activeTab === 'schedule' && (
         <>
-          <Section title={copy.scheduleTitle || copy.schedule} footer={copy.dailyPostFooter}>
+          <Section title={copy.scheduleTitle || copy.schedule} footer={copy.automaticPostingCaption}>
             <ToggleRow
               label={copy.automaticPosting}
-              caption={copy.automaticPostingCaption}
               checked={settings.daily_post_enabled}
               onChange={(checked) => setSettings((cur) => ({ ...cur, daily_post_enabled: checked }))}
             />

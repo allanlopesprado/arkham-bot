@@ -118,8 +118,6 @@ button { -webkit-tap-highlight-color: transparent; border: 0; }
   color: var(--header-hint);
   font-size: 13px;
   font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .section-title.danger { color: var(--destructive); }
@@ -223,6 +221,9 @@ button { -webkit-tap-highlight-color: transparent; border: 0; }
   color: var(--hint);
 }
 
+/* Menu/action rows without row-main: label grows */
+.row-action > .row-label { flex: 1; }
+
 /* Navigation icons get accent color */
 .row-action .icon:first-child { color: var(--link); }
 /* Keep danger rows red */
@@ -305,7 +306,10 @@ button { -webkit-tap-highlight-color: transparent; border: 0; }
   justify-content: space-between;
   cursor: pointer;
   transition: background 0.15s ease;
+  gap: 14px;
 }
+
+.toggle-row .row-label { flex: 1; }
 
 .toggle-row input {
   position: absolute;
