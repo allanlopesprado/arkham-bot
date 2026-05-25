@@ -1,0 +1,7 @@
+name = "arkham-bot-worker"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+SUPABASE_URL = "https://uqtmwnjxrxiylstbezhy.supabase.co"
+ALLOWED_ORIGINS = "https://arkham-bot-miniapp.pages.dev"
