@@ -19,6 +19,10 @@ function haptic(type, value) {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
+function getBotPhotoUrl() {
+  return import.meta.env.VITE_BOT_PHOTO_URL || '';
+}
+
 function getApiBase() {
   const raw = import.meta.env.VITE_COMMANDS_API_URL || '';
   if (!raw) return '';
@@ -103,6 +107,10 @@ const I18N = {
     postDaysCaption: 'Escolha quando a rotina pode publicar',
     timezoneLabel: 'Fuso horário',
     timezoneCaption: 'Padrão usado para calcular os horários',
+    aiLanguage: 'Idioma da IA',
+    aiLanguageCaption: 'Idioma usado nos comentários gerados pela IA',
+    aiLanguagePt: 'Português (pt-BR)',
+    aiLanguageEn: 'English (en-US)',
     syncArkhamDB: 'Sincronizar ArkhamDB',
     syncCaption: 'Atualiza cartas e pacotes',
     resetCycle: 'Resetar ciclo',
@@ -228,6 +236,10 @@ const I18N = {
     postDaysCaption: 'Choose when the routine may publish',
     timezoneLabel: 'Timezone',
     timezoneCaption: 'Timezone used to calculate posting times',
+    aiLanguage: 'AI Language',
+    aiLanguageCaption: 'Language used in AI-generated commentary',
+    aiLanguagePt: 'Português (pt-BR)',
+    aiLanguageEn: 'English (en-US)',
     syncArkhamDB: 'Sync ArkhamDB',
     syncCaption: 'Updates cards and packs',
     resetCycle: 'Reset cycle',
@@ -359,6 +371,7 @@ const DEFAULT_SETTINGS = {
   daily_post_times: ['08:00'],
   daily_post_days: WEEKDAYS.map((d) => d.code),
   timezone: 'America/Sao_Paulo',
+  ai_language: 'pt-BR',
 };
 
 function normalizeSettings(s = {}) {
@@ -371,6 +384,7 @@ function normalizeSettings(s = {}) {
       ? s.daily_post_days : DEFAULT_SETTINGS.daily_post_days,
     timezone: typeof s.timezone === 'string' && s.timezone.trim()
       ? s.timezone : DEFAULT_SETTINGS.timezone,
+    ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
   };
 }
 
@@ -925,13 +939,15 @@ function App() {
   return (
     <div className="app">
 
-      {/* Header — visible on all tabs */}
+      {/* Header — centered, BotFather-style */}
       <header className="app-header">
-        <div className="avatar"><Icon name="bot" /></div>
-        <div className="header-text">
-          <div className="header-title">Arkham Bot</div>
-          <div className="header-subtitle">{copy.subtitle}</div>
+        <div className="avatar">
+          {getBotPhotoUrl()
+            ? <img src={getBotPhotoUrl()} alt="Arkham Bot" className="avatar-img" />
+            : <Icon name="bot" />}
         </div>
+        <div className="header-title">Arkham Bot</div>
+        <div className="header-subtitle">{copy.subtitle}</div>
       </header>
 
       {isOutsideTelegram && <Notice>{copy.outsideTelegram}</Notice>}
@@ -1090,6 +1106,17 @@ function App() {
               <Field label={copy.timezoneLabel} hint={copy.timezoneCaption}>
                 <input className="input" type="text" value={settings.timezone} onChange={(e) => setSettings((cur) => ({ ...cur, timezone: e.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
               </Field>
+            </div>
+            <div className="form-row">
+              <SelectField
+                label={copy.aiLanguage}
+                hint={copy.aiLanguageCaption}
+                value={settings.ai_language}
+                onChange={(val) => setSettings((cur) => ({ ...cur, ai_language: val }))}
+              >
+                <option value="pt-BR">{copy.aiLanguagePt}</option>
+                <option value="en-US">{copy.aiLanguageEn}</option>
+              </SelectField>
             </div>
             <ActionRow icon="refresh" label={copy.reloadSettings} onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
             <ActionRow icon="save" label={copy.saveSettings} onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />

@@ -21,7 +21,9 @@ const SETTINGS_KEYS = new Set([
   'daily_post_times',
   'daily_post_days',
   'timezone',
+  'ai_language',
 ]);
+const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
 async function hmacSha256(keyBytes, data) {
@@ -241,6 +243,10 @@ function validateSettingsPatch(body) {
       const timezone = validateTimezone(value);
       if (!timezone) return { error: 'invalid_setting_value', key };
       settings[key] = timezone;
+    }
+    if (key === 'ai_language') {
+      if (!AI_LANGUAGE_VALUES.has(value)) return { error: 'invalid_setting_value', key };
+      settings[key] = value;
     }
   }
   if (Object.keys(settings).length === 0) return { error: 'settings_required' };
