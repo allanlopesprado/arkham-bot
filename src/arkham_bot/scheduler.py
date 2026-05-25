@@ -95,9 +95,16 @@ async def daily_scheduler_loop() -> None:
                             logger.error(f"daily_post_failure: {result.error}")
                     else:
                         logger.debug("daily_post_skipped_not_due")
-        except BaseException as exc:  # protect the long-running Telegram process from scheduler errors/SystemExit
+        except asyncio.CancelledError:
+            logger.info("scheduler_stopped")
+            raise
+        except Exception as exc:
             logger.exception(f"scheduler_tick_error: {exc}")
-        await asyncio.sleep(30)
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            logger.info("scheduler_stopped")
+            raise
 
 
 def start_daily_scheduler(application) -> None:

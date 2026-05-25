@@ -1,4 +1,7 @@
 {
   "name": "miniapp",
-  "compatibility_date": "2026-05-25"
+  "compatibility_date": "2026-05-25",
+  "assets": {
+    "directory": "./dist"
+  }
 }

@@ -1,4 +1,3 @@
-// ─── Allowed command types ─────────────────────────────────────────────────────
 const ALLOWED_COMMAND_TYPES = new Set([
   'post_now',
   'skip_card',
@@ -12,11 +11,15 @@ const COMMAND_ALIASES = {
   resume_daily: 'resume_daily_post',
 };
 
-// ─── HMAC / initData validation ───────────────────────────────────────────────
+const ADMIN_ROLES = new Set(['owner', 'admin']);
 
 async function hmacSha256(keyBytes, data) {
   const key = await crypto.subtle.importKey(
-    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
   );
   return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data)));
 }
@@ -25,7 +28,7 @@ function hex(bytes) {
   return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function validateTelegramInitData(initData, botToken) {
+export async function validateTelegramInitData(initData, botToken) {
   if (!initData || !botToken) return null;
   const params = new URLSearchParams(initData);
   const hash = params.get('hash');
@@ -41,13 +44,25 @@ async function validateTelegramInitData(initData, botToken) {
   const authDate = Number(params.get('auth_date') || 0);
   if (!authDate || Math.floor(Date.now() / 1000) - authDate > 86400) return null;
   const userRaw = params.get('user');
-  return userRaw ? JSON.parse(userRaw) : null;
+  try {
+    return userRaw ? JSON.parse(userRaw) : null;
+  } catch {
+    return null;
+  }
 }
 
-// ─── Admin check ──────────────────────────────────────────────────────────────
+function parseAdminIds(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-async function getAdminRole(env, telegramUserId) {
-  // Primary: query public.bot_admins via service_role
+function envAdminFallbackEnabled(env) {
+  return String(env.ALLOW_ADMIN_ENV_FALLBACK || '').toLowerCase() === 'true';
+}
+
+export async function getAdminAccess(env, telegramUserId) {
   if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       const url = `${env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/bot_admins?telegram_user_id=eq.${telegramUserId}&enabled=eq.true&select=role`;
@@ -57,28 +72,26 @@ async function getAdminRole(env, telegramUserId) {
           authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
         },
       });
-      if (resp.ok) {
-        const rows = await resp.json();
-        const row = rows.find((r) => r.role === 'owner' || r.role === 'admin');
-        if (row) return row.role;
-        if (rows.length > 0) return rows[0].role; // viewer etc
-        return 'none';
+      if (!resp.ok) {
+        return { role: 'none', admin: false, source: 'supabase_error' };
       }
+      const rows = await resp.json();
+      const role = rows[0]?.role || 'none';
+      return { role, admin: ADMIN_ROLES.has(role), source: 'supabase' };
     } catch {
-      // fall through to env fallback
+      return { role: 'none', admin: false, source: 'supabase_error' };
     }
   }
 
-  // Fallback: env var ADMIN_TELEGRAM_USER_IDS
-  if (env.ADMIN_TELEGRAM_USER_IDS) {
-    const ids = String(env.ADMIN_TELEGRAM_USER_IDS).split(',').map((s) => s.trim());
-    if (ids.includes(String(telegramUserId))) return 'admin';
+  if (envAdminFallbackEnabled(env)) {
+    const ids = parseAdminIds(env.ADMIN_TELEGRAM_USER_IDS);
+    if (ids.includes(String(telegramUserId))) {
+      return { role: 'admin', admin: true, source: 'env_fallback' };
+    }
   }
 
-  return 'none';
+  return { role: 'none', admin: false, source: 'none' };
 }
-
-// ─── Response helpers ──────────────────────────────────────────────────────────
 
 function jsonResponse(payload, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(payload), {
@@ -117,17 +130,12 @@ function preflightResponse(allowedOrigin) {
   return new Response(null, { status: 204, headers: corsHeaders(allowedOrigin) });
 }
 
-// ─── Command type helpers ──────────────────────────────────────────────────────
-
 function normalizeCommandType(raw) {
   const normalized = COMMAND_ALIASES[raw] || raw;
   return ALLOWED_COMMAND_TYPES.has(normalized) ? normalized : null;
 }
 
-// ─── Safe logging ─────────────────────────────────────────────────────────────
-
-function safeLog(env, data) {
-  // Never log secrets; only log safe fields
+function safeLog(data) {
   console.log(JSON.stringify({
     path: data.path,
     method: data.method,
@@ -135,31 +143,33 @@ function safeLog(env, data) {
     initData_length: data.initData_length,
     telegram_user_id_present: data.telegram_user_id_present,
     admin: data.admin,
+    admin_source: data.admin_source || null,
     command_type: data.command_type || null,
     status: data.status,
   }));
 }
 
-// ─── Route handlers ────────────────────────────────────────────────────────────
-
-// GET /me — returns safe identity + admin status
 async function handleMe(request, env, user, ao) {
-  const role = await getAdminRole(env, user.id);
-  const isAdmin = role === 'owner' || role === 'admin';
-  safeLog(env, {
-    path: '/me', method: 'GET',
-    initData_present: true, initData_length: null,
-    telegram_user_id_present: true, admin: isAdmin, status: 200,
+  const access = await getAdminAccess(env, user.id);
+  safeLog({
+    path: '/me',
+    method: 'GET',
+    initData_present: true,
+    initData_length: null,
+    telegram_user_id_present: true,
+    admin: access.admin,
+    admin_source: access.source,
+    status: 200,
   });
   return withCors(jsonResponse({
     ok: true,
     user: { id: user.id, first_name: user.first_name, username: user.username || null },
-    admin: isAdmin,
-    role,
+    admin: access.admin,
+    role: access.role,
+    admin_source: access.source,
   }), ao);
 }
 
-// GET /status — returns safe system stats
 async function handleStatus(request, env, ao) {
   const result = { ok: true };
   try {
@@ -171,22 +181,19 @@ async function handleStatus(request, env, ao) {
         prefer: 'count=exact',
       };
 
-      // Total cards
-      const cardsResp = await fetch(`${base}/rest/v1/arkham_cards?select=id&limit=1`, { headers });
+      const cardsResp = await fetch(`${base}/rest/v1/arkham_cards?select=code&limit=1`, { headers });
       if (cardsResp.ok) {
         result.total_cards = parseInt(cardsResp.headers.get('content-range')?.split('/')[1] || '0', 10) || null;
       }
 
-      // Total packs
-      const packsResp = await fetch(`${base}/rest/v1/arkham_packs?select=id&limit=1`, { headers });
+      const packsResp = await fetch(`${base}/rest/v1/arkham_packs?select=code&limit=1`, { headers });
       if (packsResp.ok) {
         result.total_packs = parseInt(packsResp.headers.get('content-range')?.split('/')[1] || '0', 10) || null;
       }
 
-      // Last bot command
       const cmdResp = await fetch(
         `${base}/rest/v1/bot_commands?select=command_type,created_at&order=created_at.desc&limit=1`,
-        { headers: { ...headers, prefer: '' } }
+        { headers: { ...headers, prefer: '' } },
       );
       if (cmdResp.ok) {
         const cmds = await cmdResp.json();
@@ -195,10 +202,9 @@ async function handleStatus(request, env, ao) {
           : null;
       }
 
-      // Last sync_arkhamdb command as proxy for last sync
       const syncResp = await fetch(
         `${base}/rest/v1/bot_commands?select=created_at&command_type=eq.sync_arkhamdb&order=created_at.desc&limit=1`,
-        { headers: { ...headers, prefer: '' } }
+        { headers: { ...headers, prefer: '' } },
       );
       if (syncResp.ok) {
         const syncs = await syncResp.json();
@@ -212,7 +218,6 @@ async function handleStatus(request, env, ao) {
   return withCors(jsonResponse(result), ao);
 }
 
-// POST /bot-command — enqueue a validated command
 async function handleBotCommand(request, env, user, ao) {
   let body;
   try {
@@ -230,18 +235,25 @@ async function handleBotCommand(request, env, user, ao) {
     return withCors(jsonResponse({ error: 'unsupported_command_type' }, 400), ao);
   }
 
-  // Admin check before insert
-  const role = await getAdminRole(env, user.id);
-  const isAdmin = role === 'owner' || role === 'admin';
-
-  safeLog(env, {
-    path: '/bot-command', method: 'POST',
-    initData_present: true, initData_length: null,
-    telegram_user_id_present: true, admin: isAdmin, command_type: commandType, status: isAdmin ? 200 : 403,
+  const access = await getAdminAccess(env, user.id);
+  safeLog({
+    path: '/bot-command',
+    method: 'POST',
+    initData_present: true,
+    initData_length: null,
+    telegram_user_id_present: true,
+    admin: access.admin,
+    admin_source: access.source,
+    command_type: commandType,
+    status: access.admin ? 200 : 403,
   });
 
-  if (!isAdmin) {
-    return withCors(jsonResponse({ error: 'unauthorized' }, 403), ao);
+  if (!access.admin) {
+    return withCors(jsonResponse({
+      error: 'unauthorized',
+      role: access.role,
+      admin_source: access.source,
+    }, 403), ao);
   }
 
   const payload = {
@@ -278,41 +290,38 @@ async function handleBotCommand(request, env, user, ao) {
   }), ao);
 }
 
-// ─── Main fetch handler ────────────────────────────────────────────────────────
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const { pathname } = url;
     const ao = getAllowedOrigin(request, env);
 
-    // OPTIONS preflight
     if (request.method === 'OPTIONS') return preflightResponse(ao);
 
-    // Health (no auth required, no origin check)
     if (pathname === '/health' && request.method === 'GET') {
       return jsonResponse({ ok: true });
     }
 
-    // Origin check (all other routes)
     if (!ao) {
       return jsonResponse({ error: 'origin_not_allowed' }, 403);
     }
 
-    // /status — auth required but not admin-only
     if (pathname === '/status' && request.method === 'GET') {
       const initData = request.headers.get('x-telegram-init-data') || '';
-      safeLog(env, {
-        path: '/status', method: 'GET',
-        initData_present: Boolean(initData), initData_length: initData.length,
-        telegram_user_id_present: null, admin: null, status: 200,
+      safeLog({
+        path: '/status',
+        method: 'GET',
+        initData_present: Boolean(initData),
+        initData_length: initData.length,
+        telegram_user_id_present: null,
+        admin: null,
+        status: 200,
       });
       const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
       if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
       return handleStatus(request, env, ao);
     }
 
-    // /me
     if (pathname === '/me' && request.method === 'GET') {
       const initData = request.headers.get('x-telegram-init-data') || '';
       const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
@@ -320,25 +329,26 @@ export default {
       return handleMe(request, env, user, ao);
     }
 
-    // /bot-command (also accepts / for backwards compat)
     if ((pathname === '/bot-command' || pathname === '/') && request.method === 'POST') {
       const initData = request.headers.get('x-telegram-init-data') || '';
-      safeLog(env, {
-        path: pathname, method: 'POST',
-        initData_present: Boolean(initData), initData_length: initData.length,
-        telegram_user_id_present: null, admin: null, status: null,
+      safeLog({
+        path: pathname,
+        method: 'POST',
+        initData_present: Boolean(initData),
+        initData_length: initData.length,
+        telegram_user_id_present: null,
+        admin: null,
+        status: null,
       });
       const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
       if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
       return handleBotCommand(request, env, user, ao);
     }
 
-    // Method not allowed check for known paths
     if (pathname === '/me' || pathname === '/status' || pathname === '/bot-command' || pathname === '/') {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 
-    // 404
     return withCors(jsonResponse({ error: 'not_found' }, 404), ao);
   },
 };

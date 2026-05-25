@@ -1,311 +1,347 @@
-/* ─── Reset ──────────────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
-/* ─── Theme tokens ────────────────────────────────────────────────────────────
-   Telegram injects these as CSS vars. Fallbacks espelham exatamente o tema
-   escuro do BotFather (medido nas screenshots).                               */
 :root {
-  --tg-bg:        var(--tg-theme-bg-color,             #1c1c1e);
-  --tg-bg2:       var(--tg-theme-secondary-bg-color,   #1c1c1e);
-  --tg-section:   var(--tg-theme-section-bg-color,     #2c2c2e);
-  --tg-text:      var(--tg-theme-text-color,            #ffffff);
-  --tg-hint:      var(--tg-theme-hint-color,            #8e8e93);
-  --tg-subtitle:  var(--tg-theme-subtitle-text-color,  #8e8e93);
-  --tg-link:      var(--tg-theme-link-color,            #4ea8e8);
-  --tg-btn:       var(--tg-theme-button-color,          #4ea8e8);
-  --tg-btn-text:  var(--tg-theme-button-text-color,     #ffffff);
-  --tg-sep:       var(--tg-theme-section_separator_color, rgba(255,255,255,.07));
-  --tg-danger:    var(--tg-theme-destructive-text-color, #e05252);
-
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.4;
+  --tg-bg: var(--tg-theme-bg-color, #0f0f10);
+  --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #1b1b1d);
+  --tg-section-bg: var(--tg-theme-section-bg-color, #1f1f22);
+  --tg-text: var(--tg-theme-text-color, #f3f4f5);
+  --tg-hint: var(--tg-theme-hint-color, #8d8f96);
+  --tg-link: var(--tg-theme-link-color, #8d8f96);
+  --tg-button: var(--tg-theme-button-color, #8d8f96);
+  --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+  --tg-separator: var(--tg-theme-section-separator-color, rgba(255, 255, 255, 0.08));
+  --tg-danger: var(--tg-theme-destructive-text-color, #8d8f96);
   color: var(--tg-text);
-  background-color: var(--tg-bg);
+  background: var(--tg-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.35;
   -webkit-font-smoothing: antialiased;
 }
 
-html, body {
-  background-color: var(--tg-bg);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-/* ─── App shell ───────────────────────────────────────────────────────────────── */
-.app {
-  width: 100%;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
-  display: flex;
-  flex-direction: column;
-}
-
-/* ─── Header ──────────────────────────────────────────────────────────────────── */
-.tg-header {
-  padding: 20px 16px 12px;
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
   background: var(--tg-bg);
 }
 
-.tg-header__title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--tg-text);
-  line-height: 1.2;
+body {
+  overflow-x: hidden;
 }
 
-.tg-header__sub {
-  font-size: 13px;
+button,
+input {
+  font: inherit;
+}
+
+.app {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top, 0) 0 calc(env(safe-area-inset-bottom, 0) + 28px);
+}
+
+.tg-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 20px 14px;
+  text-align: center;
+}
+
+.tg-avatar {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--tg-separator);
+  background: var(--tg-section-bg);
   color: var(--tg-hint);
-  margin-top: 2px;
 }
 
-/* ─── Section ─────────────────────────────────────────────────────────────────── */
+.tg-profile__title {
+  font-size: 22px;
+  font-weight: 650;
+  color: var(--tg-text);
+}
+
+.tg-profile__subtitle {
+  font-size: 14px;
+  color: var(--tg-hint);
+}
+
 .tg-section {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
 }
 
-/* Título de seção: branco, bold, fora do card — igual "Settings", "Monetization" */
-.tg-section__label {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--tg-text);
-  padding: 16px 16px 8px;
-  line-height: 1.2;
-}
-
-.tg-section__body {
-  background: var(--tg-section);
-}
-
-/* Footer: hint, abaixo do card */
-.tg-section__footer {
-  font-size: 13px;
+.tg-section__title {
+  padding: 8px 20px 7px;
   color: var(--tg-hint);
-  padding: 6px 16px 4px;
-  line-height: 1.5;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
 }
 
-/* ─── List rows ───────────────────────────────────────────────────────────────── */
+.tg-list {
+  background: var(--tg-section-bg);
+  border-top: 1px solid var(--tg-separator);
+  border-bottom: 1px solid var(--tg-separator);
+}
+
+.tg-section__footer {
+  padding: 7px 20px 0;
+  color: var(--tg-hint);
+  font-size: 13px;
+}
+
 .tg-row {
+  position: relative;
   display: flex;
   align-items: center;
-  min-height: 50px;
-  padding: 12px 16px;
   gap: 12px;
-  /* Separador com indent — começa após o padding, não vai até a borda esquerda */
-  border-bottom: 1px solid var(--tg-sep);
-  background: transparent;
   width: 100%;
-  text-align: left;
+  min-height: 52px;
+  padding: 9px 20px;
+  border: 0;
+  background: transparent;
   color: var(--tg-text);
-  font-size: 16px;
-  cursor: default;
-  position: relative;
+  text-align: left;
 }
 
-/* Separador com indent (como no BotFather — a linha não toca a borda esquerda) */
-.tg-row + .tg-row::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 16px; right: 0;
-  height: 1px;
-  background: var(--tg-sep);
-}
-.tg-row { border-bottom: none; }
-.tg-section__body > .tg-row:last-child::after { display: none; }
-
-.tg-row__icon {
-  font-size: 17px;
-  width: 20px;
-  text-align: center;
+.tg-icon {
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   color: var(--tg-hint);
-  line-height: 1;
+}
+
+.tg-avatar .tg-icon {
+  width: 38px;
+  height: 38px;
+  color: var(--tg-text);
+}
+
+.tg-row + .tg-row::before,
+.tg-details::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 0;
+  height: 1px;
+  background: var(--tg-separator);
+}
+
+.tg-row__main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .tg-row__label {
-  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tg-text);
   font-size: 16px;
   font-weight: 400;
-  color: var(--tg-text);
-  white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-row__caption {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--tg-hint);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tg-row__value {
-  font-size: 15px;
-  color: var(--tg-hint);
-  text-align: right;
+  max-width: 48%;
   flex-shrink: 0;
-  max-width: 55%;
-  word-break: break-all;
+  color: var(--tg-hint);
+  font-size: 15px;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
-.tg-row__value.ok   { color: #4cbe7f; }
-.tg-row__value.err  { color: var(--tg-danger); }
-.tg-row__value.warn { color: #e0a235; }
-.tg-row__value.mono { font-size: 12px; font-family: 'Courier New', monospace; }
+.tg-row__value.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
 
-/* ─── Tappable action rows ────────────────────────────────────────────────────── */
+.tg-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--tg-separator);
+  background: transparent;
+  color: var(--tg-hint);
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.tg-badge.ok {
+  color: var(--tg-hint);
+}
+
+.tg-badge.err {
+  color: var(--tg-hint);
+}
+
+.tg-badge.warn {
+  color: var(--tg-hint);
+}
+
 .tg-row--action {
   cursor: pointer;
-  border: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background .1s;
 }
 
-.tg-row--action:active,
+.tg-row--action:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .tg-row--action:focus-visible {
-  background: rgba(255,255,255,.05);
-  outline: none;
+  outline: 2px solid var(--tg-separator);
+  outline-offset: -2px;
 }
 
 .tg-row--action:disabled {
   cursor: not-allowed;
-  opacity: .35;
+  opacity: 0.38;
 }
 
-/* Ação normal: label branco */
-.tg-row--action .tg-row__label {
+.tg-row--action.danger .tg-row__label {
   color: var(--tg-text);
 }
 
-/* Ação primária (link azul, sem ícone ou ícone azul) */
-.tg-row--action.primary-action .tg-row__label {
-  color: var(--tg-link);
+.tg-chevron {
+  width: 18px;
+  height: 18px;
+  opacity: 0.62;
 }
 
-/* Ação destrutiva */
-.tg-row--action.danger .tg-row__label {
-  color: var(--tg-danger);
-}
-
-/* Chevron: cinza claro, igual ao BotFather */
-.tg-row__chevron {
-  color: var(--tg-hint);
-  font-size: 18px;
-  font-weight: 400;
-  flex-shrink: 0;
-  opacity: 0.6;
-  line-height: 1;
-  margin-right: -2px;
-}
-
-/* Loading */
-.tg-row--loading .tg-row__label { opacity: .55; }
 .spinner {
-  width: 16px; height: 16px;
-  border: 2px solid rgba(255,255,255,.18);
-  border-top-color: var(--tg-btn);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--tg-hint);
+  border-radius: 50%;
+  animation: spin 0.72s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-/* ─── Input ───────────────────────────────────────────────────────────────────── */
-.tg-input-wrap {
-  background: var(--tg-section);
-  padding: 0 16px;
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.tg-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 20px;
 }
 
 .tg-input {
   width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
   background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--tg-sep);
   color: var(--tg-text);
-  font-size: 16px;
-  font-family: inherit;
-  padding: 14px 0;
   outline: none;
-  caret-color: var(--tg-btn);
+  caret-color: var(--tg-text);
 }
 
-.tg-input:last-child { border-bottom: none; }
-.tg-input::placeholder { color: var(--tg-hint); }
-
-/* ─── Inline button ───────────────────────────────────────────────────────────── */
-.tg-btn-inline {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 48px;
-  padding: 10px 16px;
-  background: transparent;
-  border: none;
-  color: var(--tg-link);
-  font-size: 16px;
-  font-family: inherit;
-  cursor: pointer;
-  width: 100%;
-  -webkit-tap-highlight-color: transparent;
-  transition: opacity .1s;
-}
-.tg-btn-inline:active { opacity: .6; }
-.tg-btn-inline:disabled { opacity: .35; cursor: not-allowed; }
-
-/* ─── Notice banner ───────────────────────────────────────────────────────────── */
-.tg-notice {
-  margin: 0 0 8px;
-  padding: 12px 16px;
-  background: rgba(224,162,53,.1);
-  border-left: 3px solid #e0a235;
-  font-size: 14px;
-  color: var(--tg-text);
-  line-height: 1.5;
-}
-
-/* ─── Result ──────────────────────────────────────────────────────────────────── */
-.tg-result {
-  background: var(--tg-section);
-}
-
-.tg-result__status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  font-size: 15px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--tg-sep);
-}
-.tg-result__status.ok  { color: #4cbe7f; }
-.tg-result__status.err { color: var(--tg-danger); }
-
-.tg-result__body {
-  padding: 10px 16px;
-  font-size: 14px;
+.tg-input::placeholder {
   color: var(--tg-hint);
-  border-bottom: 1px solid var(--tg-sep);
-  line-height: 1.5;
 }
 
-/* ─── Details / diagnóstico ───────────────────────────────────────────────────── */
-details { background: var(--tg-section); }
+.tg-notice {
+  margin: 0 0 12px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--tg-separator);
+  border-bottom: 1px solid var(--tg-separator);
+  background: var(--tg-section-bg);
+  color: var(--tg-text);
+  font-size: 14px;
+}
 
-details summary {
-  padding: 12px 16px;
-  font-size: 15px;
-  color: var(--tg-link);
+.tg-notice.err {
+  border-color: var(--tg-separator);
+  background: var(--tg-section-bg);
+}
+
+.tg-details {
+  position: relative;
+  background: transparent;
+}
+
+.tg-details summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 14px 20px;
+  color: var(--tg-text);
   cursor: pointer;
+  font-size: 15px;
   list-style: none;
-  user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-details summary::-webkit-details-marker { display: none; }
-details[open] summary { border-bottom: 1px solid var(--tg-sep); }
+
+.tg-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.tg-details[open] summary {
+  border-bottom: 1px solid var(--tg-separator);
+}
 
 .diag-pre {
-  padding: 10px 16px 14px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
+  margin: 0;
+  padding: 12px 20px 16px;
   color: var(--tg-hint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.7;
+}
+
+@media (min-width: 700px) {
+  .app {
+    padding-top: 16px;
+  }
+
+  .tg-list {
+    border-radius: 10px;
+    border: 1px solid var(--tg-separator);
+    overflow: hidden;
+  }
+
+  .tg-section {
+    padding: 0 16px;
+  }
+
+  .tg-section__title,
+  .tg-section__footer {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
 }

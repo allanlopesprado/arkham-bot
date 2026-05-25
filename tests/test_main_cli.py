@@ -10,6 +10,7 @@ def run_main(*args: str):
     env = os.environ.copy()
     for key in ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]:
         env.pop(key, None)
+    env["PYTHON_DOTENV_DISABLED"] = "1"
     return subprocess.run([sys.executable, "main.py", *args], cwd=ROOT, env=env, text=True, capture_output=True)
 
 

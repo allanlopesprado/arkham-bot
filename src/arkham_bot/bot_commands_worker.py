@@ -10,6 +10,7 @@ from .config import (
     BOT_COMMANDS_BATCH_SIZE,
     BOT_COMMANDS_MAX_RETRIES,
     BOT_COMMANDS_POLLING_INTERVAL_SECONDS,
+    BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS,
     BOT_COMMANDS_RETRY_DELAY_SECONDS,
     POSTED_CARDS_FILE,
     POSTED_CARDS_LOCK,
@@ -26,6 +27,7 @@ from .repositories.commands_repo import (
     mark_command_failed,
     mark_command_processing,
     mark_command_retrying,
+    recover_stale_processing_commands,
 )
 from .repositories.settings_repo import set_setting
 
@@ -126,6 +128,12 @@ async def bot_commands_loop() -> None:
     logger.info("bot_commands_worker_started")
     while True:
         try:
+            recovered = recover_stale_processing_commands(
+                BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS,
+                BOT_COMMANDS_RETRY_DELAY_SECONDS,
+            )
+            if recovered["retrying"] or recovered["failed"]:
+                logger.warning("bot_commands_stale_processing_recovered: %s", recovered)
             for command in fetch_pending_commands(BOT_COMMANDS_BATCH_SIZE):
                 command_id = command.get("id")
                 command_type = command.get("command_type")
@@ -148,9 +156,16 @@ async def bot_commands_loop() -> None:
                         mark_command_failed(command_id, error, result=result)
                         await _notify_admins(f"Arkham Bot command failed after {attempt_count} attempts: {command_type}\n{error}")
                     create_audit_log(command_type or "unknown", "system_job", command.get("payload"), result, command.get("requested_by_telegram_user_id"), command.get("requested_by_name"))
+        except asyncio.CancelledError:
+            logger.info("bot_commands_worker_stopped")
+            raise
         except Exception as exc:
             logger.exception("bot_commands_worker_tick_failed: %s", exc)
-        await asyncio.sleep(BOT_COMMANDS_POLLING_INTERVAL_SECONDS)
+        try:
+            await asyncio.sleep(BOT_COMMANDS_POLLING_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            logger.info("bot_commands_worker_stopped")
+            raise
 
 
 def start_bot_commands_worker(application) -> None:
