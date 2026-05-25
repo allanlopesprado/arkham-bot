@@ -154,6 +154,14 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         raise RuntimeError("No valid cards found after reset.")
 
                 ai_language = get_setting('ai_language', 'pt-BR')
+
+                allowed_types_raw = get_setting('allowed_card_types', None)
+                if isinstance(allowed_types_raw, list) and allowed_types_raw:
+                    unposted_cards = [c for c in unposted_cards if c.get('type_code') in allowed_types_raw]
+                    if not unposted_cards:
+                        logger.warning("No unposted cards match allowed_card_types filter. Ignoring filter.")
+                        unposted_cards = [c for c in valid_cards if c.get('code') not in posted_cards]
+
                 ai_choice = await choose_daily_card_with_ai(unposted_cards, language=ai_language)
                 if ai_choice:
                     card = next((candidate for candidate in unposted_cards if candidate.get('code') == ai_choice.selected_card_code), None) or random.choice(unposted_cards)

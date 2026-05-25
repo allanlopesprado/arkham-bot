@@ -22,9 +22,14 @@ const SETTINGS_KEYS = new Set([
   'daily_post_days',
   'timezone',
   'ai_language',
+  'allowed_card_types',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+const VALID_CARD_TYPES = new Set([
+  'investigator', 'asset', 'event', 'skill',
+  'enemy', 'location', 'treachery', 'act', 'agenda', 'story',
+]);
 
 async function hmacSha256(keyBytes, data) {
   const key = await crypto.subtle.importKey(
@@ -246,6 +251,12 @@ function validateSettingsPatch(body) {
     }
     if (key === 'ai_language') {
       if (!AI_LANGUAGE_VALUES.has(value)) return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'allowed_card_types') {
+      if (!Array.isArray(value) || value.length === 0 || !value.every((t) => VALID_CARD_TYPES.has(t))) {
+        return { error: 'invalid_setting_value', key };
+      }
       settings[key] = value;
     }
   }

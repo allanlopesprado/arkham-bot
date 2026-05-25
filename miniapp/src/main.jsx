@@ -111,6 +111,8 @@ const I18N = {
     aiLanguageCaption: 'Idioma usado nos comentários gerados pela IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    cardTypes: 'Tipos de carta',
+    cardTypesCaption: 'Selecione quais tipos de carta podem ser postados',
     syncArkhamDB: 'Sincronizar ArkhamDB',
     syncCaption: 'Atualiza cartas e pacotes',
     resetCycle: 'Resetar ciclo',
@@ -242,6 +244,8 @@ const I18N = {
     aiLanguageCaption: 'Language used in AI-generated commentary',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    cardTypes: 'Card types',
+    cardTypesCaption: 'Select which card types may be posted',
     syncArkhamDB: 'Sync ArkhamDB',
     syncCaption: 'Updates cards and packs',
     resetCycle: 'Reset cycle',
@@ -370,12 +374,28 @@ function getInitialLanguage() {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
+const ALL_CARD_TYPES = [
+  { code: 'investigator', pt: 'Investigador', en: 'Investigator' },
+  { code: 'asset',        pt: 'Recurso',      en: 'Asset' },
+  { code: 'event',        pt: 'Evento',        en: 'Event' },
+  { code: 'skill',        pt: 'Habilidade',    en: 'Skill' },
+  { code: 'enemy',        pt: 'Inimigo',       en: 'Enemy' },
+  { code: 'location',     pt: 'Localização',   en: 'Location' },
+  { code: 'treachery',    pt: 'Traição',       en: 'Treachery' },
+  { code: 'act',          pt: 'Ato',           en: 'Act' },
+  { code: 'agenda',       pt: 'Agenda',        en: 'Agenda' },
+  { code: 'story',        pt: 'História',      en: 'Story' },
+];
+
+const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
+
 const DEFAULT_SETTINGS = {
   daily_post_enabled: true,
   daily_post_times: ['08:00'],
   daily_post_days: WEEKDAYS.map((d) => d.code),
   timezone: 'America/Sao_Paulo',
   ai_language: 'pt-BR',
+  allowed_card_types: DEFAULT_CARD_TYPES,
 };
 
 function normalizeSettings(s = {}) {
@@ -389,6 +409,8 @@ function normalizeSettings(s = {}) {
     timezone: typeof s.timezone === 'string' && s.timezone.trim()
       ? s.timezone : DEFAULT_SETTINGS.timezone,
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
+    allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length
+      ? s.allowed_card_types : DEFAULT_CARD_TYPES,
   };
 }
 
@@ -1135,6 +1157,31 @@ function App() {
                 <option value="pt-BR">{copy.aiLanguagePt}</option>
                 <option value="en-US">{copy.aiLanguageEn}</option>
               </SelectField>
+            </div>
+          </Section>
+
+          <Section title={copy.cardTypes} footer={copy.cardTypesCaption}>
+            <div className="form-row">
+              <div className="type-grid">
+                {ALL_CARD_TYPES.map((type) => {
+                  const active = settings.allowed_card_types.includes(type.code);
+                  return (
+                    <button
+                      key={type.code}
+                      type="button"
+                      className={`type-btn ${active ? 'active' : ''}`.trim()}
+                      onClick={() => setSettings((cur) => {
+                        const next = active
+                          ? cur.allowed_card_types.filter((t) => t !== type.code)
+                          : [...cur.allowed_card_types, type.code];
+                        return { ...cur, allowed_card_types: next.length ? next : cur.allowed_card_types };
+                      })}
+                    >
+                      {type[language]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </Section>
 
