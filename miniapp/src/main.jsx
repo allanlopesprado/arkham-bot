@@ -635,13 +635,26 @@ function App() {
     try { app.setBackgroundColor?.('bg_color'); } catch {}
     try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
 
-    const onThemeChanged = () => {
+    const applyColors = () => {
       try { app.setHeaderColor?.('secondary_bg_color'); } catch {}
       try { app.setBackgroundColor?.('bg_color'); } catch {}
       try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
     };
-    app.onEvent?.('themeChanged', onThemeChanged);
-    return () => app.offEvent?.('themeChanged', onThemeChanged);
+
+    // Re-expand when viewport changes (e.g. keyboard opens/closes)
+    const onViewportChanged = ({ isStateStable }) => { if (isStateStable) app.expand?.(); };
+
+    app.onEvent?.('themeChanged', applyColors);
+    app.onEvent?.('viewportChanged', onViewportChanged);
+    // safeAreaChanged fires when device safe areas update (rotation, etc.)
+    app.onEvent?.('safeAreaChanged', () => {});
+    // contentSafeAreaChanged fires when Telegram UI insets change
+    app.onEvent?.('contentSafeAreaChanged', () => {});
+
+    return () => {
+      app.offEvent?.('themeChanged', applyColors);
+      app.offEvent?.('viewportChanged', onViewportChanged);
+    };
   }, []);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
