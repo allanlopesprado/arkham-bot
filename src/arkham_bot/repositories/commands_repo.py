@@ -74,6 +74,38 @@ def cancel_pending_commands(reason: str = "cancelled") -> int:
     return len(rows)
 
 
+def recover_stale_processing_commands(timeout_seconds: int, retry_delay_seconds: int) -> dict[str, int]:
+    client = get_supabase_client()
+    if not client:
+        return {"retrying": 0, "failed": 0}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=timeout_seconds)
+    rows = client.get(
+        "bot_commands",
+        {
+            "status": "eq.processing",
+            "executed_at": "is.null",
+            "updated_at": f"lt.{cutoff.isoformat()}",
+        },
+    )
+    recovered = {"retrying": 0, "failed": 0}
+    for row in rows:
+        command_id = row.get("id")
+        if not command_id:
+            continue
+        attempt_count = int(row.get("attempt_count") or 0)
+        max_attempts = int(row.get("max_attempts") or 3)
+        error = f"Recovered stale processing command after {timeout_seconds}s timeout"
+        result = {"error": error, "recovered_from": "processing", "attempt_count": attempt_count, "max_attempts": max_attempts}
+        if attempt_count < max_attempts:
+            mark_command_retrying(command_id, error, retry_delay_seconds, result=result)
+            recovered["retrying"] += 1
+        else:
+            mark_command_failed(command_id, error, result=result)
+            recovered["failed"] += 1
+    return recovered
+
+
 def _patch_status(command_id: str, payload: dict) -> None:
     client = get_supabase_client()
     if client:

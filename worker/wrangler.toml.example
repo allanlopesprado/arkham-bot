@@ -6,6 +6,7 @@ compatibility_date = "2026-05-24"
 SUPABASE_URL = ""
 ALLOWED_ORIGINS = "https://arkham-bot-miniapp.pages.dev"
 # ADMIN_TELEGRAM_USER_IDS = "123456789,987654321"  # optional fallback if bot_admins table unavailable
+# ALLOW_ADMIN_ENV_FALLBACK = "true"  # optional; default is disabled, prefer bot_admins
 
 # Set secrets with wrangler secret put:
 # wrangler secret put TELEGRAM_BOT_TOKEN

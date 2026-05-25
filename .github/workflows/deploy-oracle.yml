@@ -12,7 +12,17 @@ on:
       - "requirements-dev.txt"
       - "pyproject.toml"
       - ".github/workflows/deploy-oracle.yml"
+      - "!miniapp/**"
+      - "!worker/**"
+      - "!README.md"
+      - "!docs/**"
+      - "!**/*.md"
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Motivo do deploy manual"
+        required: false
+        default: "manual deploy"
 
 concurrency:
   group: oracle-production-deploy
@@ -26,6 +36,7 @@ jobs:
     name: Validate and deploy to Oracle
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: oracle-production
 
     steps:
       - name: Checkout
@@ -81,21 +92,33 @@ jobs:
 
           cd "$APP_DIR"
 
+          echo "== Current branch =="
+          git branch --show-current
+
+          echo "== Fetch origin =="
           git fetch origin main
+
+          echo "== Reset to origin/main =="
           git checkout main
           git reset --hard origin/main
 
+          echo "== Python env =="
           source venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+          echo "== Validate =="
           python -m compileall -q .
           python main.py healthcheck --strict
 
+          echo "== Restart service =="
           sudo systemctl restart "$SERVICE_NAME"
           sleep 5
 
+          echo "== Service status =="
           sudo systemctl is-active --quiet "$SERVICE_NAME"
           sudo systemctl status "$SERVICE_NAME" --no-pager -l
+
+          echo "== Recent logs =="
           sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager -l
           REMOTE

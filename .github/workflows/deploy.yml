@@ -1,4 +1,4 @@
-name: Test and Deploy Arkham Bot
+name: Test Arkham Bot
 
 on:
   push:
@@ -30,40 +30,40 @@ jobs:
       - name: Non-strict healthcheck smoke test
         run: python main.py healthcheck
 
-  deploy:
-    needs: test
+  worker:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.ORACLE_HOST }}
-          username: ${{ secrets.ORACLE_USER }}
-          key: ${{ secrets.ORACLE_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            cd "${{ secrets.ORACLE_PROJECT_PATH }}"
-            PREV_REV="$(git rev-parse HEAD || true)"
-            git fetch origin main
-            git checkout main
-            git pull --ff-only origin main
-            ./venv/bin/python -m pip install --upgrade pip
-            ./venv/bin/python -m pip install -r requirements.txt
-            ./venv/bin/python -m pip install -r requirements-dev.txt
-            ./venv/bin/python -m pip install -e .
-            ./venv/bin/python -m compileall -q .
-            ./venv/bin/python -m pytest -q
-            ./venv/bin/python main.py healthcheck --strict
-            sudo systemctl restart arkham-bot
-            sleep 5
-            sudo systemctl is-active --quiet arkham-bot
-            ./venv/bin/python main.py healthcheck --strict || {
-              echo "Post-restart healthcheck failed; rolling back to ${PREV_REV}"
-              git checkout "$PREV_REV"
-              ./venv/bin/python -m pip install -r requirements.txt
-              ./venv/bin/python -m pip install -r requirements-dev.txt
-              ./venv/bin/python -m pip install -e .
-              sudo systemctl restart arkham-bot
-              exit 1
-            }
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: worker/package-lock.json
+      - name: Install Worker dependencies
+        run: npm ci
+        working-directory: worker
+      - name: Validate Worker syntax
+        run: node --check src/index.js
+        working-directory: worker
+      - name: Worker tests
+        run: npm test
+        working-directory: worker
+      - name: Worker dry-run
+        run: npm run dry-run
+        working-directory: worker
+
+  miniapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: miniapp/package-lock.json
+      - name: Install Mini App dependencies
+        run: npm ci
+        working-directory: miniapp
+      - name: Build Mini App
+        run: npm run build
+        working-directory: miniapp

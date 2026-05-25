@@ -38,3 +38,23 @@ def test_mark_command_executed_writes_result_not_payload(monkeypatch):
     assert payload["result"] == {"ok": True}
     assert "payload" not in payload
     assert filters == {"id": "eq.abc"}
+
+
+def test_recover_stale_processing_commands_retries_or_fails(monkeypatch):
+    client = FakeClient([
+        {"id": "retry-me", "attempt_count": 1, "max_attempts": 3},
+        {"id": "fail-me", "attempt_count": 3, "max_attempts": 3},
+    ])
+    monkeypatch.setattr(commands_repo, "get_supabase_client", lambda: client)
+
+    result = commands_repo.recover_stale_processing_commands(timeout_seconds=900, retry_delay_seconds=60)
+
+    assert result == {"retrying": 1, "failed": 1}
+    retry_payload, retry_filters = client.patches[0]
+    fail_payload, fail_filters = client.patches[1]
+    assert retry_payload["status"] == "retrying"
+    assert retry_payload["result"]["recovered_from"] == "processing"
+    assert retry_filters == {"id": "eq.retry-me"}
+    assert fail_payload["status"] == "failed"
+    assert fail_payload["result"]["recovered_from"] == "processing"
+    assert fail_filters == {"id": "eq.fail-me"}

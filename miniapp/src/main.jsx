@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
 
-// ─── Telegram helpers ─────────────────────────────────────────────────────────
-
 function getTelegramWebApp() { return window.Telegram?.WebApp || null; }
 function getTelegramInitData() { return getTelegramWebApp()?.initData || ''; }
 function getTelegramUserUnsafe() { return getTelegramWebApp()?.initDataUnsafe?.user || null; }
@@ -25,27 +23,158 @@ function haptic(type, value) {
     if (!hf) return;
     if (type === 'notification') hf.notificationOccurred(value);
     else if (type === 'impact') hf.impactOccurred(value);
-  } catch { /* ignore */ }
+  } catch {}
 }
 
-// ─── Error messages ───────────────────────────────────────────────────────────
-
 const ERROR_MESSAGES = {
-  invalid_telegram_init_data: { friendly: 'Abra este painel pelo Telegram para autenticar.', detail: 'Worker rejeitou initData.' },
-  unauthorized:               { friendly: 'Usuário não autorizado para comandos administrativos.', detail: 'Seu Telegram user id não está cadastrado como admin.' },
-  not_found:                  { friendly: 'Endpoint do Worker não encontrado.', detail: 'Verifique VITE_COMMANDS_API_URL.' },
-  origin_not_allowed:         { friendly: 'Origem não autorizada no Worker.', detail: 'Verifique ALLOWED_ORIGINS.' },
-  bot_command_insert_failed:  { friendly: 'Falha ao criar comando no Supabase.', detail: 'Verifique Worker secrets e tabela bot_commands.' },
-  command_type_required:      { friendly: 'Tipo de comando não informado.', detail: 'command_type_required' },
-  unsupported_command_type:   { friendly: 'Tipo de comando não suportado.', detail: 'unsupported_command_type' },
-  method_not_allowed:         { friendly: 'Método HTTP não permitido.', detail: 'method_not_allowed' },
+  invalid_telegram_init_data: { friendly: 'Abra pelo Telegram para autenticar.', detail: 'initData invalido.' },
+  unauthorized: { friendly: 'Usuario sem permissao administrativa.', detail: 'O Telegram ID nao esta cadastrado como admin.' },
+  not_found: { friendly: 'Endpoint nao encontrado.', detail: 'Verifique VITE_COMMANDS_API_URL.' },
+  origin_not_allowed: { friendly: 'Origem nao autorizada.', detail: 'Verifique ALLOWED_ORIGINS no Worker.' },
+  bot_command_insert_failed: { friendly: 'Falha ao criar comando.', detail: 'Verifique Worker e Supabase.' },
+  command_type_required: { friendly: 'Tipo de comando nao informado.', detail: 'command_type_required' },
+  unsupported_command_type: { friendly: 'Comando nao suportado.', detail: 'unsupported_command_type' },
+  method_not_allowed: { friendly: 'Metodo HTTP nao permitido.', detail: 'method_not_allowed' },
 };
+
+const icons = {
+  bot: (
+    <>
+      <path d="M12 8V4" />
+      <path d="M9 4h6" />
+      <rect x="5" y="8" width="14" height="11" rx="4" />
+      <path d="M9 13h.01" />
+      <path d="M15 13h.01" />
+      <path d="M10 17h4" />
+    </>
+  ),
+  plug: (
+    <>
+      <path d="M8 2v5" />
+      <path d="M16 2v5" />
+      <path d="M7 7h10v4a5 5 0 0 1-10 0Z" />
+      <path d="M12 16v6" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="7.5" cy="14.5" r="3.5" />
+      <path d="M10 12 21 1" />
+      <path d="M16 6h4v4" />
+      <path d="M14 8h3" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path d="m9 12 2 2 4-5" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M21 12a9 9 0 0 1-15.2 6.5" />
+      <path d="M3 12A9 9 0 0 1 18.2 5.5" />
+      <path d="M18 2v4h4" />
+      <path d="M6 22v-4H2" />
+    </>
+  ),
+  server: (
+    <>
+      <rect x="3" y="4" width="18" height="6" rx="2" />
+      <rect x="3" y="14" width="18" height="6" rx="2" />
+      <path d="M7 7h.01" />
+      <path d="M7 17h.01" />
+    </>
+  ),
+  cards: (
+    <>
+      <rect x="7" y="3" width="10" height="14" rx="2" />
+      <path d="M5 7 3.7 18.1a2 2 0 0 0 1.8 2.2l8.9 1" />
+      <path d="M10 7h4" />
+      <path d="M10 11h4" />
+    </>
+  ),
+  packs: (
+    <>
+      <path d="m21 8-9-5-9 5 9 5 9-5Z" />
+      <path d="M3 8v8l9 5 9-5V8" />
+      <path d="M12 13v8" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
+    </>
+  ),
+  skip: (
+    <>
+      <path d="m5 4 8 8-8 8Z" />
+      <path d="M19 5v14" />
+    </>
+  ),
+  pause: (
+    <>
+      <path d="M8 5v14" />
+      <path d="M16 5v14" />
+    </>
+  ),
+  play: <path d="m7 4 13 8-13 8Z" />,
+  sync: (
+    <>
+      <path d="M17 2v5h5" />
+      <path d="M7 22v-5H2" />
+      <path d="M20 11a8 8 0 0 0-13.5-5.8L2 9" />
+      <path d="M4 13a8 8 0 0 0 13.5 5.8L22 15" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <path d="M12 3v3" />
+      <path d="M12 18v3" />
+      <path d="M3 12h3" />
+      <path d="M18 12h3" />
+    </>
+  ),
+  result: <path d="M20 6 9 17l-5-5" />,
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </>
+  ),
+  chevron: <path d="m9 18 6-6-6-6" />,
+};
+
+function Icon({ name, className = '' }) {
+  return (
+    <svg
+      className={`tg-icon ${className}`.trim()}
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {icons[name]}
+    </svg>
+  );
+}
 
 function resolveError(code, fallback) {
   return ERROR_MESSAGES[code] || { friendly: fallback || 'Erro desconhecido.', detail: code || '' };
 }
-
-// ─── Diagnostics ──────────────────────────────────────────────────────────────
 
 function buildDiag() {
   const tg = getTelegramWebApp();
@@ -58,46 +187,68 @@ function buildDiag() {
     initDataLength: initData.length,
     userDetectedViaUnsafe: Boolean(user),
     apiConfigured: Boolean(apiBase),
-    apiBase: apiBase || '(não configurado)',
+    apiBase: apiBase || 'nao configurado',
   };
 }
 
-// ─── Row components ───────────────────────────────────────────────────────────
+function statusTone(ok) {
+  if (ok === true) return 'ok';
+  if (ok === false) return 'err';
+  return '';
+}
 
-function InfoRow({ icon, label, value, valueClass = '' }) {
+function Badge({ tone = '', children }) {
+  return <span className={`tg-badge ${tone}`.trim()}>{children}</span>;
+}
+
+function Row({ icon, label, value, badgeTone = '', caption, mono = false }) {
   return (
     <div className="tg-row">
-      {icon && <span className="tg-row__icon">{icon}</span>}
-      <span className="tg-row__label">{label}</span>
-      <span className={`tg-row__value ${valueClass}`}>{value}</span>
+      {icon && <Icon name={icon} />}
+      <div className="tg-row__main">
+        <span className="tg-row__label">{label}</span>
+        {caption && <span className="tg-row__caption">{caption}</span>}
+      </div>
+      {value !== undefined && (
+        <span className={`tg-row__value ${mono ? 'mono' : ''}`}>
+          {badgeTone ? <Badge tone={badgeTone}>{value}</Badge> : value}
+        </span>
+      )}
     </div>
   );
 }
 
-function ActionRow({ icon, label, onClick, disabled, loading, danger, primary }) {
+function ActionRow({ icon, label, caption, onClick, disabled, loading, danger }) {
   return (
     <button
-      className={[
-        'tg-row tg-row--action',
-        danger  ? 'danger'         : '',
-        primary ? 'primary-action' : '',
-        loading ? 'tg-row--loading': '',
-      ].join(' ').trim()}
+      className={`tg-row tg-row--action ${danger ? 'danger' : ''}`.trim()}
       onClick={onClick}
       disabled={disabled || loading}
       type="button"
     >
-      {icon && <span className="tg-row__icon" style={danger ? { color: 'var(--tg-danger)' } : primary ? { color: 'var(--tg-link)' } : {}}>{icon}</span>}
-      <span className="tg-row__label">{label}</span>
-      {loading
-        ? <span className="spinner" />
-        : <span className="tg-row__chevron">›</span>
-      }
+      {icon && <Icon name={icon} />}
+      <div className="tg-row__main">
+        <span className="tg-row__label">{label}</span>
+        {caption && <span className="tg-row__caption">{caption}</span>}
+      </div>
+      {loading ? <span className="spinner" /> : <Icon name="chevron" className="tg-chevron" />}
     </button>
   );
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+function Section({ title, footer, children }) {
+  return (
+    <section className="tg-section">
+      {title && <div className="tg-section__title">{title}</div>}
+      <div className="tg-list">{children}</div>
+      {footer && <div className="tg-section__footer">{footer}</div>}
+    </section>
+  );
+}
+
+function Notice({ tone = 'warn', children }) {
+  return <div className={`tg-notice ${tone}`.trim()}>{children}</div>;
+}
 
 function App() {
   const [diag, setDiag] = useState(() => buildDiag());
@@ -121,7 +272,7 @@ function App() {
     setDiag(buildDiag());
   }, []);
 
-  useEffect(() => { fetchMe(); fetchStatus(); }, []); // eslint-disable-line
+  useEffect(() => { fetchMe(); fetchStatus(); }, []);
 
   const isAdmin = me?.admin === true;
   const apiConfigured = diag.apiConfigured;
@@ -135,8 +286,11 @@ function App() {
     try {
       const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
       setMe(await resp.json().catch(() => ({})));
-    } catch { setMe({ ok: false, error: 'network_error' }); }
-    finally { setLoadingMe(false); }
+    } catch {
+      setMe({ ok: false, error: 'network_error' });
+    } finally {
+      setLoadingMe(false);
+    }
   }
 
   async function fetchStatus() {
@@ -146,8 +300,11 @@ function App() {
     try {
       const resp = await fetch(url, { headers: { 'x-telegram-init-data': getTelegramInitData() } });
       setSysStatus(await resp.json().catch(() => ({})));
-    } catch { setSysStatus({ ok: false, error: 'network_error' }); }
-    finally { setLoadingStatus(false); }
+    } catch {
+      setSysStatus({ ok: false, error: 'network_error' });
+    } finally {
+      setLoadingStatus(false);
+    }
   }
 
   const enqueue = useCallback(async (command_type, payload = {}) => {
@@ -155,7 +312,7 @@ function App() {
     haptic('impact', 'light');
     const url = buildApiUrl('/bot-command');
     if (!url) {
-      setResult({ ok: false, friendly: 'Painel sem conexão com Worker.', detail: 'Defina VITE_COMMANDS_API_URL e publique o Pages.', at: new Date() });
+      setResult({ ok: false, friendly: 'Worker nao configurado.', detail: 'Defina VITE_COMMANDS_API_URL.', at: new Date() });
       return;
     }
     setLoadingCmd(command_type);
@@ -168,12 +325,20 @@ function App() {
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         haptic('notification', 'error');
-        setResult({ ok: false, command_type, ...resolveError(json.error, `HTTP ${resp.status}`), at: new Date() });
+        const error = resolveError(json.error, `HTTP ${resp.status}`);
+        setResult({
+          ok: false,
+          command_type,
+          friendly: error.friendly,
+          detail: [error.detail, json.role && `role: ${json.role}`, json.admin_source && `source: ${json.admin_source}`].filter(Boolean).join('\n'),
+          at: new Date(),
+        });
       } else {
         haptic('notification', 'success');
         setResult({
-          ok: true, command_type: json.command?.command_type || command_type,
-          friendly: 'Comando enfileirado com sucesso.',
+          ok: true,
+          command_type: json.command?.command_type || command_type,
+          friendly: 'Comando enfileirado.',
           detail: json.command?.id ? `ID: ${json.command.id}` : '',
           at: new Date(),
         });
@@ -182,172 +347,119 @@ function App() {
     } catch {
       haptic('notification', 'error');
       setResult({ ok: false, command_type, friendly: 'Falha de rede ao chamar o Worker.', detail: '', at: new Date() });
-    } finally { setLoadingCmd(null); }
+    } finally {
+      setLoadingCmd(null);
+    }
   }, [loadingCmd]);
 
-  function adminLabel() {
-    if (loadingMe) return ['…', ''];
-    if (!apiConfigured) return ['sem API', 'warn'];
-    if (!me) return ['—', ''];
-    if (me.error === 'network_error') return ['sem rede', 'err'];
-    if (me.ok && isAdmin) return [`sim · ${me.role || 'admin'}`, 'ok'];
-    if (me.ok && !isAdmin) return [`não · ${me.role || 'none'}`, 'err'];
-    return ['não autenticado', 'err'];
-  }
-
-  const [adminVal, adminClass] = adminLabel();
+  const adminValue = loadingMe
+    ? 'verificando'
+    : !apiConfigured
+      ? 'sem API'
+      : me?.ok && isAdmin
+        ? me.role || 'admin'
+        : me?.ok
+          ? me.role || 'none'
+          : me?.error === 'network_error'
+            ? 'sem rede'
+            : 'pendente';
 
   const actions = [
-    { cmd: 'post_now',         icon: '📤', label: 'Postar agora',    payload: cardCode ? { card_code: cardCode } : {} },
-    { cmd: 'skip_card',        icon: '⏭',  label: 'Pular carta',     payload: cardCode ? { card_code: cardCode } : {} },
-    { cmd: 'pause_daily_post', icon: '⏸',  label: 'Pausar diário' },
-    { cmd: 'resume_daily_post',icon: '▶',  label: 'Retomar diário' },
-    { cmd: 'sync_arkhamdb',    icon: '🔄', label: 'Sync ArkhamDB',   payload: { sync_faq: false } },
+    { cmd: 'post_now', icon: 'send', label: 'Postar agora', caption: cardCode ? `Carta ${cardCode}` : 'Carta diaria' },
+    { cmd: 'skip_card', icon: 'skip', label: 'Pular carta', caption: cardCode ? `Carta ${cardCode}` : 'Informe o codigo da carta', payload: cardCode ? { card_code: cardCode } : {} },
+    { cmd: 'pause_daily_post', icon: 'pause', label: 'Pausar diario', caption: 'Desativa proximas postagens' },
+    { cmd: 'resume_daily_post', icon: 'play', label: 'Retomar diario', caption: 'Reativa o agendamento' },
+    { cmd: 'sync_arkhamdb', icon: 'sync', label: 'Sincronizar ArkhamDB', caption: 'Atualiza dados no Supabase', payload: { sync_faq: false } },
   ];
 
   return (
     <div className="app">
+      <header className="tg-profile">
+        <div className="tg-avatar" aria-hidden="true"><Icon name="bot" /></div>
+        <div className="tg-profile__title">Arkham Bot</div>
+        <div className="tg-profile__subtitle">Admin Console</div>
+      </header>
 
-      {/* Header */}
-      <div className="tg-header">
-        <div className="tg-header__title">Arkham Bot Admin</div>
-        <div className="tg-header__sub">Painel de controle</div>
-      </div>
+      {isOutsideTelegram && <Notice>Abra pelo Telegram para autenticar.</Notice>}
+      {!apiConfigured && <Notice tone="err">Worker nao configurado.</Notice>}
 
-      {/* Avisos */}
-      {isOutsideTelegram && (
-        <div className="tg-notice">
-          ⚠ Aberto fora do Telegram — initData indisponível. Autenticação não funcionará.
-        </div>
-      )}
-      {!apiConfigured && (
-        <div className="tg-notice">
-          Worker não configurado. Defina VITE_COMMANDS_API_URL e publique o Pages.
-        </div>
-      )}
+      <Section title="Conta">
+        <Row icon="plug" label="Telegram WebApp" value={diag.webAppDetected ? 'sim' : 'nao'} badgeTone={statusTone(diag.webAppDetected)} />
+        <Row icon="key" label="initData" value={diag.initDataPresent ? 'presente' : 'ausente'} badgeTone={statusTone(diag.initDataPresent)} />
+        <Row icon="shield" label="Admin" value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} caption={me?.admin_source ? `source: ${me.admin_source}` : undefined} />
+        <ActionRow icon="refresh" label="Reverificar autenticacao" onClick={fetchMe} loading={loadingMe} disabled={!apiConfigured} />
+      </Section>
 
-      {/* Conexão */}
-      <div className="tg-section">
-        <div className="tg-section__label">Conexão</div>
-        <div className="tg-section__body">
-          <InfoRow icon="✈️" label="Telegram WebApp" value={diag.webAppDetected ? 'sim' : 'não'} valueClass={diag.webAppDetected ? 'ok' : 'err'} />
-          <InfoRow icon="🔑" label="initData"        value={diag.initDataPresent ? `sim · ${diag.initDataLength}c` : 'não'} valueClass={diag.initDataPresent ? 'ok' : 'err'} />
-          <InfoRow icon="🛡"  label="Admin"           value={adminVal} valueClass={adminClass} />
-          <InfoRow icon="🌐" label="API"             value={diag.apiConfigured ? 'configurada' : 'não configurada'} valueClass={diag.apiConfigured ? 'ok' : 'err'} />
-        </div>
-        <div className="tg-section__body" style={{ marginTop: 1 }}>
-          <button className="tg-btn-inline" onClick={fetchMe} disabled={loadingMe}>
-            {loadingMe ? 'Verificando…' : '↺  Reverificar autenticação'}
-          </button>
-        </div>
-      </div>
+      <Section title="Sistema">
+        <Row icon="server" label="Worker" value={sysStatus?.ok ? 'online' : 'offline'} badgeTone={statusTone(sysStatus?.ok)} />
+        <Row icon="cards" label="Cards" value={loadingStatus ? '...' : (sysStatus?.total_cards ?? '-')} />
+        <Row icon="packs" label="Packs" value={loadingStatus ? '...' : (sysStatus?.total_packs ?? '-')} />
+        <Row icon="clock" label="Ultimo sync" value={sysStatus?.last_sync ? new Date(sysStatus.last_sync).toLocaleString('pt-BR') : '-'} mono />
+        <ActionRow icon="refresh" label="Atualizar status" onClick={fetchStatus} loading={loadingStatus} disabled={!apiConfigured} />
+      </Section>
 
-      {/* Sistema */}
-      <div className="tg-section">
-        <div className="tg-section__label">Sistema</div>
-        <div className="tg-section__body">
-          {loadingStatus && (
-            <div className="tg-row">
-              <span className="tg-row__label" style={{ color: 'var(--tg-hint)' }}>Carregando…</span>
-            </div>
-          )}
-          {sysStatus && !loadingStatus && <>
-            <InfoRow icon="⚡" label="Worker"      value={sysStatus.ok ? 'online' : 'offline'} valueClass={sysStatus.ok ? 'ok' : 'err'} />
-            <InfoRow icon="🃏" label="Cards"       value={sysStatus.total_cards ?? '—'} />
-            <InfoRow icon="📦" label="Packs"       value={sysStatus.total_packs ?? '—'} />
-            <InfoRow icon="🔄" label="Último sync" value={sysStatus.last_sync ? new Date(sysStatus.last_sync).toLocaleString('pt-BR') : '—'} valueClass="mono" />
-            <InfoRow icon="📋" label="Último cmd"  value={sysStatus.last_command ?? '—'} valueClass="mono" />
-          </>}
-          {!sysStatus && !loadingStatus && (
-            <div className="tg-row">
-              <span className="tg-row__value">Não disponível</span>
-            </div>
-          )}
+      <Section title="Carta alvo" footer="Usada por Postar agora e Pular carta.">
+        <div className="tg-input-row">
+          <Icon name="target" />
+          <input
+            className="tg-input"
+            type="text"
+            placeholder="Codigo da carta, ex: 01001"
+            value={cardCode}
+            onChange={(e) => setCardCode(e.target.value.trim())}
+            inputMode="text"
+          />
         </div>
-        <div className="tg-section__body" style={{ marginTop: 1 }}>
-          <button className="tg-btn-inline" onClick={fetchStatus} disabled={loadingStatus}>
-            {loadingStatus ? 'Atualizando…' : '↺  Atualizar status'}
-          </button>
-        </div>
-      </div>
+      </Section>
 
-      {/* Carta alvo */}
-      <div className="tg-section">
-        <div className="tg-section__label">Carta alvo</div>
-        <div className="tg-section__body">
-          <div className="tg-input-wrap">
-            <input
-              className="tg-input"
-              type="text"
-              placeholder="Código da carta, ex: 01001"
-              value={cardCode}
-              onChange={(e) => setCardCode(e.target.value)}
-              inputMode="text"
-            />
-          </div>
-        </div>
-        <div className="tg-section__footer">Usado por "Postar agora" e "Pular carta".</div>
-      </div>
+      <Section title="Comandos" footer={!isAdmin && me && !isOutsideTelegram && apiConfigured ? 'Usuario sem permissao administrativa.' : undefined}>
+        {actions.map(({ cmd, icon, label, caption, payload }) => (
+          <ActionRow
+            key={cmd}
+            icon={icon}
+            label={label}
+            caption={caption}
+            loading={loadingCmd === cmd}
+            disabled={actionsDisabled || (cmd === 'skip_card' && !cardCode)}
+            onClick={() => enqueue(cmd, payload || (cardCode ? { card_code: cardCode } : {}))}
+          />
+        ))}
+      </Section>
 
-      {/* Ações */}
-      <div className="tg-section">
-        <div className="tg-section__label">Ações</div>
-        {!isAdmin && me && !isOutsideTelegram && apiConfigured && (
-          <div className="tg-section__footer" style={{ paddingBottom: 6 }}>
-            Usuário não é admin. Ações desabilitadas.
-          </div>
-        )}
-        <div className="tg-section__body">
-          {actions.map(({ cmd, icon, label, payload }) => (
-            <ActionRow
-              key={cmd}
-              icon={icon}
-              label={label}
-              loading={loadingCmd === cmd}
-              disabled={actionsDisabled}
-              onClick={() => enqueue(cmd, payload || {})}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Resultado */}
       {result && (
-        <div className="tg-section">
-          <div className="tg-section__label">Última ação</div>
-          <div className="tg-result">
-            <div className={`tg-result__status ${result.ok ? 'ok' : 'err'}`}>
-              {result.ok ? '✓ Sucesso' : '✗ Erro'}
-              <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 'auto', color: 'var(--tg-hint)' }}>
-                {result.at?.toLocaleTimeString('pt-BR')}
-              </span>
-            </div>
-            <div className="tg-result__body">{result.friendly}</div>
-            {result.detail && (
-              <details>
-                <summary>Detalhes técnicos</summary>
-                <pre className="diag-pre">{result.detail}</pre>
-              </details>
-            )}
-          </div>
-        </div>
+        <Section title="Resultado">
+          <Row
+            icon="result"
+            label={result.ok ? 'Sucesso' : 'Erro'}
+            value={result.command_type || '-'}
+            badgeTone={result.ok ? 'ok' : 'err'}
+            caption={result.friendly}
+          />
+          {result.detail && (
+            <details className="tg-details">
+              <summary>Detalhes</summary>
+              <pre className="diag-pre">{result.detail}</pre>
+            </details>
+          )}
+        </Section>
       )}
 
-      {/* Diagnóstico */}
-      <div className="tg-section">
-        <details>
-          <summary>Diagnóstico</summary>
+      <Section title="Diagnostico">
+        <details className="tg-details">
+          <summary><Icon name="info" />Mostrar detalhes</summary>
           <pre className="diag-pre">{[
             `Telegram WebApp: ${diag.webAppDetected}`,
             `initData presente: ${diag.initDataPresent}`,
             `initData length: ${diag.initDataLength}`,
-            `Usuário unsafe: ${diag.userDetectedViaUnsafe}`,
+            `Usuario unsafe: ${diag.userDetectedViaUnsafe}`,
             `API configurada: ${diag.apiConfigured}`,
             `Endpoint base: ${diag.apiBase}`,
+            `Admin: ${Boolean(me?.admin)}`,
+            `Role: ${me?.role || '-'}`,
+            `Admin source: ${me?.admin_source || '-'}`,
           ].join('\n')}</pre>
         </details>
-      </div>
-
+      </Section>
     </div>
   );
 }
