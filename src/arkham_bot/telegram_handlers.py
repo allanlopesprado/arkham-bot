@@ -1400,6 +1400,16 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
                 await _send_card_by_code(update, code, prompt_message=prompt)
                 return ConversationHandler.END
 
+        # For multi-result and no-result paths, delete the "Pesquisando…" message first
+        searching_msg = _pop_search_prompt(context)
+        async def _delete_searching():
+            if searching_msg:
+                try:
+                    await searching_msg.delete()
+                except Exception:
+                    pass
+        await _delete_searching()
+
         if not results:
             msg = "Nenhuma carta encontrada. Tente outro termo."
             if update.message:
@@ -1419,6 +1429,7 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
             await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
     except Exception as exc:
         logger.error(f"search_run error: {exc}", exc_info=True)
+        _pop_search_prompt(context)
         if update.message:
             await update.message.reply_text("Erro ao buscar cartas.")
     return ConversationHandler.END
