@@ -279,6 +279,7 @@ def format_card_caption(card, is_interactive=False):
                 f"🦶🏻 {_fmt_stat(card.get('skill_agility'))}"
             )
             lines.append(f"❤️ {_fmt_stat(card.get('health'))} | 🧠 {_fmt_stat(card.get('sanity'))}")
+        xp = card.get('xp')
         if xp:
             lines.append(f"⭐️ XP: {xp}")
 
