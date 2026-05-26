@@ -953,13 +953,28 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
             btn_label = btn_label[:61] + "…"
         buttons.append([InlineKeyboardButton(btn_label, callback_data=f"TABOO_CARD_{code}")])
 
-    nav = [
-        InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}") if page > 0 else InlineKeyboardButton("·", callback_data="NOOP"),
-        InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK"),
-        InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}") if page < total_pages - 1 else InlineKeyboardButton("·", callback_data="NOOP"),
-    ]
+    has_prev = page > 0
+    has_next = page < total_pages - 1
+    if has_prev and has_next:
+        nav = [
+            InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}"),
+            InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL),
+            InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}"),
+        ]
+    elif has_prev:
+        nav = [
+            InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}"),
+            InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL),
+        ]
+    elif has_next:
+        nav = [
+            InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL),
+            InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}"),
+        ]
+    else:
+        nav = [InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)]
     buttons.append(nav)
-    buttons.append([InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)])
+    buttons.append([InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK")])
 
     text = f"{icon} <b>{label}</b> — {total} carta(s) — página {page+1}/{total_pages}:"
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
