@@ -94,6 +94,8 @@ async def _call_gemini(prompt: dict, model: str, temperature: float) -> dict:
     }
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         response = await client.post(url, json=payload)
+    if response.status_code != 200:
+        logger.error("gemini_error status=%s body=%s", response.status_code, response.text[:500])
     response.raise_for_status()
     data = response.json()
     text = data["candidates"][0]["content"]["parts"][0]["text"]
