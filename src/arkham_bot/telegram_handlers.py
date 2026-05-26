@@ -819,11 +819,14 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
         back_flavor_raw = card.get('back_flavor')
         if back_text_raw or back_flavor_raw:
             back_caption = format_card_back_caption(card, back_text_raw, is_interactive=True)
+            if is_spoiler:
+                lines = back_caption.split('\n', 1)
+                back_caption = f"{lines[0]}\n<tg-spoiler>{lines[1]}</tg-spoiler>" if len(lines) > 1 else lines[0]
             back_img = await _fetch_card_image(f"{code}b", back_image_src)
             back_kwargs = {"reply_to_message_id": front_msg.message_id}
             if back_img:
                 try:
-                    await target.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                    await target.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **back_kwargs)
                 except Exception:
                     await target.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
             else:
@@ -861,11 +864,14 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
             back_flavor_raw = card.get('back_flavor')
             if back_text_raw or back_flavor_raw:
                 back_caption = format_card_back_caption(card, back_text_raw, is_interactive=True)
+                if is_spoiler:
+                    lines = back_caption.split('\n', 1)
+                    back_caption = f"{lines[0]}\n<tg-spoiler>{lines[1]}</tg-spoiler>" if len(lines) > 1 else lines[0]
                 back_img = await _fetch_card_image(f"{card_code}b", card.get('backimagesrc'))
                 back_kwargs = {"reply_to_message_id": front_msg.message_id}
                 if back_img:
                     try:
-                        await query.message.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                        await query.message.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **back_kwargs)
                     except Exception:
                         await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
                 else:
