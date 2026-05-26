@@ -761,7 +761,7 @@ def _spoiler_caption(card: dict) -> tuple[str, bool]:
 
 async def _send_card_by_code(update: Update, code: str) -> None:
     """Fetches and sends a card directly by exact code."""
-    card = await get_card_async(code)
+    card, _ = await get_card_async(code)
     if not card:
         msg = f"Carta <code>{escape(code)}</code> não encontrada."
         target = update.message or (update.callback_query.message if update.callback_query else None)
@@ -787,7 +787,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
     try:
-        card = await get_card_async(card_code)
+        card, _ = await get_card_async(card_code)
         if not card:
             await query.edit_message_text("Carta não encontrada.")
             return ConversationHandler.END
