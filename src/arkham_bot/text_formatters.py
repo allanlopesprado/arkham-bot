@@ -6,13 +6,13 @@ MAX_CAPTION_BYTES = 1024
 
 SKILL_ICONS = {
     'skill_willpower': '👤', 'skill_intellect': '📖',
-    'skill_combat': '✊', 'skill_agility': '🦶', 'skill_wild': '❓'
+    'skill_combat': '✊🏻', 'skill_agility': '🦶🏻', 'skill_wild': '❓'
 }
 
 GLOBAL_ICON_REPLACEMENTS = {
     '[action]': '➡️ ', '[reaction]': '🔁 ', '[free]': '🆓 ',
     '[fast]': '💨 ', '[unique]': '⭐ ',
-    '[combat]': '✊', '[intellect]': '📖', '[agility]': '🦶',
+    '[combat]': '✊🏻', '[intellect]': '📖', '[agility]': '🦶🏻',
     '[willpower]': '👤', '[wild]': '❓',
     '[guardian]': '🔵', '[seeker]': '🟡', '[mystic]': '🟣',
     '[rogue]': '🟢', '[survivor]': '🔴',
@@ -50,6 +50,15 @@ FACTION_ICONS_MAP = {
 }
 
 
+# Matches any tag that is NOT <b>, </b>, <i>, </i>
+_STRIP_TAGS = re.compile(r"</?(?!b>|b |i>|i |/b>|/i>)[a-zA-Z][^>]*>", re.IGNORECASE)
+
+
+def _e(text: str) -> str:
+    """HTML-escape plain text for safe insertion into Telegram HTML messages."""
+    return html.escape(str(text)) if text else ""
+
+
 def format_factions_display(card):
     factions = []
 
@@ -75,7 +84,7 @@ def skill_test_display(card):
         count = card.get(skill_key) or 0
         if count > 0:
             test_icons.extend([icon] * count)
-    return f"Teste: {' '.join(test_icons)}" if test_icons else ""
+    return f"Skill Test: {' '.join(test_icons)}" if test_icons else ""
 
 
 def _fmt_stat(value, fallback: str = '-') -> str:
@@ -93,11 +102,20 @@ def _slot_display(slot_raw: str) -> str:
 def _unique_exceptional_tags(card: dict) -> str:
     tags = []
     if card.get('is_unique'):
-        tags.append('⭐ Único')
+        tags.append('⭐ Unique')
     if card.get('exceptional') or card.get('is_exceptional'):
-        tags.append('⚡ Excepcional')
+        tags.append('⚡ Exceptional')
     return ' | '.join(tags)
 
+
+
+def _deck_limit_display(deck_limit) -> str:
+    """Return deck limit string only when meaningful - not None, not the default of 2."""
+    if deck_limit is None or deck_limit == 2:
+        return ""
+    if deck_limit == 0:
+        return "🚫 Deck: 0"
+    return f"Deck: {deck_limit}"
 
 def clean_and_format_text(text_raw, is_flavor=False):
     if not text_raw:
@@ -111,7 +129,7 @@ def clean_and_format_text(text_raw, is_flavor=False):
     else:
         text = text.replace('<br/>', '\n').replace('<br>', '\n')
         text = text.replace('<p>', '\n\n').replace('</p>', '')
-        text = re.sub(r'</?(?!b\b|i\b)[a-z]+[^>]*>', '', text, flags=re.IGNORECASE)
+        text = _STRIP_TAGS.sub('', text)
         text = re.sub(r'<a[^>]+?>.*?</a>', '', text, flags=re.IGNORECASE | re.DOTALL)
 
     if not is_flavor:
@@ -168,16 +186,16 @@ def _append_footer(lines: list, card: dict, code: str):
 
     end_lines = []
     if artist:
-        end_lines.append(f"Art: {artist}")
+        end_lines.append(f"Art: {_e(artist)}")
     if encounter_name:
-        end_lines.append(f"Encontro: {encounter_name}")
+        end_lines.append(f"Encounter: {_e(encounter_name)}")
     elif pack_name and position:
-        end_lines.append(f"Pack: {pack_name} #{position}")
+        end_lines.append(f"Pack: {_e(pack_name)} #{position}")
 
     if end_lines:
         lines.append("\n" + "\n".join(f"<i>{l}</i>" for l in end_lines))
 
-    lines.append(f"🔗 <a href='https://arkhamdb.com/card/{code}'>Ver no ArkhamDB</a>")
+    lines.append(f"🔗 <a href='https://arkhamdb.com/card/{code}'>View on ArkhamDB</a>")
 
 
 def _truncate_caption(caption: str, link_tag: str) -> str:
@@ -199,7 +217,7 @@ def _truncate_caption(caption: str, link_tag: str) -> str:
 
 
 def _build_caption(lines: list, code: str) -> str:
-    link_tag = f"🔗 <a href='https://arkhamdb.com/card/{code}'>Ver no ArkhamDB</a>"
+    link_tag = f"🔗 <a href='https://arkhamdb.com/card/{code}'>View on ArkhamDB</a>"
     caption = "\n".join(line for line in lines if line or line == "")
     return _truncate_caption(caption, link_tag)
 
@@ -214,18 +232,18 @@ def format_card_caption(card, is_interactive=False):
     prefix = "" if is_interactive else "[COTD] "
 
     double_sided_types = {'investigator', 'act', 'agenda', 'scenario'}
-    title_suffix = " - Frente" if tc in double_sided_types else ""
-    lines = [f"<b>{prefix}Card: {name}{title_suffix}</b>"]
+    title_suffix = " - Front" if tc in double_sided_types else ""
+    lines = [f"<b>{prefix}Card: {_e(name)}{title_suffix}</b>"]
 
-    type_line = type_name
+    type_line = _e(type_name)
     if subname:
-        type_line += f" • {subname}"
+        type_line += f" • {_e(subname)}"
     if tc in ('weakness', 'basicweakness') or card.get('subtype_code') in ('weakness', 'basicweakness'):
         type_line += ' ⚠️'
     lines.append(f"<i>{type_line}</i>")
 
     if traits.strip():
-        lines.append(f"<i>{traits.strip()}</i>")
+        lines.append(f"<i>{_e(traits.strip())}</i>")
 
     lines.append("")
 
@@ -248,17 +266,18 @@ def format_card_caption(card, is_interactive=False):
             lines.append(
                 f"Stats: 👤 {_fmt_stat(card.get('skill_willpower'))} | "
                 f"📖 {_fmt_stat(card.get('skill_intellect'))} | "
-                f"✊ {_fmt_stat(card.get('skill_combat'))} | "
-                f"🦶 {_fmt_stat(card.get('skill_agility'))}"
+                f"✊🏻 {_fmt_stat(card.get('skill_combat'))} | "
+                f"🦶🏻 {_fmt_stat(card.get('skill_agility'))}"
             )
             lines.append(f"❤️ {_fmt_stat(card.get('health'))} | 🧠 {_fmt_stat(card.get('sanity'))}")
         xp = card.get('xp')
         deck_limit = card.get('deck_limit')
         meta = []
-        if xp is not None and xp > 0:
+        if xp:
             meta.append(f"⭐️ XP: {xp}")
-        if deck_limit is not None:
-            meta.append(f"Deck limit: {deck_limit}")
+        dl = _deck_limit_display(deck_limit)
+        if dl:
+            meta.append(dl)
         if meta:
             lines.append(" | ".join(meta))
 
@@ -268,7 +287,8 @@ def format_card_caption(card, is_interactive=False):
         slot_raw = card.get('slot', '')
         parts = []
         parts.append(f"💰 {_fmt_stat(cost, '0')}")
-        parts.append(f"⭐️ XP: {_fmt_stat(xp, '0')}")
+        if xp:
+            parts.append(f"⭐️ XP: {xp}")
         slot_disp = _slot_display(slot_raw)
         if slot_disp:
             parts.append(slot_disp)
@@ -282,32 +302,37 @@ def format_card_caption(card, is_interactive=False):
         if health or sanity:
             lines.append(f"❤️ {_fmt_stat(health, '0')} | 🧠 {_fmt_stat(sanity, '0')}")
 
-        deck_limit = card.get('deck_limit')
-        if deck_limit is not None:
-            lines.append(f"Deck limit: {deck_limit}")
+        dl = _deck_limit_display(card.get('deck_limit'))
+        if dl:
+            lines.append(dl)
 
     elif tc == 'event':
         cost = card.get('cost')
         xp = card.get('xp')
-        parts = [f"💰 {_fmt_stat(cost, '0')}", f"⭐️ XP: {_fmt_stat(xp, '0')}"]
+        parts = [f"💰 {_fmt_stat(cost, '0')}"]
+        if xp:
+            parts.append(f"⭐️ XP: {xp}")
         skill = skill_test_display(card)
         if skill:
             parts.append(skill)
         lines.append(" | ".join(parts))
-        deck_limit = card.get('deck_limit')
-        if deck_limit is not None:
-            lines.append(f"Deck limit: {deck_limit}")
+        dl = _deck_limit_display(card.get('deck_limit'))
+        if dl:
+            lines.append(dl)
 
     elif tc == 'skill':
         xp = card.get('xp')
-        parts = [f"⭐️ XP: {_fmt_stat(xp, '0')}"]
+        parts = []
+        if xp:
+            parts.append(f"⭐️ XP: {xp}")
         skill = skill_test_display(card)
         if skill:
             parts.append(skill)
-        lines.append(" | ".join(parts))
-        deck_limit = card.get('deck_limit')
-        if deck_limit is not None:
-            lines.append(f"Deck limit: {deck_limit}")
+        if parts:
+            lines.append(" | ".join(parts))
+        dl = _deck_limit_display(card.get('deck_limit'))
+        if dl:
+            lines.append(dl)
 
     elif tc in ('enemy', 'enemy_location'):
         fight = card.get('enemy_fight')
@@ -316,31 +341,27 @@ def format_card_caption(card, is_interactive=False):
         damage = card.get('enemy_damage')
         horror = card.get('enemy_horror')
         lines.append(
-            f"✊ {_fmt_stat(fight)} | ❤️ {_fmt_stat(health)} | 🦶 {_fmt_stat(evade)}"
+            f"✊🏻 {_fmt_stat(fight)} | ❤️ {_fmt_stat(health)} | 🦶🏻 {_fmt_stat(evade)}"
         )
         lines.append(f"💢 {_fmt_stat(damage)} | 😨 {_fmt_stat(horror)}")
         if tc == 'enemy_location':
             shroud = card.get('shroud')
             clues = card.get('clues')
-            lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 📖 Pistas: {_fmt_stat(clues)}")
+            lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 📖 Clues: {_fmt_stat(clues)}")
 
     elif tc == 'location':
         shroud = card.get('shroud')
         clues = card.get('clues')
-        clues_per_inv = card.get('clues_per_investigator')
-        clues_str = f"{_fmt_stat(clues)}" + (" 🔍" if clues_per_inv else "")
-        lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 📖 Pistas: {clues_str}")
+        lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 📖 Clues: {_fmt_stat(clues)}")
 
     elif tc == 'act':
         stage = card.get('stage')
         clues = card.get('clues')
-        clues_per_inv = card.get('clues_per_investigator')
         parts = []
         if stage is not None:
-            parts.append(f"Ato {stage}")
+            parts.append(f"Act {stage}")
         if clues is not None:
-            clues_str = f"📖 {clues}" + (" 🔍" if clues_per_inv else "")
-            parts.append(clues_str)
+            parts.append(f"📖 Clues: {clues}")
         if parts:
             lines.append(" | ".join(parts))
 
@@ -367,7 +388,7 @@ def format_card_caption(card, is_interactive=False):
     elif tc == 'key':
         linked = card.get('linked_to_name') or card.get('linked_to_code')
         if linked:
-            lines.append(f"🔑 Vinculado a: {linked}")
+            lines.append(f"🔑 Linked to: {_e(linked)}")
 
     elif tc == 'story':
         pass
@@ -387,15 +408,13 @@ def format_card_back_caption(card, back_text_raw, is_interactive=False):
     tc = card.get('type_code', 'unknown')
     prefix = "" if is_interactive else "[COTD] "
 
-    lines = [f"<b>{prefix}Card: {back_name} - Verso</b>", ""]
+    lines = [f"<b>{prefix}Card: {_e(back_name)} - Back</b>", ""]
 
     # Back-side stats for act/agenda
     if tc == 'act':
         clues = card.get('clues')
-        clues_per_inv = card.get('clues_per_investigator')
         if clues is not None:
-            clues_str = f"📖 {clues}" + (" 🔍" if clues_per_inv else "")
-            lines.append(clues_str)
+            lines.append(f"📖 Clues: {clues}")
     elif tc == 'agenda':
         doom = card.get('doom')
         if doom is not None:
@@ -409,7 +428,7 @@ def format_card_back_caption(card, back_text_raw, is_interactive=False):
     if back_flavor_formatted:
         lines.append(f"\n<i>{back_flavor_formatted}</i>")
 
-    link_tag = f"🔗 <a href='https://arkhamdb.com/card/{code}'>Ver no ArkhamDB</a>"
+    link_tag = f"🔗 <a href='https://arkhamdb.com/card/{code}'>View on ArkhamDB</a>"
     lines.append(link_tag)
 
     caption = "\n".join(line for line in lines if line or line == "")
