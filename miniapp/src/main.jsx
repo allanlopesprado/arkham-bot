@@ -1255,12 +1255,16 @@ function App() {
 
   function setAllCyclesForDay(dayCode, enabled) {
     haptic('selection');
-    updateDayConfig(dayCode, (cfg) => ({ ...cfg, packs: enabled ? [] : packs.map((p) => p.code).slice(0, 0) }));
+    // enabled=true → [] (all packs allowed); enabled=false → explicit list of all packs (then user unticks individually)
+    updateDayConfig(dayCode, (cfg) => ({ ...cfg, packs: enabled ? [] : packs.map((p) => p.code) }));
   }
 
   function setAllTypesForDay(dayCode, enabled) {
     haptic('selection');
-    updateDayConfig(dayCode, (cfg) => ({ ...cfg, types: enabled ? [] : [] }));
+    updateDayConfig(dayCode, (cfg) => ({
+      ...cfg,
+      types: enabled ? [] : ALL_CARD_TYPES.map((t) => t.code),
+    }));
   }
 
   function toggleCycleForDay(dayCode, cyclePos) {
