@@ -36,6 +36,73 @@ from .text_formatters import format_card_back_caption, format_card_caption
 logger = logging.getLogger(__name__)
 BOT_STARTED_AT = datetime.now(UTC)
 
+PACK_ABBREVIATIONS: dict[str, str] = {
+    # Core / Revised Core
+    "Core Set": "Core",
+    "Revised Core Set": "rCore",
+    # Dunwich Legacy
+    "The Dunwich Legacy": "TDL",
+    "The Dunwich Legacy Investigator Expansion": "TDL IE",
+    "The Dunwich Legacy Campaign Expansion": "TDL CE",
+    # Path to Carcosa
+    "The Path to Carcosa": "TPC",
+    "The Path to Carcosa Investigator Expansion": "TPC IE",
+    "The Path to Carcosa Campaign Expansion": "TPC CE",
+    # Forgotten Age
+    "The Forgotten Age": "TFA",
+    "The Forgotten Age Investigator Expansion": "TFA IE",
+    "The Forgotten Age Campaign Expansion": "TFA CE",
+    # Circle Undone
+    "The Circle Undone": "TCU",
+    "The Circle Undone Investigator Expansion": "TCU IE",
+    "The Circle Undone Campaign Expansion": "TCU CE",
+    # Dream-Eaters
+    "The Dream-Eaters": "TDE",
+    "The Dream-Eaters Investigator Expansion": "TDE IE",
+    "The Dream-Eaters Campaign Expansion": "TDE CE",
+    # Innsmouth Conspiracy
+    "The Innsmouth Conspiracy": "TIC",
+    "The Innsmouth Conspiracy Investigator Expansion": "TIC IE",
+    "The Innsmouth Conspiracy Campaign Expansion": "TIC CE",
+    # Edge of the Earth
+    "Edge of the Earth": "EotE",
+    "Edge of the Earth Investigator Expansion": "EotE IE",
+    "Edge of the Earth Campaign Expansion": "EotE CE",
+    # Scarlet Keys
+    "The Scarlet Keys": "TSK",
+    "The Scarlet Keys Investigator Expansion": "TSK IE",
+    "The Scarlet Keys Campaign Expansion": "TSK CE",
+    # Feast of Hemlock Vale
+    "The Feast of Hemlock Vale": "FHV",
+    "The Feast of Hemlock Vale Investigator Expansion": "FHV IE",
+    "The Feast of Hemlock Vale Campaign Expansion": "FHV CE",
+    # Drowned City
+    "The Drowned City": "TDC",
+    "The Drowned City Investigator Expansion": "TDC IE",
+    "The Drowned City Campaign Expansion": "TDC CE",
+    # Side stories / promos
+    "Return to the Night of the Zealot": "RtNZ",
+    "Return to the Dunwich Legacy": "RtDL",
+    "Return to the Path to Carcosa": "RtPC",
+    "Return to the Forgotten Age": "RtFA",
+    "Return to the Circle Undone": "RtCU",
+    "Return to the Dream-Eaters": "RtDE",
+    "Return to the Innsmouth Conspiracy": "RtIC",
+    "Investigator Starter Decks": "Starter",
+    "Nathaniel Cho": "Starter",
+    "Harvey Walters": "Starter",
+    "Winifred Habbamock": "Starter",
+    "Jacqueline Fine": "Starter",
+    "Stella Clark": "Starter",
+    "Promo": "Promo",
+    "Books": "Books",
+}
+
+
+def _abbrev_pack(pack_name: str) -> str:
+    """Return community abbreviation for a pack name, or the original if unknown."""
+    return PACK_ABBREVIATIONS.get(pack_name, pack_name)
+
 
 async def _check_rate_limit(update: Update) -> bool:
     user_id = update.effective_user.id if update.effective_user else 0
@@ -876,10 +943,8 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     buttons = []
     for code, entry in chunk:
         name = _taboo_name(name_map, code)
-        pack = _taboo_pack(name_map, code)
         restriction = _taboo_restriction_label(entry)
-        parts = [p for p in [pack, name, code, restriction] if p]
-        btn_label = " — ".join(parts)
+        btn_label = f"{name} — {restriction}"
         if len(btn_label) > 64:
             btn_label = btn_label[:61] + "…"
         buttons.append([InlineKeyboardButton(btn_label, callback_data=f"TABOO_CARD_{code}")])
@@ -1160,7 +1225,7 @@ def _search_page(results: list, page: int, query: str) -> tuple[InlineKeyboardMa
     for c in chunk:
         code = c.get('code', '')
         name = c.get('name') or c.get('real_name') or code
-        pack = c.get('pack_name') or ''
+        pack = _abbrev_pack(c.get('pack_name') or '')
         spoiler_flag = "⚠️ " if c.get('spoiler') else ""
         label = f"{spoiler_flag}{pack} — {name} — {code}"
         if len(label) > 64:
