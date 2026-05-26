@@ -303,8 +303,10 @@ input, select { outline: none; }
   transition: transform 0.2s ease;
 }
 
-.toggle-row input:checked + .toggle { background: var(--btn); }
-.toggle-row input:checked + .toggle::after { transform: translateX(22px); }
+.toggle-row input:checked + .toggle,
+.day-toggle-wrap input:checked + .toggle { background: var(--btn); }
+.toggle-row input:checked + .toggle::after,
+.day-toggle-wrap input:checked + .toggle::after { transform: translateX(22px); }
 .toggle-row input:disabled + .toggle { opacity: 0.35; }
 
 @media (hover: hover) {
