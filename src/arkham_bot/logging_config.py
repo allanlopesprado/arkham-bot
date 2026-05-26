@@ -47,11 +47,14 @@ class SecretMaskingFormatter(logging.Formatter):
 
 
 def _configure_library_loggers() -> None:
-    if ENVIRONMENT.lower() not in {"prod", "production"}:
-        return
-
-    for logger_name in SENSITIVE_LOGGER_NAMES:
+    # Always silence noisy HTTP-level loggers — individual requests are never useful in app logs
+    for logger_name in ("httpx", "httpcore", "hpack"):
         logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+    # In non-prod, keep telegram at INFO so polling/dispatch events are visible
+    if ENVIRONMENT.lower() in {"prod", "production"}:
+        for logger_name in ("telegram", "telegram.ext", "apscheduler"):
+            logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 def _add_secret_filter(target: logging.Filterer) -> None:
