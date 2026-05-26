@@ -874,6 +874,26 @@ function SelectRow({ label, value, onChange, children }) {
   );
 }
 
+function SliderRow({ label, value, min, max, step = 1, format, onChange }) {
+  return (
+    <div className="row slider-row">
+      <span className="row-label">{label}</span>
+      <div className="slider-wrap">
+        <span className="slider-value">{format ? format(value) : value}</span>
+        <input
+          type="range"
+          className="slider"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => { haptic('selection'); onChange(Number(e.target.value)); }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, copy }) {
   return (
     <>
@@ -1880,14 +1900,23 @@ function App() {
                   <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
                   {settings.ai_pre_message_enabled && <>
                     <Row icon="info" label={copy.aiPreMessageCaption} />
-                    <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
-                      <option value="0">{lang === 'pt' ? 'Sem delay' : 'No delay'}</option>
-                      <option value="15">15 {lang === 'pt' ? 'segundos' : 'seconds'}</option>
-                      <option value="30">30 {lang === 'pt' ? 'segundos' : 'seconds'}</option>
-                      <option value="60">1 {lang === 'pt' ? 'minuto' : 'minute'}</option>
-                      <option value="120">2 {lang === 'pt' ? 'minutos' : 'minutes'}</option>
-                      <option value="300">5 {lang === 'pt' ? 'minutos' : 'minutes'}</option>
-                    </SelectRow>
+                    <SliderRow
+                      label={copy.aiPreMessageDelay}
+                      value={settings.ai_pre_message_delay_seconds}
+                      min={0}
+                      max={3600}
+                      step={15}
+                      format={(v) => {
+                        if (v === 0) return lang === 'pt' ? 'Sem delay' : 'No delay';
+                        if (v < 60) return `${v}s`;
+                        const m = Math.floor(v / 60);
+                        const s = v % 60;
+                        return s === 0
+                          ? `${m} ${lang === 'pt' ? (m === 1 ? 'min' : 'min') : 'min'}`
+                          : `${m}min ${s}s`;
+                      }}
+                      onChange={(v) => updateSetting('ai_pre_message_delay_seconds', v)}
+                    />
                   </>}
                   <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
                   {settings.ai_post_question_enabled && <Row icon="info" label={copy.aiPostQuestionCaption} />}

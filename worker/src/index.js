@@ -286,7 +286,7 @@ function validateSettingsPatch(body) {
     }
     if (key === 'ai_pre_message_delay_seconds') {
       const n = Number(value);
-      if (!Number.isInteger(n) || n < 0 || n > 300) return { error: 'invalid_setting_value', key };
+      if (!Number.isInteger(n) || n < 0 || n > 3600) return { error: 'invalid_setting_value', key };
       settings[key] = n;
     }
     if (key === 'ai_model') {
