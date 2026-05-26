@@ -845,7 +845,8 @@ def _search_page(results: list, page: int, query: str) -> tuple[InlineKeyboardMa
         code = c.get('code', '')
         name = c.get('name') or c.get('real_name') or code
         pack = c.get('pack_name') or ''
-        label = f"{pack} — {name} — {code}"
+        spoiler_flag = "⚠️ " if c.get('spoiler') else ""
+        label = f"{spoiler_flag}{pack} — {name} — {code}"
         if len(label) > 64:
             label = label[:61] + "…"
         buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
@@ -889,26 +890,23 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
     is_numeric = re.fullmatch(r'\d+', q) is not None
 
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await asyncio.to_thread(fetch_all_cards_sync, True)  # include encounter cards
 
         # Exact code match → show card directly (from cache list or API fallback)
         exact = next((c for c in cards if (c.get('code') or '') == q), None)
-        if exact or (is_numeric and len(q) >= 5):
-            # Try direct fetch by code if exact found in list OR it looks like a full code
-            if exact or re.fullmatch(r'\d{5,6}', q):
-                await _send_card_by_code(update, q)
-                return ConversationHandler.END
+        if exact or (is_numeric and re.fullmatch(r'\d{5,6}', q)):
+            await _send_card_by_code(update, q)
+            return ConversationHandler.END
 
         if is_numeric:
-            # Partial numeric → match codes that start with the digits typed
             matched = [c for c in cards if (c.get('code') or '').startswith(q)]
-            results = matched[:15]
         else:
-            results = [
+            matched = [
                 c for c in cards
                 if q_lower in (c.get('name') or '').lower()
                 or q_lower in (c.get('real_name') or '').lower()
-            ][:15]
+            ]
+        results = matched
 
         if not results:
             msg = "Nenhuma carta encontrada. Tente outro termo."
@@ -924,7 +922,7 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
             return ConversationHandler.END
 
         # Store full result list for pagination
-        all_results = matched if is_numeric else results
+        all_results = results
         user_id = update.effective_user.id
         context.bot_data[f"search_{user_id}"] = all_results
         markup, text = _search_page(all_results, page=0, query=q)
