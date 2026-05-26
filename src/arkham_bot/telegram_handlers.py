@@ -829,7 +829,7 @@ def _search_page(results: list, page: int, query: str) -> tuple[InlineKeyboardMa
         code = c.get('code', '')
         name = c.get('name') or c.get('real_name') or code
         pack = c.get('pack_name') or ''
-        label = f"{code} — {name} — {pack}"
+        label = f"{code} — {pack} — {name}"
         if len(label) > 64:
             label = label[:61] + "…"
         buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
