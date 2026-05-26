@@ -752,7 +752,7 @@ async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.
 def _spoiler_caption(card: dict) -> tuple[str, bool]:
     """Returns (caption, is_spoiler). If spoiler, wraps body in <tg-spoiler>."""
     is_spoiler = bool(card.get('spoiler'))
-    full_caption = format_card_caption(card)
+    full_caption = format_card_caption(card, is_interactive=True)
     if not is_spoiler:
         return full_caption, False
     name = escape(card.get('name') or card.get('real_name') or card.get('code', ''))
