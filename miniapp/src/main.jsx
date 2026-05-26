@@ -1074,6 +1074,8 @@ function App() {
   // Ref always holds the latest settingsDirty — safe to read inside stale async closures
   const settingsDirtyRef = useRef(false);
   settingsDirtyRef.current = settingsDirty;
+  // Ref keeps the latest saveSettings for the MainButton handler (stale closure guard)
+  const saveSettingsRef = useRef(null);
 
   // ── Telegram setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1121,7 +1123,8 @@ function App() {
     if ((activeTab === 'settings' || activeTab === 'day_detail' || activeTab === 'ai') && settingsDirty && !savingSettings) {
       btn.setText(copy.saveSettings);
       btn.show?.();
-      const handler = () => saveSettings();
+      // Use ref so handler always calls the latest saveSettings regardless of re-renders
+      const handler = () => saveSettingsRef.current?.();
       btn.onClick?.(handler);
       return () => { btn.offClick?.(handler); btn.hide?.(); };
     } else {
@@ -1277,6 +1280,7 @@ function App() {
       tg()?.MainButton?.hideProgress?.();
     }
   }
+  saveSettingsRef.current = saveSettings;
 
   async function cancelCommand(command) {
     const confirmed = await tgShowPopup({
