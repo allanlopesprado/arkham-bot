@@ -69,9 +69,11 @@ def bootstrap_check(require_telegram: bool = True) -> bool:
     logger.info("--- BOOTSTRAP CHECK STARTED ---")
     ensure_runtime_dirs()
 
-    if require_telegram and (not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID):
-        logger.critical("CRITICAL ERROR: Telegram token/chat id not configured.")
+    if require_telegram and not TELEGRAM_BOT_TOKEN:
+        logger.critical("CRITICAL ERROR: Telegram token not configured.")
         return False
+    if require_telegram and not TELEGRAM_CHAT_ID:
+        logger.warning("TELEGRAM_CHAT_ID not set in .env — will use telegram_chat_id from bot settings.")
 
     file_lock_pairs = [
         (POSTED_CARDS_FILE, POSTED_CARDS_LOCK),
@@ -115,12 +117,13 @@ def main(argv: list[str] | None = None) -> int:
 
         return healthcheck_main(args[1:])
 
-    if not bootstrap_check(require_telegram=True):
+    first_arg_lower = args[0].lower() if args else None
+    is_interactive = first_arg_lower == "interactive"
+
+    if not bootstrap_check(require_telegram=not is_interactive):
         return 1
 
-    first_arg_lower = args[0].lower() if args else None
-
-    if first_arg_lower == "interactive":
+    if is_interactive:
         try:
             with filelock.FileLock(MAIN_PROCESS_LOCK, timeout=1):
                 logger.info("Process lock acquired. STARTING INTERACTIVE MODE (LONG POLLING).")

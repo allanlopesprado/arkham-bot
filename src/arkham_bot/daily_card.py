@@ -106,7 +106,7 @@ async def _pin_new_daily_card(bot: Bot, chat_id: str, card_code: str, message_id
 async def post_daily_card(specific_card_code=None, target_chat_id: str | None = None, is_scheduled: bool = False) -> DailyPostResult:
     """Posts the daily ArkhamDB card once. Never exits the process."""
 
-    chat_id = str(target_chat_id or TELEGRAM_CHAT_ID or "").strip()
+    chat_id = str(target_chat_id or get_setting('telegram_chat_id', None) or TELEGRAM_CHAT_ID or "").strip()
     if not TELEGRAM_BOT_TOKEN or not chat_id:
         error = "Telegram token or chat id not configured."
         logger.error(error)
