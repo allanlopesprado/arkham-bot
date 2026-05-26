@@ -22,6 +22,7 @@ def upsert_card(card: dict) -> None:
         "traits": card.get("traits"),
         "imagesrc": card.get("imagesrc"),
         "backimagesrc": card.get("backimagesrc"),
+        "spoiler": bool(card.get("spoiler")),
         "raw": card,
     }
     client.upsert("arkham_cards", row, on_conflict="code")
