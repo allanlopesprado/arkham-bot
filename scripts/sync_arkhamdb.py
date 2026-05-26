@@ -17,7 +17,7 @@ from arkham_bot.arkhamdb_client import (
 )
 from arkham_bot.logging_config import setup_logging
 from arkham_bot.repositories.audit_repo import create_audit_log
-from arkham_bot.repositories.cards_repo import upsert_card
+from arkham_bot.repositories.cards_repo import bulk_upsert_cards
 from arkham_bot.repositories.factions_repo import upsert_faction
 from arkham_bot.repositories.faq_repo import upsert_faq
 from arkham_bot.repositories.packs_repo import upsert_pack
@@ -39,11 +39,23 @@ def _taboo_items(payload) -> list[tuple[str, dict]]:
     return []
 
 
+BATCH_SIZE = 100
+
+
+def _batched(items: list, size: int):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
 def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: int = 0) -> dict:
     create_audit_log("sync_started", "manual_script", {"dry_run": dry_run, "sync_faq": sync_faq})
 
+    logger.info("Buscando dados do ArkhamDB...")
+    logger.info("  Cartas de jogador...")
     cards = fetch_all_cards_sync()
+    logger.info("  Todas as cartas (incluindo encontro)...")
     encounter_cards = fetch_all_cards_sync(include_encounter=True)
+    logger.info("  Packs, facções, taboos...")
     packs = fetch_packs_sync()
     factions = fetch_factions_sync()
     taboos = fetch_taboos_sync()
@@ -59,25 +71,41 @@ def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: i
         "dry_run": dry_run,
     }
 
+    logger.info(
+        "Dados recebidos: %d cartas (%d jogador), %d packs, %d facções, %d taboos",
+        result["cards_total_with_encounter"], result["cards_player"],
+        result["packs"], result["factions"], result["taboos"],
+    )
+
     if dry_run:
         logger.info("sync dry-run: %s", result)
         return result
 
     if not get_supabase_client():
-        raise RuntimeError("Supabase not configured")
+        raise RuntimeError("Supabase not configurado")
 
+    logger.info("Salvando packs e facções...")
     for pack in packs:
         upsert_pack(pack)
     for faction in factions:
         upsert_faction(faction)
+
+    logger.info("Salvando taboos...")
     for taboo_id, taboo in taboo_items:
         upsert_taboo(taboo_id, taboo)
-    for card in encounter_cards:
-        upsert_card(card)
+
+    total = len(encounter_cards)
+    logger.info("Salvando %d cartas em batches de %d...", total, BATCH_SIZE)
+    saved = 0
+    for batch in _batched(encounter_cards, BATCH_SIZE):
+        bulk_upsert_cards(batch)
+        saved += len(batch)
+        logger.info("  %d/%d cartas salvas", saved, total)
 
     if sync_faq:
         faq_cards = encounter_cards[:faq_limit] if faq_limit else encounter_cards
-        for card in faq_cards:
+        logger.info("Sincronizando FAQ para %d cartas...", len(faq_cards))
+        for i, card in enumerate(faq_cards, 1):
             code = card.get("code")
             if not code:
                 continue
@@ -87,9 +115,11 @@ def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: i
                 result["faq"] += 1
             except Exception as exc:
                 logger.warning("faq_sync_failed card=%s error=%s", code, exc)
+            if i % 50 == 0:
+                logger.info("  FAQ: %d/%d cartas processadas", i, len(faq_cards))
 
     create_audit_log("sync_arkhamdb_success", "manual_script", result=result)
-    logger.info("sync_arkhamdb_success: %s", result)
+    logger.info("Sync concluído: %s", result)
     return result
 
 
