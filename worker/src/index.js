@@ -25,6 +25,8 @@ const SETTINGS_KEYS = new Set([
   'ai_language',
   'include_spoilers',
   'allowed_card_types',
+  'allowed_packs',
+  'day_type_map',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
@@ -269,6 +271,27 @@ function validateSettingsPatch(body) {
       }
       settings[key] = value;
     }
+    if (key === 'allowed_packs') {
+      // Empty array = all packs allowed; non-empty = whitelist of pack codes
+      if (!Array.isArray(value) || !value.every((p) => typeof p === 'string' && p.length > 0)) {
+        return { error: 'invalid_setting_value', key };
+      }
+      settings[key] = value;
+    }
+    if (key === 'day_type_map') {
+      if (typeof value !== 'object' || Array.isArray(value) || value === null) {
+        return { error: 'invalid_setting_value', key };
+      }
+      for (const [day, types] of Object.entries(value)) {
+        if (!WEEKDAY_CODES.has(day)) return { error: 'invalid_setting_value', key };
+        if (types !== null && types !== undefined) {
+          if (!Array.isArray(types) || !types.every((t) => !t || VALID_CARD_TYPES.has(t))) {
+            return { error: 'invalid_setting_value', key };
+          }
+        }
+      }
+      settings[key] = value;
+    }
   }
   if (Object.keys(settings).length === 0) return { error: 'settings_required' };
   return { settings };
@@ -490,6 +513,26 @@ async function handleCancelCommand(request, env, user, ao, commandId) {
     return withCors(jsonResponse({ ok: true, command: rows[0] }), ao);
   } catch {
     return withCors(jsonResponse({ error: 'command_cancel_failed' }, 500), ao);
+  }
+}
+
+async function handleGetPacks(env, ao) {
+  try {
+    const rows = await fetchSupabaseJson(env, '/rest/v1/arkham_packs?select=code,name,raw&order=code.asc&limit=200');
+    const packs = rows.map((r) => {
+      const raw = r.raw || {};
+      return {
+        code: r.code,
+        name: r.name,
+        cycle_position: raw.cycle_position ?? null,
+        position: raw.position ?? null,
+        chapter: raw.chapter ?? 1,
+        total: raw.total ?? raw.known ?? 0,
+      };
+    }).sort((a, b) => (a.cycle_position ?? 99) - (b.cycle_position ?? 99) || (a.position ?? 99) - (b.position ?? 99));
+    return withCors(jsonResponse({ ok: true, packs }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'packs_fetch_failed' }, 500), ao);
   }
 }
 
@@ -759,6 +802,12 @@ export default {
       return handleCardsSearch(request, env, ao);
     }
 
+    if (pathname === '/packs' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/packs');
+      if (auth.response) return auth.response;
+      return handleGetPacks(env, ao);
+    }
+
     if ((pathname === '/bot-command' || pathname === '/') && request.method === 'POST') {
       const initData = request.headers.get('x-telegram-init-data') || '';
       safeLog({
@@ -775,7 +824,7 @@ export default {
       return handleBotCommand(request, env, user, ao);
     }
 
-    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/bot-command' || pathname === '/') {
+    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-command' || pathname === '/') {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 

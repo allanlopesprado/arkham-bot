@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from html import escape
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image
 from telegram import Bot
@@ -40,7 +41,16 @@ from .text_formatters import format_card_back_caption, format_card_caption
 
 
 logger = logging.getLogger(__name__)
-DEFAULT_DISCUSSION_MESSAGE = "Investigators, ready for another revealed mystery? The Card of the Day is on the table!"
+
+_WEEKDAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+
+def _today_code(timezone_str: str) -> str:
+    try:
+        tz = ZoneInfo(timezone_str or 'UTC')
+    except ZoneInfoNotFoundError:
+        tz = ZoneInfo('UTC')
+    return _WEEKDAY_CODES[datetime.now(tz).weekday()]
 
 
 def _telegram_html_text(value: str | None) -> str | None:
@@ -142,20 +152,37 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     save_card_cache(all_cards)
 
                 include_spoilers = get_setting('include_spoilers', False)
+                timezone_str = get_setting('timezone', 'America/Sao_Paulo')
+
+                # Base pool: exclude meta types and spoilers
                 valid_cards = [
                     c for c in all_cards
                     if c.get('type_code') not in ['set', 'campaign', 'scenario']
                     and (include_spoilers or not c.get('spoiler', False))
                 ]
 
+                # Pack/cycle filter
+                allowed_packs = get_setting('allowed_packs', [])
+                if isinstance(allowed_packs, list) and allowed_packs:
+                    pack_filtered = [c for c in valid_cards if c.get('pack_code') in allowed_packs]
+                    if pack_filtered:
+                        valid_cards = pack_filtered
+                        logger.info(f"Pack filter active: {len(valid_cards)} cards in {len(allowed_packs)} allowed packs.")
+                    else:
+                        logger.warning("No cards match allowed_packs filter. Ignoring pack filter.")
+
                 unposted_cards = [c for c in valid_cards if c.get('code') not in posted_cards]
 
                 if not unposted_cards:
-                    logger.warning("All cards posted. Resetting cycle and file.")
+                    logger.warning("All cards in current selection posted. Notifying admins and resetting.")
                     await bot.send_message(
                         chat_id=chat_id,
-                        text="🚨 **POSTING CYCLE RESET** 🚨\nAll non-spoiler cards have been posted.",
-                        parse_mode=ParseMode.MARKDOWN,
+                        text=(
+                            "🔄 <b>Ciclo concluído!</b>\n"
+                            "Todas as cartas da seleção atual já foram postadas.\n"
+                            "O ciclo foi reiniciado automaticamente."
+                        ),
+                        parse_mode=ParseMode.HTML,
                     )
                     posted_cards.clear()
                     try:
@@ -167,13 +194,27 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     if not unposted_cards:
                         raise RuntimeError("No valid cards found after reset.")
 
+                # Day-of-week type filter (takes priority over global type filter)
+                day_type_map = get_setting('day_type_map', {})
                 allowed_types_raw = get_setting('allowed_card_types', None)
-                if isinstance(allowed_types_raw, list) and allowed_types_raw:
-                    filtered = [c for c in unposted_cards if c.get('type_code') in allowed_types_raw]
-                    if filtered:
-                        unposted_cards = filtered
+
+                today = _today_code(timezone_str)
+                day_types = None
+                if isinstance(day_type_map, dict):
+                    raw_day = day_type_map.get(today)
+                    if isinstance(raw_day, list) and raw_day:
+                        day_types = raw_day
+                    elif isinstance(raw_day, str) and raw_day:
+                        day_types = [raw_day]
+
+                types_to_apply = day_types or (allowed_types_raw if isinstance(allowed_types_raw, list) and allowed_types_raw else None)
+                if types_to_apply:
+                    type_filtered = [c for c in unposted_cards if c.get('type_code') in types_to_apply]
+                    if type_filtered:
+                        unposted_cards = type_filtered
+                        logger.info(f"Type filter active for {today}: {types_to_apply} → {len(unposted_cards)} cards.")
                     else:
-                        logger.warning("No unposted cards match allowed_card_types filter. Ignoring filter.")
+                        logger.warning(f"No unposted cards match type filter for {today}: {types_to_apply}. Ignoring.")
 
                 # AI selects card AND generates commentary in one call
                 ai_choice = await choose_daily_card_with_ai(unposted_cards, language=ai_language) if ai_enabled else None
@@ -325,16 +366,16 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
 
         await _pin_new_daily_card(bot, chat_id, card_code, message.message_id)
 
-        try:
-            discussion_message = ai_post_question or _telegram_html_text(DEFAULT_DISCUSSION_MESSAGE)
-            await bot.send_message(
-                chat_id=chat_id,
-                text=discussion_message,
-                parse_mode=ParseMode.HTML,
-                reply_to_message_id=message.message_id,
-            )
-        except TelegramError as exc:
-            logger.warning(f"Could not send discussion message: {exc}")
+        if ai_post_question:
+            try:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=ai_post_question,
+                    parse_mode=ParseMode.HTML,
+                    reply_to_message_id=message.message_id,
+                )
+            except TelegramError as exc:
+                logger.warning(f"Could not send AI discussion message: {exc}")
 
         logger.info(f"Card {card_code} processed successfully. Finalizing execution.")
         return DailyPostResult(True, card_code=card_code, card_name=card.get('name'), message_id=message.message_id)

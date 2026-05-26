@@ -87,6 +87,26 @@ const ALL_CARD_TYPES = [
 
 const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
 
+const CYCLES = [
+  { position: 1,  name: 'Core Set' },
+  { position: 2,  name: 'The Dunwich Legacy' },
+  { position: 3,  name: 'The Path to Carcosa' },
+  { position: 4,  name: 'The Forgotten Age' },
+  { position: 5,  name: 'The Circle Undone' },
+  { position: 6,  name: 'The Dream-Eaters' },
+  { position: 7,  name: 'The Innsmouth Conspiracy' },
+  { position: 8,  name: 'Edge of the Earth' },
+  { position: 9,  name: 'The Scarlet Keys' },
+  { position: 10, name: 'The Feast of Hemlock Vale' },
+  { position: 11, name: 'The Drowned City' },
+  { position: 50, name: 'Return To...' },
+  { position: 60, name: 'Investigator Starters (Ch. 1)' },
+  { position: 61, name: 'Investigator Starters (Ch. 2)' },
+  { position: 70, name: 'Standalone Adventures' },
+  { position: 80, name: 'Special & Promo' },
+  { position: 90, name: 'Singles & Extras' },
+];
+
 const TIMEZONES = [
   { value: 'America/Sao_Paulo',              label: 'São Paulo (UTC−3)' },
   { value: 'America/Manaus',                 label: 'Manaus (UTC−4)' },
@@ -165,6 +185,19 @@ const I18N = {
     aiLanguage: 'Idioma da IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    // cycles / packs
+    expansions: 'Expansões',
+    expansionsCaption: 'Selecione os ciclos e packs para sortear cartas',
+    allExpansions: 'Todas as expansões',
+    packsSelected: (n) => `${n} pack${n !== 1 ? 's' : ''} selecionado${n !== 1 ? 's' : ''}`,
+    cycleDetail: 'Packs do ciclo',
+    loadingPacks: 'Carregando expansões…',
+    packsFailed: 'Falha ao carregar expansões.',
+    allPacksInCycle: (n) => `${n} pack${n !== 1 ? 's' : ''}`,
+    // day type map
+    dayTypeSection: 'Tipo de carta por dia',
+    dayTypeCaption: 'Define qual tipo de carta pode ser postado em cada dia',
+    allTypes: 'Todos os tipos',
     // bot identity
     botDescription: 'Órfã. Investigadora. Sobrevivente. Wendy enfrenta o desconhecido com coragem e seu amuleto da sorte.',
     // home sections
@@ -344,6 +377,19 @@ const I18N = {
     aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    // cycles / packs
+    expansions: 'Expansions',
+    expansionsCaption: 'Select cycles and packs to draw cards from',
+    allExpansions: 'All expansions',
+    packsSelected: (n) => `${n} pack${n !== 1 ? 's' : ''} selected`,
+    cycleDetail: 'Cycle packs',
+    loadingPacks: 'Loading expansions…',
+    packsFailed: 'Failed to load expansions.',
+    allPacksInCycle: (n) => `${n} pack${n !== 1 ? 's' : ''}`,
+    // day type map
+    dayTypeSection: 'Card type by day',
+    dayTypeCaption: 'Sets which card type can be posted on each day',
+    allTypes: 'All types',
     // bot identity
     botDescription: 'Orphan. Investigator. Survivor. Wendy faces the unknown with courage and her lucky charm.',
     // home sections
@@ -523,6 +569,8 @@ const DEFAULT_SETTINGS = {
   ai_language: 'pt-BR',
   include_spoilers: false,
   allowed_card_types: DEFAULT_CARD_TYPES,
+  allowed_packs: [],   // empty = all packs allowed
+  day_type_map: {},    // { mon: ['investigator'], tue: ['event'] }
 };
 
 function normalizeSettings(s = {}) {
@@ -535,6 +583,8 @@ function normalizeSettings(s = {}) {
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
     allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length ? s.allowed_card_types : DEFAULT_CARD_TYPES,
+    allowed_packs: Array.isArray(s.allowed_packs) ? s.allowed_packs : [],
+    day_type_map: (s.day_type_map && typeof s.day_type_map === 'object' && !Array.isArray(s.day_type_map)) ? s.day_type_map : {},
   };
 }
 
@@ -765,6 +815,10 @@ function App() {
   const [cardResults, setCardResults] = useState([]);
   const [targetChatId, setTargetChatId] = useState('');
   const [activeTab, setActiveTab] = useState('home');
+  const [activeCyclePos, setActiveCyclePos] = useState(null);
+  const [packs, setPacks] = useState([]);
+  const [packsLoading, setPacksLoading] = useState(false);
+  const [packsFailed, setPacksFailed] = useState(false);
 
   const [loadingCmd, setLoadingCmd] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -837,17 +891,30 @@ function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
+  const PARENT_TAB = { cycles: 'settings', cycle_detail: 'cycles', language: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
-    const goHome = () => setActiveTab('home');
+    const goBack = () => setActiveTab(PARENT_TAB[activeTab] || 'home');
     if (activeTab === 'home') {
       btn.hide?.();
     } else {
       btn.show?.();
-      btn.onClick?.(goHome);
+      btn.onClick?.(goBack);
     }
-    return () => btn.offClick?.(goHome);
+    return () => btn.offClick?.(goBack);
+  }, [activeTab]);
+
+  // ── Load packs when entering cycles tabs ────────────────────────────────────
+  useEffect(() => {
+    if ((activeTab === 'cycles' || activeTab === 'cycle_detail') && packs.length === 0 && !packsLoading) {
+      setPacksLoading(true);
+      setPacksFailed(false);
+      apiFetch('/packs').then(({ ok, json }) => {
+        if (ok && Array.isArray(json.packs)) setPacks(json.packs);
+        else setPacksFailed(true);
+      }).catch(() => setPacksFailed(true)).finally(() => setPacksLoading(false));
+    }
   }, [activeTab]);
 
   // ── CloudStorage language sync ──────────────────────────────────────────────
@@ -1043,6 +1110,74 @@ function App() {
       return { ...cur, allowed_card_types: next.length ? next : cur.allowed_card_types };
     });
     haptic('selection');
+  }
+
+  // ── Pack / cycle helpers ────────────────────────────────────────────────────
+
+  function isPackSelected(packCode) {
+    const ap = settings.allowed_packs;
+    return ap.length === 0 || ap.includes(packCode);
+  }
+
+  function isCycleFullySelected(cyclePos) {
+    const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos);
+    return cyclePacks.length > 0 && cyclePacks.every((p) => isPackSelected(p.code));
+  }
+
+  function togglePack(packCode) {
+    haptic('selection');
+    setSettings((cur) => {
+      const ap = cur.allowed_packs;
+      let next;
+      if (ap.length === 0) {
+        // All selected → remove this one (build explicit whitelist)
+        next = packs.map((p) => p.code).filter((c) => c !== packCode);
+      } else if (ap.includes(packCode)) {
+        next = ap.filter((c) => c !== packCode);
+      } else {
+        next = [...ap, packCode];
+        // If all packs now selected, simplify to []
+        if (next.length === packs.length) next = [];
+      }
+      return { ...cur, allowed_packs: next };
+    });
+  }
+
+  function toggleCycle(cyclePos) {
+    haptic('selection');
+    setSettings((cur) => {
+      const ap = cur.allowed_packs;
+      const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
+      const allSelected = ap.length === 0 || cyclePacks.every((c) => ap.includes(c));
+      let next;
+      if (allSelected) {
+        // Deselect all in this cycle
+        if (ap.length === 0) {
+          next = packs.map((p) => p.code).filter((c) => !cyclePacks.includes(c));
+        } else {
+          next = ap.filter((c) => !cyclePacks.includes(c));
+        }
+      } else {
+        // Select all in this cycle
+        const base = ap.length === 0 ? packs.map((p) => p.code) : ap;
+        next = [...new Set([...base, ...cyclePacks])];
+        if (next.length === packs.length) next = [];
+      }
+      return { ...cur, allowed_packs: next };
+    });
+  }
+
+  function setDayType(dayCode, typeCode) {
+    haptic('selection');
+    setSettings((cur) => {
+      const dtm = { ...cur.day_type_map };
+      if (!typeCode) {
+        delete dtm[dayCode];
+      } else {
+        dtm[dayCode] = [typeCode];
+      }
+      return { ...cur, day_type_map: dtm };
+    });
   }
 
   function toggleLanguage() {
@@ -1248,6 +1383,32 @@ function App() {
             ))}
           </Section>
 
+          {/* Expansions */}
+          <Section title={copy.expansions} footer={copy.expansionsCaption}>
+            <MenuRow
+              icon="packs"
+              label={copy.expansions}
+              value={settings.allowed_packs.length === 0 ? copy.allExpansions : copy.packsSelected(settings.allowed_packs.length)}
+              onClick={() => setActiveTab('cycles')}
+            />
+          </Section>
+
+          {/* Day type map */}
+          <Section title={copy.dayTypeSection} footer={copy.dayTypeCaption}>
+            {WEEKDAYS.map((day) => {
+              const cur = settings.day_type_map[day.code];
+              const val = Array.isArray(cur) && cur.length ? cur[0] : '';
+              return (
+                <SelectRow key={day.code} label={day[language === 'pt' ? 'pt' : 'en']} value={val} onChange={(v) => setDayType(day.code, v)}>
+                  <option value="">{copy.allTypes}</option>
+                  {ALL_CARD_TYPES.map((t) => (
+                    <option key={t.code} value={t.code}>{t[language === 'pt' ? 'pt' : 'en']}</option>
+                  ))}
+                </SelectRow>
+              );
+            })}
+          </Section>
+
           {/* AI */}
           <Section title={copy.aiSection}>
             <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
@@ -1311,6 +1472,75 @@ function App() {
               <CommandRow key={cmd.id} command={cmd} onCancel={cancelCommand} loading={cancellingCommand === cmd.id} copy={copy} />
             ))}
           </Section>
+        </>
+      )}
+
+      {/* ── CYCLES ── */}
+      {activeTab === 'cycles' && (
+        <>
+          {packsLoading && (
+            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div></Section>
+          )}
+          {packsFailed && !packsLoading && (
+            <Section><Row icon="info" label={copy.packsFailed} /></Section>
+          )}
+          {!packsLoading && !packsFailed && (() => {
+            // Group packs by cycle_position
+            const positions = [...new Set(packs.map((p) => p.cycle_position))].sort((a, b) => a - b);
+            return positions.map((pos) => {
+              const cycle = CYCLES.find((c) => c.position === pos) || { name: `Cycle ${pos}` };
+              const cyclePacks = packs.filter((p) => p.cycle_position === pos);
+              const selectedCount = cyclePacks.filter((p) => isPackSelected(p.code)).length;
+              const allSel = selectedCount === cyclePacks.length;
+              return (
+                <Section key={pos}>
+                  <div className="row">
+                    <div className="row-main">
+                      <span className="row-label">{cycle.name}</span>
+                      <span className="row-caption">{copy.allPacksInCycle(cyclePacks.length)} · {selectedCount}/{cyclePacks.length}</span>
+                    </div>
+                    <button
+                      className="row-action cycle-drill"
+                      type="button"
+                      onClick={() => { setActiveCyclePos(pos); setActiveTab('cycle_detail'); }}
+                      style={{ background: 'none', border: 'none', padding: '0 4px', cursor: 'pointer', color: 'var(--hint)', flexShrink: 0 }}
+                    >
+                      <Icon name="chevron" />
+                    </button>
+                    <label className="toggle-row" style={{ width: 'auto', minHeight: 'auto', padding: 0 }}>
+                      <input type="checkbox" checked={allSel} onChange={() => toggleCycle(pos)} />
+                      <span className="toggle" aria-hidden="true" />
+                    </label>
+                  </div>
+                </Section>
+              );
+            });
+          })()}
+        </>
+      )}
+
+      {/* ── CYCLE DETAIL ── */}
+      {activeTab === 'cycle_detail' && activeCyclePos !== null && (
+        <>
+          {packsLoading && (
+            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div></Section>
+          )}
+          {!packsLoading && (() => {
+            const cyclePacks = packs.filter((p) => p.cycle_position === activeCyclePos);
+            const cycle = CYCLES.find((c) => c.position === activeCyclePos) || { name: `Cycle ${activeCyclePos}` };
+            return (
+              <Section title={cycle.name}>
+                {cyclePacks.map((pack) => (
+                  <ToggleRow
+                    key={pack.code}
+                    label={pack.name}
+                    checked={isPackSelected(pack.code)}
+                    onChange={() => togglePack(pack.code)}
+                  />
+                ))}
+              </Section>
+            );
+          })()}
         </>
       )}
 

@@ -515,6 +515,20 @@ input, select { outline: none; }
   white-space: pre-wrap;
 }
 
+/* ── Cycle row (toggle + drill chevron in same row) ──────────────────────── */
+
+.cycle-drill {
+  display: flex;
+  align-items: center;
+  padding: 8px 6px;
+  color: var(--hint);
+  transition: color 0.12s;
+}
+
+@media (hover: hover) {
+  .cycle-drill:hover { color: var(--text); }
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (min-width: 600px) {
