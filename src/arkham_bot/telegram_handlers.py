@@ -245,17 +245,47 @@ def _format_list(value) -> str:
 
 def _format_days(value) -> str:
     names = {
-        "mon": "seg",
-        "tue": "ter",
-        "wed": "qua",
-        "thu": "qui",
-        "fri": "sex",
-        "sat": "sab",
-        "sun": "dom",
+        "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu",
+        "fri": "Fri", "sat": "Sat", "sun": "Sun",
     }
     if not isinstance(value, list):
         return _format_list(value)
     return ", ".join(names.get(str(item), str(item)) for item in value) or "-"
+
+
+def _time_until_next_post(times: list, days: list, timezone_name: str) -> str:
+    """Returns human-readable time until next scheduled post."""
+    from zoneinfo import ZoneInfo
+    if not times:
+        return "not scheduled"
+    day_map = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
+    allowed_days = set(day_map[d] for d in (days or []) if d in day_map) or set(range(7))
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = UTC
+    now = datetime.now(tz)
+    for days_ahead in range(8):
+        candidate_date = (now + timedelta(days=days_ahead)).date()
+        if candidate_date.weekday() not in allowed_days:
+            continue
+        for time_str in sorted(times):
+            try:
+                h, m = map(int, time_str.split(':'))
+            except Exception:
+                continue
+            candidate = datetime(candidate_date.year, candidate_date.month, candidate_date.day, h, m, tzinfo=tz)
+            if candidate > now:
+                diff = candidate - now
+                total_mins = int(diff.total_seconds() / 60)
+                hours, mins = divmod(total_mins, 60)
+                if days_ahead == 0:
+                    return f"today at {time_str} (in {hours}h {mins}m)"
+                elif days_ahead == 1:
+                    return f"tomorrow at {time_str}"
+                else:
+                    return f"{candidate_date.strftime('%a')} at {time_str}"
+    return "not scheduled"
 
 
 def _as_bool(value, default: bool = False) -> bool:
@@ -301,45 +331,61 @@ def _format_day_config_lines(day_config: dict) -> list[str]:
     return lines if len(lines) > 2 else []
 
 
+def _format_public_status(payload: dict) -> str:
+    """Clean status for group members."""
+    daily_enabled = payload['daily_post_enabled']
+    next_post = payload.get('next_post', '-')
+    post_line = f"📅 Daily post: {'active' if daily_enabled else 'inactive'}"
+    if daily_enabled and next_post not in ('-', 'inactive', 'not scheduled'):
+        post_line += f" · {next_post}"
+    lines = [
+        "🟢 <b>Arkham Bot — Online</b>",
+        "",
+        post_line,
+        f"🃏 Cards: <b>{payload['cards_count']}</b>",
+        f"📦 Packs: <b>{payload['packs_count']}</b>",
+        f"⚠️ Taboo lists: <b>{payload.get('taboo_count', '-')}</b>",
+    ]
+    return "\n".join(lines)
+
+
 def _format_status_report(payload: dict) -> str:
+    """Full status for admins."""
     lines = [
         "<b>Arkham Bot</b>",
-        "<code>Status operacional</code>",
+        "<code>Operational status</code>",
         "",
-        "<b>Resumo</b>",
+        "<b>Summary</b>",
         f"- Bot: {_bold(payload['bot'])}",
         f"- Uptime: {_code(payload['uptime'])}",
-        f"- Horario local: {_code(payload['local_time'])}",
+        f"- Local time: {_code(payload['local_time'])}",
         "",
         "<b>Telegram</b>",
-        f"- Chat configurado: {_bold(_yes_no(payload['telegram_chat_configured']))}",
-        f"- Usuario: {_code(payload['telegram_user_id'])}",
+        f"- Chat configured: {_bold(_yes_no(payload['telegram_chat_configured']))}",
+        f"- User ID: {_code(payload['telegram_user_id'])}",
         "",
-        "<b>Agendamento</b>",
-        f"- Postagem diaria: {_bold(_active_inactive(payload['daily_post_enabled']))}",
-        f"- Horarios: {_code(_format_list(payload['daily_post_times']))}",
-        f"- Dias: {_code(_format_days(payload['daily_post_days']))}",
-        f"- Ultimo resultado: {_code(payload['last_daily_post_status'])}",
+        "<b>Scheduling</b>",
+        f"- Daily post: {_bold(_active_inactive(payload['daily_post_enabled']))}",
+        f"- Times: {_code(_format_list(payload['daily_post_times']))}",
+        f"- Days: {_code(_format_days(payload['daily_post_days']))}",
+        f"- Next post: {_code(payload.get('next_post', '-'))}",
+        f"- Last result: {_code(payload['last_daily_post_status'])}",
         *_format_day_config_lines(payload.get('day_config', {})),
-        f"- Ultima carta: {_code(payload['last_daily_post_card_code'])}",
+        f"- Last card: {_code(payload['last_daily_post_card_code'])}",
         "",
-        "<b>Dados</b>",
+        "<b>Data</b>",
         f"- Supabase: {_bold(payload['supabase_status'])}",
-        f"- Cartas: {_code(payload['cards_count'])}",
+        f"- Cards: {_code(payload['cards_count'])}",
         f"- Packs: {_code(payload['packs_count'])}",
-        f"- IA diaria: {_bold(_active_inactive(payload['ai_daily_card_enabled']))}",
-        f"- Modelo IA: {_code(payload['ai_model'])}",
-        f"- Worker de comandos: {_bold(_active_inactive(payload['bot_commands_enabled']))}",
+        f"- Taboo lists: {_code(payload.get('taboo_count', '-'))}",
+        f"- AI daily: {_bold(_active_inactive(payload['ai_daily_card_enabled']))}",
+        f"- AI model: {_code(payload['ai_model'])}",
+        f"- Command worker: {_bold(_active_inactive(payload['bot_commands_enabled']))}",
         "",
         "<b>Admin</b>",
+        f"- Access: {_code(payload['admin_source'])}",
+        f"- Pending/retry queue: {_code(payload['pending_commands'])}",
     ]
-    if payload["is_admin"]:
-        lines.extend([
-            f"- Acesso: {_code(payload['admin_source'])}",
-            f"- Fila pendente/retry: {_code(payload['pending_commands'])}",
-        ])
-    else:
-        lines.append("- Acesso: nao")
     return "\n".join(lines)
 
 
@@ -437,6 +483,7 @@ def _collect_status_payload(update: Update) -> dict:
         logger.warning("status_settings_lookup_failed: %s", exc)
         supabase_status = "erro"
 
+    taboo_count = "-"
     if SUPABASE_ENABLED:
         try:
             from .supabase_client import get_supabase_client
@@ -445,6 +492,7 @@ def _collect_status_payload(update: Update) -> dict:
             if client:
                 cards_count = str(client.count("arkham_cards"))
                 packs_count = str(client.count("arkham_packs"))
+                taboo_count = str(client.count("arkham_taboos"))
         except Exception as exc:
             logger.warning("status_catalog_lookup_failed: %s", exc)
             cards_count = "erro"
@@ -481,6 +529,8 @@ def _collect_status_payload(update: Update) -> dict:
         "supabase_status": supabase_status,
         "cards_count": cards_count,
         "packs_count": packs_count,
+        "taboo_count": taboo_count,
+        "next_post": _time_until_next_post(daily_post_times, daily_post_days, timezone_name) if daily_post_enabled else "inactive",
         "ai_daily_card_enabled": bool(AI_DAILY_CARD_ENABLED and OPENAI_API_KEY),
         "ai_model": AI_MODEL if OPENAI_API_KEY else "sem OPENAI_API_KEY",
         "bot_commands_enabled": BOT_COMMANDS_POLLING_ENABLED,
@@ -504,7 +554,8 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     payload = _collect_status_payload(update)
-    await update.message.reply_text(_format_status_report(payload), parse_mode=ParseMode.HTML)
+    formatter = _format_status_report if payload["is_admin"] else _format_public_status
+    await update.message.reply_text(formatter(payload), parse_mode=ParseMode.HTML)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

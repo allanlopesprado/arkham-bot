@@ -25,7 +25,7 @@ class SupabaseRestClient:
         """Returns exact row count using PostgREST count=exact header."""
         headers = dict(self.headers)
         headers["Prefer"] = "count=exact"
-        all_params = {"select": "code", "limit": "1"}
+        all_params = {"select": "*", "limit": "1"}
         if params:
             all_params.update(params)
         response = httpx.get(self.table_url(table), headers=headers, params=all_params, timeout=REQUEST_TIMEOUT_SECONDS)
