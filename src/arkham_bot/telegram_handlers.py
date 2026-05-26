@@ -836,10 +836,10 @@ def _search_page(results: list, page: int, query: str) -> tuple[InlineKeyboardMa
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("« Anterior", callback_data=f"SEARCH_PAGE_{page - 1}"))
-    nav.append(InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL))
+        nav.append(InlineKeyboardButton("⬅️", callback_data=f"SEARCH_PAGE_{page - 1}"))
+    nav.append(InlineKeyboardButton("❌", callback_data=CALLBACK_CANCEL))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("Próximo »", callback_data=f"SEARCH_PAGE_{page + 1}"))
+        nav.append(InlineKeyboardButton("➡️", callback_data=f"SEARCH_PAGE_{page + 1}"))
     buttons.append(nav)
 
     text = f"🔍 <b>{total} resultado(s)</b> para «{escape(query)}» — página {page + 1}/{total_pages}:"
