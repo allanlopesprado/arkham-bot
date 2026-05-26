@@ -607,12 +607,14 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
     pack_name = next((name for name, code in PACK_CODES.items() if code == pack_code), f"code {pack_code}")
 
     full_card_id = f"{pack_code}{card_number}"
-    await update.message.reply_text(f"⏳ Searching for card **{full_card_id}** on ArkhamDB...", parse_mode=ParseMode.MARKDOWN)
+    await update.message.reply_text(f"⏳ Buscando carta **{full_card_id}**...", parse_mode=ParseMode.MARKDOWN)
 
     try:
         card_data, source = await get_card_async(full_card_id)
         if not card_data:
-            raise ValueError(f"Card not found: {full_card_id}")
+            await update.message.reply_text(f"⚠️ Carta `{full_card_id}` não encontrada. Verifique o código e tente novamente.", parse_mode=ParseMode.MARKDOWN)
+            context.user_data.clear()
+            return ConversationHandler.END
         logger.info(f"Card {full_card_id} loaded from {source}")
         card_code = card_data.get('code')
 
@@ -693,12 +695,11 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                     )
 
     except Exception as e:
-        logger.error(f"HTTP Request Error: {e}")
-        message_text = (
-            f"🚨 Connection Error to ArkhamDB while fetching card **{full_card_id}** "
-            f"in expansion '{pack_name}'. Check your connection or try again later."
+        logger.error(f"receive_card_number error for {full_card_id}: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"🚨 Erro ao buscar a carta `{full_card_id}`. Tente novamente mais tarde.",
+            parse_mode=ParseMode.MARKDOWN,
         )
-        await update.message.reply_text(message_text, parse_mode=ParseMode.MARKDOWN)
         context.user_data.clear()
         return ConversationHandler.END
 
