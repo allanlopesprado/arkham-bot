@@ -23,6 +23,7 @@ from .config import (
     BASE_URL,
     CALLBACK_CANCEL,
     CHOOSING_CARD_NUMBER,
+    SEARCH_WAITING_QUERY,
     EXTENSIONS_TO_TRY,
     PACK_CODES,
     TELEGRAM_CHAT_ID,
@@ -691,30 +692,105 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Could not fetch decklist right now.")
 
 
-async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not await _check_rate_limit(update):
-        return
-    if not context.args:
-        await update.message.reply_text("Usage: /search <name>")
-        return
+        return ConversationHandler.END
+    # If query was passed inline (e.g. /search shrivelling), run immediately
+    if context.args:
+        return await _search_run(update, context, " ".join(context.args).strip())
+    await update.message.reply_text(
+        "🔍 Digite o nome ou código da carta:",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL)
+        ]])
+    )
+    return SEARCH_WAITING_QUERY
+
+
+async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not await _check_rate_limit(update):
+        return ConversationHandler.END
+    query = (update.message.text or "").strip()
+    if not query:
+        await update.message.reply_text("Digite algo para buscar.")
+        return SEARCH_WAITING_QUERY
+    return await _search_run(update, context, query)
+
+
+async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    card_code = query.data.replace("CARD_SELECT_", "")
+    try:
+        card = await get_card_async(card_code)
+        if not card:
+            await query.edit_message_text("Carta não encontrada.")
+            return ConversationHandler.END
+        from .daily_card import post_daily_card
+        chat_id = str(query.message.chat_id)
+        await query.edit_message_text(f"🃏 Carregando <b>{escape(card.get('name', card_code))}</b>…", parse_mode=ParseMode.HTML)
+        caption = format_card_caption(card)
+        from .arkhamdb_client import download_image_async as _dl
+        from .config import BASE_URL, EXTENSIONS_TO_TRY
+        image_url = None
+        for ext in EXTENSIONS_TO_TRY:
+            image_url = urljoin(BASE_URL, f"{card_code}.{ext}")
+            break
+        img_bytes = await _dl(image_url) if image_url else None
+        if img_bytes:
+            await query.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
+        else:
+            await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
+        await query.delete_message()
+    except Exception as exc:
+        logger.error(f"search_card_selected error: {exc}", exc_info=True)
+        await query.edit_message_text("Erro ao carregar a carta.")
+    return ConversationHandler.END
+
+
+async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
     import asyncio
     from .arkhamdb_client import fetch_all_cards_sync
-
-    query = " ".join(context.args).strip().lower()
+    q = query.lower()
     try:
         cards = await asyncio.to_thread(fetch_all_cards_sync)
         results = [
             c for c in cards
-            if query in (c.get('name') or '').lower() or query in (c.get('real_name') or '').lower()
-        ][:20]
+            if q in (c.get('name') or '').lower()
+            or q in (c.get('real_name') or '').lower()
+            or q == (c.get('code') or '').lower()
+        ][:15]
         if not results:
-            await update.message.reply_text("No cards found.")
-            return
-        text = "Search results:\n" + "\n".join(_card_line(c) for c in results)
-        await _send_long_or_private(update, text, private_threshold=900 if len(results) > 5 else 1800)
+            msg = "Nenhuma carta encontrada. Tente outro termo."
+            if update.message:
+                await update.message.reply_text(msg)
+            else:
+                await update.callback_query.edit_message_text(msg)
+            return ConversationHandler.END
+
+        buttons = []
+        for c in results:
+            code = c.get('code', '')
+            name = c.get('name') or c.get('real_name') or code
+            pack = c.get('pack_name') or ''
+            label = f"{code} — {name} — {pack}"
+            if len(label) > 64:
+                label = label[:61] + "…"
+            buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
+
+        buttons.append([InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL)])
+        markup = InlineKeyboardMarkup(buttons)
+        text = f"🔍 <b>{len(results)} resultado(s)</b> para «{escape(query)}»:"
+        if update.message:
+            await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+        elif update.callback_query:
+            await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
     except Exception as exc:
-        logger.error(f"search_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not search cards right now.")
+        logger.error(f"search_run error: {exc}", exc_info=True)
+        msg = "Erro ao buscar cartas."
+        if update.message:
+            await update.message.reply_text(msg)
+    return ConversationHandler.END
 
 
 async def pack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1065,7 +1141,22 @@ def register_handlers(application):
     application.add_handler(CommandHandler("faq", faq_command))
     application.add_handler(CommandHandler("taboo", taboo_command))
     application.add_handler(CommandHandler("decklist", decklist_command))
-    application.add_handler(CommandHandler("search", search_command))
+    search_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("search", search_command)],
+        states={
+            SEARCH_WAITING_QUERY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, search_receive_query),
+                CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"),
+            ],
+        },
+        fallbacks=[
+            CommandHandler("cancel", cancel_conversation),
+            CommandHandler("start", start_command),
+            CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"),
+        ],
+    )
+    application.add_handler(search_conv_handler)
+    application.add_handler(CallbackQueryHandler(search_card_selected, pattern=r'^CARD_SELECT_'))
     application.add_handler(CommandHandler("pack", pack_command))
     application.add_handler(CommandHandler("faction", faction_command))
     application.add_handler(CommandHandler("type", type_command))

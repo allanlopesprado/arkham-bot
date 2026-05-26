@@ -57,6 +57,7 @@ REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "15"))
 
 # State Constants
 CHOOSING_CARD_NUMBER = 0
+SEARCH_WAITING_QUERY = 1
 CALLBACK_CANCEL = 'CANCEL_CONV'
 
 # Public command rate limiting
