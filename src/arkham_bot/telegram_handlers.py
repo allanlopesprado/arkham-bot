@@ -789,26 +789,27 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
     from .arkhamdb_client import fetch_all_cards_sync
     q = query.strip()
 
-    # Exact code match (5-6 digits) → show card directly
-    if re.fullmatch(r'\d{5,6}', q):
-        await _send_card_by_code(update, q)
-        return ConversationHandler.END
-
     q_lower = q.lower()
+    is_numeric = re.fullmatch(r'\d+', q) is not None
+
     try:
         cards = await asyncio.to_thread(fetch_all_cards_sync)
 
-        # Check for exact code match within card list
-        exact = next((c for c in cards if (c.get('code') or '').lower() == q_lower), None)
+        # Exact code match → show card directly
+        exact = next((c for c in cards if (c.get('code') or '') == q), None)
         if exact:
             await _send_card_by_code(update, exact['code'])
             return ConversationHandler.END
 
-        results = [
-            c for c in cards
-            if q_lower in (c.get('name') or '').lower()
-            or q_lower in (c.get('real_name') or '').lower()
-        ][:15]
+        if is_numeric:
+            # Partial numeric → match codes that start with the digits typed
+            results = [c for c in cards if (c.get('code') or '').startswith(q)][:15]
+        else:
+            results = [
+                c for c in cards
+                if q_lower in (c.get('name') or '').lower()
+                or q_lower in (c.get('real_name') or '').lower()
+            ][:15]
 
         if not results:
             msg = "Nenhuma carta encontrada. Tente outro termo."
