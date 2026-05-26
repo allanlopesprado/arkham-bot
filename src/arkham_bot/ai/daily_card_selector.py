@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, OPENAI_API_KEY, REQUEST_TIMEOUT_SECONDS
+from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, REQUEST_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -71,25 +71,28 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
     return AIDailyCardChoice(code, pre, post, reason)
 
 
-VALID_MODELS = {"gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-4o-mini"}
-TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.2}
+VALID_MODELS = {"gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash-preview-05-20"}
+TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.4}
 
 
-async def _call_openai(prompt: dict, model: str = AI_MODEL, temperature: float = 0.9) -> dict:
+async def _call_gemini(prompt: dict, model: str = AI_MODEL, temperature: float = 0.9) -> dict:
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
+        f":generateContent?key={GEMINI_API_KEY}"
+    )
+    payload = {
+        "contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}],
+        "generationConfig": {
+            "temperature": temperature,
+            "responseMimeType": "application/json",
+        },
+    }
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
-                "temperature": temperature,
-                "response_format": {"type": "json_object"},
-            },
-        )
+        response = await client.post(url, json=payload)
     response.raise_for_status()
     data = response.json()
-    return json.loads(data["choices"][0]["message"]["content"])
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    return json.loads(text)
 
 
 async def choose_daily_card_with_ai(
@@ -105,8 +108,8 @@ async def choose_daily_card_with_ai(
     if not AI_DAILY_CARD_ENABLED:
         logger.debug("choose_daily_card_with_ai: skipped — AI_DAILY_CARD_ENABLED=false")
         return None
-    if not OPENAI_API_KEY:
-        logger.warning("choose_daily_card_with_ai: skipped — OPENAI_API_KEY not configured")
+    if not GEMINI_API_KEY:
+        logger.warning("choose_daily_card_with_ai: skipped — GEMINI_API_KEY not configured")
         return None
     if not candidates:
         return None
@@ -152,7 +155,7 @@ async def choose_daily_card_with_ai(
     }
 
     try:
-        payload = await _call_openai(prompt, model=effective_model, temperature=temperature)
+        payload = await _call_gemini(prompt, model=effective_model, temperature=temperature)
         choice = validate_ai_choice(payload, candidate_codes)
         logger.info("ai_select tone=%s model=%s card=%s", effective_tone, effective_model, choice.selected_card_code)
         return choice
@@ -174,8 +177,8 @@ async def generate_card_commentary(
     if not AI_DAILY_CARD_ENABLED:
         logger.debug("generate_card_commentary: skipped — AI_DAILY_CARD_ENABLED=false")
         return None
-    if not OPENAI_API_KEY:
-        logger.warning("generate_card_commentary: skipped — OPENAI_API_KEY not configured")
+    if not GEMINI_API_KEY:
+        logger.warning("generate_card_commentary: skipped — GEMINI_API_KEY not configured")
         return None
     if not card:
         return None
@@ -218,7 +221,7 @@ async def generate_card_commentary(
     }
 
     try:
-        payload = await _call_openai(prompt, model=effective_model, temperature=temperature)
+        payload = await _call_gemini(prompt, model=effective_model, temperature=temperature)
         candidate_codes = {code}
         choice = validate_ai_choice(payload, candidate_codes)
         logger.info("ai_comment tone=%s model=%s card=%s", effective_tone, effective_model, code)

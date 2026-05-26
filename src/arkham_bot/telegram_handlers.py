@@ -811,10 +811,10 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tests OpenAI connectivity and reports AI configuration status."""
+    """Tests Gemini connectivity and reports AI configuration status."""
     if not await _require_admin(update):
         return
-    from .config import AI_DAILY_CARD_ENABLED, AI_MODEL, OPENAI_API_KEY
+    from .config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY
     from .repositories.settings_repo import get_setting
 
     ai_enabled_db = get_setting('ai_enabled', True)
@@ -822,47 +822,46 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ai_language = get_setting('ai_language', 'pt-BR')
 
     lines = [
-        "<b>🤖 AI Diagnostic</b>",
-        f"• <code>AI_DAILY_CARD_ENABLED</code> (env): <b>{AI_DAILY_CARD_ENABLED}</b>",
-        f"• <code>OPENAI_API_KEY</code> set: <b>{bool(OPENAI_API_KEY)}</b>",
-        f"• <code>ai_enabled</code> (DB): <b>{ai_enabled_db}</b>",
-        f"• Model: <b>{ai_model_db}</b>",
-        f"• Language: <b>{ai_language}</b>",
+        "<b>AI Diagnostic (Gemini)</b>",
+        f"AI_DAILY_CARD_ENABLED (env): <b>{AI_DAILY_CARD_ENABLED}</b>",
+        f"GEMINI_API_KEY set: <b>{bool(GEMINI_API_KEY)}</b>",
+        f"ai_enabled (DB): <b>{ai_enabled_db}</b>",
+        f"Model: <b>{ai_model_db}</b>",
+        f"Language: <b>{ai_language}</b>",
         "",
     ]
 
     if not AI_DAILY_CARD_ENABLED:
-        lines.append("❌ AI disabled by env var <code>AI_DAILY_CARD_ENABLED=false</code>")
-    elif not OPENAI_API_KEY:
-        lines.append("❌ <code>OPENAI_API_KEY</code> not set — add it to your .env or server environment")
+        lines.append("AI disabled by env var AI_DAILY_CARD_ENABLED=false")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+    elif not GEMINI_API_KEY:
+        lines.append("GEMINI_API_KEY not set — add it to the .env on the server")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
     elif not ai_enabled_db:
-        lines.append("❌ AI disabled in database (<code>ai_enabled=false</code>) — enable it from the mini app")
+        lines.append("AI disabled in database — enable from the mini app")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
     else:
-        lines.append("Testing OpenAI connection…")
+        lines.append("Testing Gemini connection...")
         await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
         try:
             import httpx
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/{ai_model_db}"
+                f":generateContent?key={GEMINI_API_KEY}"
+            )
             async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-                    json={
-                        "model": ai_model_db,
-                        "messages": [{"role": "user", "content": "Say OK"}],
-                        "max_tokens": 5,
-                    },
-                )
+                resp = await client.post(url, json={
+                    "contents": [{"parts": [{"text": "Say OK"}]}],
+                    "generationConfig": {"maxOutputTokens": 5},
+                })
             if resp.status_code == 200:
-                await update.message.reply_text("✅ OpenAI connection OK — AI is fully operational")
+                await update.message.reply_text("✅ Gemini OK — AI fully operational")
             else:
                 body = resp.json()
-                err = body.get("error", {}).get("message", resp.text[:200])
-                await update.message.reply_text(f"❌ OpenAI returned HTTP {resp.status_code}: {err}")
+                err = body.get("error", {}).get("message", resp.text[:300])
+                await update.message.reply_text(f"❌ Gemini HTTP {resp.status_code}: {err}")
         except Exception as exc:
-            await update.message.reply_text(f"❌ OpenAI connection failed: {exc}")
-        return
-
-    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+            await update.message.reply_text(f"❌ Gemini connection failed: {exc}")
 
 
 async def post_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

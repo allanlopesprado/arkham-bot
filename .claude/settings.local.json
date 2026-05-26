@@ -14,7 +14,11 @@
       "Bash(gh run *)",
       "Bash(git commit *)",
       "Bash(Get-ChildItem \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\src\\\\arkham_bot\" -Filter \"*.py\")",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(npx wrangler *)",
+      "Bash(Get-Content \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\logs\\\\bot_execution.log\" -Tail 80)",
+      "Bash(python -c \"from src.arkham_bot.telegram_handlers import ai_test_command; from src.arkham_bot.daily_card import post_daily_card; print\\('OK'\\)\")",
+      "Bash(python -c \"from src.arkham_bot.ai.daily_card_selector import _call_gemini, VALID_MODELS; print\\('Python OK', VALID_MODELS\\)\")"
     ]
   }
 }
