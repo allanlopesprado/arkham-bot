@@ -1759,11 +1759,11 @@ function App() {
             })()}
           </Section>
 
-          <Section footer={copy.resetCaption}>
+          <Section title={copy.resetCycle} footer={copy.resetCaption}>
             <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
           </Section>
 
-          <Section footer={copy.clearQueueCaption}>
+          <Section title={copy.clearQueue} footer={copy.clearQueueCaption}>
             <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
           </Section>
 

@@ -668,6 +668,16 @@ input, select { outline: none; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
-@media (min-width: 600px) {
-  .app { max-width: 560px; }
+@media (min-width: 768px) {
+  #root {
+    display: flex;
+    justify-content: center;
+    background: var(--bg);
+    min-height: var(--tg-viewport-stable-height, 100dvh);
+  }
+  .app {
+    width: min(100%, 430px);
+    border-left: 1px solid var(--sep);
+    border-right: 1px solid var(--sep);
+  }
 }
