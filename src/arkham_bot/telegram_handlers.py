@@ -873,18 +873,17 @@ async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def _delete_search_context_messages(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
-    """Deletes the search prompt and the user's query message if stored."""
-    for msg_id_key, chat_id_key in [
-        ("search_prompt_msg_id", "search_prompt_chat_id"),
-        ("search_user_msg_id", "search_user_chat_id"),
-    ]:
-        msg_id = context.user_data.pop(msg_id_key, None)
-        chat_id = context.user_data.pop(chat_id_key, None)
-        if msg_id and chat_id:
-            try:
-                await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-            except Exception:
-                pass
+    """Deletes only the bot's search prompt message."""
+    msg_id = context.user_data.pop("search_prompt_msg_id", None)
+    chat_id = context.user_data.pop("search_prompt_chat_id", None)
+    # Clear stored user msg refs without deleting them
+    context.user_data.pop("search_user_msg_id", None)
+    context.user_data.pop("search_user_chat_id", None)
+    if msg_id and chat_id:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception:
+            pass
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
