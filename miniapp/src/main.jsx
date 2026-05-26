@@ -602,10 +602,14 @@ const AI_TONES = [
 ];
 
 const AI_MODELS = [
-  { value: 'gemini-2.5-flash',                  label: 'Gemini 2.5 Flash — recomendado' },
-  { value: 'gemini-2.0-flash',                  label: 'Gemini 2.0 Flash — rápido e gratuito' },
-  { value: 'gemini-2.5-flash-preview-05-20',    label: 'Gemini 2.5 Flash Preview' },
-  { value: 'gemini-2.5-pro',                    label: 'Gemini 2.5 Pro — maior qualidade' },
+  { value: 'gemini-2.5-flash',                  label: 'Gemini 2.5 Flash — recomendado (gratuito)' },
+  { value: 'gemini-2.0-flash',                  label: 'Gemini 2.0 Flash — rápido (gratuito)' },
+  { value: 'gemini-2.5-flash-preview-05-20',    label: 'Gemini 2.5 Flash Preview (gratuito)' },
+  { value: 'gemini-2.5-pro',                    label: 'Gemini 2.5 Pro — maior qualidade (gratuito)' },
+  { value: 'gpt-4o-mini',                       label: 'GPT-4o Mini — econômico (pago)' },
+  { value: 'gpt-4o',                            label: 'GPT-4o — alta qualidade (pago)' },
+  { value: 'gpt-4.1-mini',                      label: 'GPT-4.1 Mini — econômico (pago)' },
+  { value: 'gpt-4.1',                           label: 'GPT-4.1 — alta qualidade (pago)' },
 ];
 
 const DEFAULT_SETTINGS = {

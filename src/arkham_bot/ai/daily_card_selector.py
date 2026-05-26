@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, REQUEST_TIMEOUT_SECONDS
+from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, OPENAI_API_KEY, REQUEST_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,15 @@ TONES = [
 ]
 
 _TAG_RE = re.compile(r'<[^>]+>|\[[^\]]+\]')
+
+GEMINI_MODELS = {"gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro"}
+OPENAI_MODELS = {"gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "gpt-4-turbo"}
+VALID_MODELS = GEMINI_MODELS | OPENAI_MODELS
+TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.4}
+
+
+def _provider(model: str) -> str:
+    return "openai" if model.startswith("gpt-") else "gemini"
 
 
 def _strip(text: str | None, limit: int) -> str:
@@ -71,11 +80,7 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
     return AIDailyCardChoice(code, pre, post, reason)
 
 
-VALID_MODELS = {"gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro"}
-TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.4}
-
-
-async def _call_gemini(prompt: dict, model: str = AI_MODEL, temperature: float = 0.9) -> dict:
+async def _call_gemini(prompt: dict, model: str, temperature: float) -> dict:
     url = (
         f"https://generativelanguage.googleapis.com/v1/models/{model}"
         f":generateContent?key={GEMINI_API_KEY}"
@@ -95,6 +100,36 @@ async def _call_gemini(prompt: dict, model: str = AI_MODEL, temperature: float =
     return json.loads(text)
 
 
+async def _call_openai(prompt: dict, model: str, temperature: float) -> dict:
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+    payload = {
+        "model": model,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+        ],
+    }
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+        response = await client.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+    return json.loads(data["choices"][0]["message"]["content"])
+
+
+async def _call_ai(prompt: dict, model: str, temperature: float) -> dict:
+    if _provider(model) == "openai":
+        return await _call_openai(prompt, model, temperature)
+    return await _call_gemini(prompt, model, temperature)
+
+
+def _key_available(model: str) -> bool:
+    if _provider(model) == "openai":
+        return bool(OPENAI_API_KEY)
+    return bool(GEMINI_API_KEY)
+
+
 async def choose_daily_card_with_ai(
     candidates: list[dict],
     language: str = "pt-BR",
@@ -108,14 +143,15 @@ async def choose_daily_card_with_ai(
     if not AI_DAILY_CARD_ENABLED:
         logger.debug("choose_daily_card_with_ai: skipped — AI_DAILY_CARD_ENABLED=false")
         return None
-    if not GEMINI_API_KEY:
-        logger.warning("choose_daily_card_with_ai: skipped — GEMINI_API_KEY not configured")
+    effective_model = model if model and model in VALID_MODELS else AI_MODEL
+    if not _key_available(effective_model):
+        provider = _provider(effective_model)
+        logger.warning("choose_daily_card_with_ai: skipped — %s API key not configured", provider)
         return None
     if not candidates:
         return None
 
     effective_tone = tone if tone and tone in TONES else random.choice(TONES)
-    effective_model = model if model and model in VALID_MODELS else AI_MODEL
     temperature = TEMPERATURE_MAP.get(creativity, 0.9)
 
     candidate_codes = {str(card.get("code")) for card in candidates if card.get("code")}
@@ -155,7 +191,7 @@ async def choose_daily_card_with_ai(
     }
 
     try:
-        payload = await _call_gemini(prompt, model=effective_model, temperature=temperature)
+        payload = await _call_ai(prompt, model=effective_model, temperature=temperature)
         choice = validate_ai_choice(payload, candidate_codes)
         logger.info("ai_select tone=%s model=%s card=%s", effective_tone, effective_model, choice.selected_card_code)
         return choice
@@ -177,14 +213,15 @@ async def generate_card_commentary(
     if not AI_DAILY_CARD_ENABLED:
         logger.debug("generate_card_commentary: skipped — AI_DAILY_CARD_ENABLED=false")
         return None
-    if not GEMINI_API_KEY:
-        logger.warning("generate_card_commentary: skipped — GEMINI_API_KEY not configured")
+    effective_model = model if model and model in VALID_MODELS else AI_MODEL
+    if not _key_available(effective_model):
+        provider = _provider(effective_model)
+        logger.warning("generate_card_commentary: skipped — %s API key not configured", provider)
         return None
     if not card:
         return None
 
     effective_tone = tone if tone and tone in TONES else random.choice(TONES)
-    effective_model = model if model and model in VALID_MODELS else AI_MODEL
     temperature = TEMPERATURE_MAP.get(creativity, 0.9)
     code = str(card.get("code") or "")
 
@@ -221,7 +258,7 @@ async def generate_card_commentary(
     }
 
     try:
-        payload = await _call_gemini(prompt, model=effective_model, temperature=temperature)
+        payload = await _call_ai(prompt, model=effective_model, temperature=temperature)
         candidate_codes = {code}
         choice = validate_ai_choice(payload, candidate_codes)
         logger.info("ai_comment tone=%s model=%s card=%s", effective_tone, effective_model, code)
