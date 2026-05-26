@@ -772,7 +772,8 @@ def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict) -> tuple[str
     lines = ["📋 <b>Listas de Taboo</b>", "Selecione uma lista para explorar:\n"]
     buttons = []
     for i, t in enumerate(sorted_lists):
-        date = t.get('date_start', '')[:10]
+        raw = t.get('date_start', '')[:10]
+        date = f"{raw[8:10]}/{raw[5:7]}/{raw[:4]}" if len(raw) == 10 else raw
         tid = t.get('id', i)
         label = f"{'✅ ' if i == 0 else ''}{date}"
         buttons.append([InlineKeyboardButton(label, callback_data=f"TABOO_LIST_{tid}")])
@@ -782,7 +783,8 @@ def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict) -> tuple[str
 
 def _taboo_detail_text_and_buttons(taboo: dict, cats: dict) -> tuple[str, InlineKeyboardMarkup]:
     """Builds the category summary for a selected taboo list."""
-    date_str = taboo.get('date_start', '')[:10]
+    raw_date = taboo.get('date_start', '')[:10]
+    date_str = f"{raw_date[8:10]}/{raw_date[5:7]}/{raw_date[:4]}" if len(raw_date) == 10 else raw_date
     total = sum(len(v) for v in cats.values())
     tid = taboo.get('id', '')
     lines = [f"📋 <b>Taboo — {date_str}</b>", f"{total} carta(s) afetada(s)\n"]
