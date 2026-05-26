@@ -71,13 +71,13 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
     return AIDailyCardChoice(code, pre, post, reason)
 
 
-VALID_MODELS = {"gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash-preview-05-20"}
+VALID_MODELS = {"gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro"}
 TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.4}
 
 
 async def _call_gemini(prompt: dict, model: str = AI_MODEL, temperature: float = 0.9) -> dict:
     url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
+        f"https://generativelanguage.googleapis.com/v1/models/{model}"
         f":generateContent?key={GEMINI_API_KEY}"
     )
     payload = {

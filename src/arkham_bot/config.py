@@ -91,7 +91,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # kept for backwards compat, not u
 ARKHAMDB_OAUTH_CLIENT_ID = os.getenv("ARKHAMDB_OAUTH_CLIENT_ID")
 ARKHAMDB_OAUTH_CLIENT_SECRET = os.getenv("ARKHAMDB_OAUTH_CLIENT_SECRET")
 AI_DAILY_CARD_ENABLED = os.getenv("AI_DAILY_CARD_ENABLED", "true").lower() == "true"
-AI_MODEL = os.getenv("AI_MODEL", "gemini-2.0-flash")
+AI_MODEL = os.getenv("AI_MODEL", "gemini-2.5-flash")
 
 # Bot command polling
 BOT_COMMANDS_POLLING_ENABLED = os.getenv("BOT_COMMANDS_POLLING_ENABLED", "true").lower() == "true"

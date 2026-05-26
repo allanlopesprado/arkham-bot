@@ -602,10 +602,10 @@ const AI_TONES = [
 ];
 
 const AI_MODELS = [
+  { value: 'gemini-2.5-flash',                  label: 'Gemini 2.5 Flash — recomendado' },
   { value: 'gemini-2.0-flash',                  label: 'Gemini 2.0 Flash — rápido e gratuito' },
-  { value: 'gemini-1.5-flash',                  label: 'Gemini 1.5 Flash — estável e gratuito' },
-  { value: 'gemini-1.5-pro',                    label: 'Gemini 1.5 Pro — maior qualidade' },
-  { value: 'gemini-2.5-flash-preview-05-20',    label: 'Gemini 2.5 Flash — mais recente' },
+  { value: 'gemini-2.5-flash-preview-05-20',    label: 'Gemini 2.5 Flash Preview' },
+  { value: 'gemini-2.5-pro',                    label: 'Gemini 2.5 Pro — maior qualidade' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -618,7 +618,7 @@ const DEFAULT_SETTINGS = {
   ai_tone: 'random',
   ai_pre_message_enabled: true,
   ai_post_question_enabled: true,
-  ai_model: 'gemini-2.0-flash',
+  ai_model: 'gemini-2.5-flash',
   ai_creativity: 'default',
   include_spoilers: false,
   allowed_card_types: DEFAULT_CARD_TYPES,
@@ -652,7 +652,7 @@ function normalizeSettings(s = {}) {
     ai_tone: AI_TONES.some((t) => t.value === s.ai_tone) ? s.ai_tone : 'random',
     ai_pre_message_enabled: typeof s.ai_pre_message_enabled === 'boolean' ? s.ai_pre_message_enabled : true,
     ai_post_question_enabled: typeof s.ai_post_question_enabled === 'boolean' ? s.ai_post_question_enabled : true,
-    ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gemini-2.0-flash',
+    ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gemini-2.5-flash',
     ai_creativity: ['conservative', 'default', 'creative'].includes(s.ai_creativity) ? s.ai_creativity : 'default',
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
     allowed_card_types: types && types.length ? types : DEFAULT_CARD_TYPES,

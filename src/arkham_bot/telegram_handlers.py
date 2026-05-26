@@ -849,7 +849,7 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             import httpx
             url = (
-                f"https://generativelanguage.googleapis.com/v1beta/models/{ai_model_db}"
+                f"https://generativelanguage.googleapis.com/v1/models/{ai_model_db}"
                 f":generateContent?key={GEMINI_API_KEY}"
             )
             async with httpx.AsyncClient(timeout=15) as client:
