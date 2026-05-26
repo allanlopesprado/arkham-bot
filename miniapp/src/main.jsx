@@ -178,6 +178,8 @@ const I18N = {
     aiSection: 'Inteligência Artificial',
     aiEnabled: 'IA habilitada',
     aiEnabledCaption: 'Seleciona e comenta cartas automaticamente',
+    aiAutoOnly: 'IA apenas nos posts automáticos',
+    aiAutoOnlyCaption: 'Quando ativo, a IA não é usada em comandos manuais (protege o limite de requisições)',
     aiLanguage: 'Idioma da IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
@@ -388,6 +390,8 @@ const I18N = {
     aiSection: 'Artificial Intelligence',
     aiEnabled: 'AI enabled',
     aiEnabledCaption: 'Automatically selects and comments on cards',
+    aiAutoOnly: 'AI for scheduled posts only',
+    aiAutoOnlyCaption: 'When on, AI is not used for manual commands (protects rate limits)',
     aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
@@ -620,6 +624,7 @@ const DEFAULT_SETTINGS = {
   ai_enabled: true,
   ai_language: 'pt-BR',
   ai_tone: 'random',
+  ai_auto_only: true,
   ai_pre_message_enabled: true,
   ai_post_question_enabled: true,
   ai_model: 'gemini-2.5-flash',
@@ -631,7 +636,7 @@ const DEFAULT_SETTINGS = {
 
 const SETTINGS_PATCH_KEYS = [
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
-  'ai_enabled', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
+  'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
   'ai_post_question_enabled', 'ai_model', 'ai_creativity',
   'include_spoilers', 'allowed_card_types', 'day_config',
 ];
@@ -654,6 +659,7 @@ function normalizeSettings(s = {}) {
     ai_enabled: typeof s.ai_enabled === 'boolean' ? s.ai_enabled : DEFAULT_SETTINGS.ai_enabled,
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
     ai_tone: AI_TONES.some((t) => t.value === s.ai_tone) ? s.ai_tone : 'random',
+    ai_auto_only: typeof s.ai_auto_only === 'boolean' ? s.ai_auto_only : true,
     ai_pre_message_enabled: typeof s.ai_pre_message_enabled === 'boolean' ? s.ai_pre_message_enabled : true,
     ai_post_question_enabled: typeof s.ai_post_question_enabled === 'boolean' ? s.ai_post_question_enabled : true,
     ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gemini-2.5-flash',
@@ -1770,6 +1776,10 @@ function App() {
           <>
             <Section title={copy.aiSection} footer={copy.aiTabCaption}>
               <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
+              {settings.ai_enabled && <>
+                <ToggleRow label={copy.aiAutoOnly} checked={settings.ai_auto_only} onChange={(v) => updateSetting('ai_auto_only', v)} />
+                {settings.ai_auto_only && <Row icon="info" label={copy.aiAutoOnlyCaption} />}
+              </>}
             </Section>
 
             {settings.ai_enabled && (

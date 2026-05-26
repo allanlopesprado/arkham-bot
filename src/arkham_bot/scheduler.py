@@ -90,7 +90,7 @@ async def daily_scheduler_loop() -> None:
                         continue
                     if _is_due(now, post_time, state):
                         logger.info("daily_post_due")
-                        result = await post_daily_card()
+                        result = await post_daily_card(is_scheduled=True)
                         state = {
                             "last_daily_post_date": now.date().isoformat(),
                             "last_daily_post_time": post_time,
