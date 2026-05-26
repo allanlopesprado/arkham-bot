@@ -1063,6 +1063,7 @@ function App() {
   const historySearchTimerRef = useRef(null);
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoadingState, setHistoryLoadingState] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
   const [historyDate, setHistoryDate] = useState('');
   const [historyQuery, setHistoryQuery] = useState('');
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -1522,18 +1523,23 @@ function App() {
   async function fetchHistoryItems(date, query, offset) {
     if (!apiConfigured) return;
     setHistoryLoadingState(true);
+    setHistoryError(null);
     const params = new URLSearchParams({ limit: '30', offset: String(offset) });
     if (date) params.set('date', date);
     if ((query || '').trim().length >= 2) params.set('q', query.trim());
     try {
-      const { ok, json } = await apiFetch(`/history?${params.toString()}`);
+      const { ok, status, json } = await apiFetch(`/history?${params.toString()}`);
       if (ok) {
         const items = json.history || [];
         if (offset === 0) setHistoryItems(items);
         else setHistoryItems((prev) => [...prev, ...items]);
         setHistoryHasMore(items.length === 30);
+      } else {
+        setHistoryError(json?.error || `HTTP ${status}`);
       }
-    } catch {}
+    } catch {
+      setHistoryError('network_error');
+    }
     finally { setHistoryLoadingState(false); }
   }
 
@@ -1911,7 +1917,10 @@ function App() {
           </Section>
 
           <Section footer={`${copy.postedCardsCount}: ${overview?.counts?.posted_cards ?? '—'}`}>
-            {!historyLoadingState && historyItems.length === 0 && (
+            {historyError && (
+              <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />
+            )}
+            {!historyLoadingState && !historyError && historyItems.length === 0 && (
               <Row icon="cards" label={copy.noHistory} />
             )}
             {historyItems.map((post) => {
