@@ -707,7 +707,7 @@ function normalizeSettings(s = {}) {
     ai_tone: AI_TONES.some((t) => t.value === s.ai_tone) ? s.ai_tone : 'random',
     ai_auto_only: typeof s.ai_auto_only === 'boolean' ? s.ai_auto_only : true,
     ai_pre_message_enabled: typeof s.ai_pre_message_enabled === 'boolean' ? s.ai_pre_message_enabled : true,
-    ai_pre_message_delay_seconds: (() => { const n = Number(s.ai_pre_message_delay_seconds); return Number.isInteger(n) && n >= 0 && n <= 300 ? n : 0; })(),
+    ai_pre_message_delay_seconds: (() => { const n = Number(s.ai_pre_message_delay_seconds); return Number.isInteger(n) && n >= 0 && n <= 3600 ? n : 0; })(),
     ai_post_question_enabled: typeof s.ai_post_question_enabled === 'boolean' ? s.ai_post_question_enabled : true,
     ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gemini-2.5-flash',
     ai_creativity: ['conservative', 'default', 'creative'].includes(s.ai_creativity) ? s.ai_creativity : 'default',
@@ -1173,7 +1173,7 @@ function App() {
     setLoadingOverview(true);
     try {
       const { ok, status, json } = await apiFetch('/overview');
-      if (ok) { setOverview(json); if (json.settings) applySettings(json.settings); }
+      if (ok) { setOverview(json); if (json.settings && !settingsDirty) applySettings(json.settings); }
       else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setLoadingOverview(false); }
@@ -1647,7 +1647,6 @@ function App() {
                     enabled={allEnabled}
                     onToggle={setAllWeekdays}
                     onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
-                    disabled={!allEnabled}
                   />
                   {WEEKDAYS.map((day) => {
                     const enabled = settings.daily_post_days.includes(day.code);
@@ -1667,7 +1666,6 @@ function App() {
                           haptic('selection');
                         }}
                         onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
-                        disabled={allEnabled}
                       />
                     );
                   })}
