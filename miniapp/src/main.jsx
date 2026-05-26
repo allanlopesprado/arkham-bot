@@ -954,7 +954,7 @@ function App() {
     const btn = app?.MainButton;
     if (!btn) return;
 
-    if (activeTab === 'settings' && settingsDirty && !savingSettings) {
+    if ((activeTab === 'settings' || activeTab === 'day_detail') && settingsDirty && !savingSettings) {
       btn.setText(copy.saveSettings);
       btn.show?.();
       const handler = () => saveSettings();
@@ -1680,6 +1680,22 @@ function App() {
                 />
               ))}
             </Section>
+
+            <Section>
+              <MenuRow
+                icon="result"
+                label={copy.saveSettings}
+                loading={savingSettings}
+                disabled={!settingsDirty || savingSettings}
+                onClick={saveSettings}
+              />
+            </Section>
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
           </>
         );
       })()}
