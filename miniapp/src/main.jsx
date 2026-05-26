@@ -1480,34 +1480,11 @@ function App() {
           <Section title={copy.dailyPost}>
             <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
             {settings.daily_post_enabled && (
-              <>
-                <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
-                  {TIMEZONES.map((tz) => (
-                    <option key={tz.value} value={tz.value}>{tz.label}</option>
-                  ))}
-                </SelectRow>
-                <TimeEditor
-                  times={settings.daily_post_times}
-                  pendingTime={pendingTime}
-                  onPendingTimeChange={setPendingTime}
-                  onAdd={() => {
-                    if (!isValidTimeValue(pendingTime)) return;
-                    haptic('selection');
-                    setSettings((cur) => ({
-                      ...cur,
-                      daily_post_times: [...new Set([...cur.daily_post_times, pendingTime])].sort(),
-                    }));
-                  }}
-                  onRemove={(time) => {
-                    haptic('selection');
-                    setSettings((cur) => {
-                      const next = cur.daily_post_times.filter((t) => t !== time);
-                      return { ...cur, daily_post_times: next.length ? next : cur.daily_post_times };
-                    });
-                  }}
-                  copy={copy}
-                />
-              </>
+              <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </SelectRow>
             )}
           </Section>
 
@@ -1621,6 +1598,17 @@ function App() {
         return (
           <>
             <header className="section-header-standalone">{dayLabel}</header>
+
+            <Section title={copy.postTimes}>
+              <TimeEditor
+                times={getTimesForDay(activeDayCode)}
+                pendingTime={pendingTime}
+                onPendingTimeChange={setPendingTime}
+                onAdd={() => addTimeForDay(activeDayCode)}
+                onRemove={(time) => removeTimeForDay(activeDayCode, time)}
+                copy={copy}
+              />
+            </Section>
 
             {/* Cycles */}
             <Section title={copy.cyclesToday}>
