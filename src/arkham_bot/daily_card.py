@@ -128,10 +128,11 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     all_cards = fetch_all_cards_sync()
                     save_card_cache(all_cards)
 
+                include_spoilers = get_setting('include_spoilers', False)
                 valid_cards = [
                     c for c in all_cards
                     if c.get('type_code') not in ['set', 'campaign', 'scenario']
-                    and c.get('spoiler', False) is False
+                    and (include_spoilers or not c.get('spoiler', False))
                 ]
 
                 unposted_cards = [c for c in valid_cards if c.get('code') not in posted_cards]
@@ -154,15 +155,17 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         raise RuntimeError("No valid cards found after reset.")
 
                 ai_language = get_setting('ai_language', 'pt-BR')
+                ai_enabled = get_setting('ai_enabled', True)
 
                 allowed_types_raw = get_setting('allowed_card_types', None)
                 if isinstance(allowed_types_raw, list) and allowed_types_raw:
-                    unposted_cards = [c for c in unposted_cards if c.get('type_code') in allowed_types_raw]
-                    if not unposted_cards:
+                    filtered = [c for c in unposted_cards if c.get('type_code') in allowed_types_raw]
+                    if filtered:
+                        unposted_cards = filtered
+                    else:
                         logger.warning("No unposted cards match allowed_card_types filter. Ignoring filter.")
-                        unposted_cards = [c for c in valid_cards if c.get('code') not in posted_cards]
 
-                ai_choice = await choose_daily_card_with_ai(unposted_cards, language=ai_language)
+                ai_choice = await choose_daily_card_with_ai(unposted_cards, language=ai_language) if ai_enabled else None
                 if ai_choice:
                     card = next((candidate for candidate in unposted_cards if candidate.get('code') == ai_choice.selected_card_code), None) or random.choice(unposted_cards)
                     ai_pre_message = _telegram_html_text(ai_choice.pre_message)

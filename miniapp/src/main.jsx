@@ -14,14 +14,25 @@ function haptic(type, value) {
     if (!hf) return;
     if (type === 'notification') hf.notificationOccurred(value);
     else if (type === 'impact') hf.impactOccurred(value);
+    else if (type === 'selection') hf.selectionChanged();
   } catch {}
+}
+
+function tgShowPopup(params) {
+  return new Promise((resolve) => {
+    const app = tg();
+    if (app?.showPopup) {
+      try { app.showPopup(params, (id) => resolve(id)); return; } catch {}
+    }
+    // fallback for dev/browser
+    const ok = window.confirm(`${params.title ? params.title + '\n' : ''}${params.message || ''}`);
+    resolve(ok ? (params.buttons?.find((b) => b.type !== 'cancel')?.id ?? 'ok') : null);
+  });
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-function getBotPhotoUrl() {
-  return import.meta.env.VITE_BOT_PHOTO_URL || '';
-}
+function getBotPhotoUrl() { return import.meta.env.VITE_BOT_PHOTO_URL || ''; }
 
 function getApiBase() {
   const raw = import.meta.env.VITE_COMMANDS_API_URL || '';
@@ -34,9 +45,7 @@ function apiUrl(path) {
   return base ? `${base.replace(/\/$/, '')}${path}` : '';
 }
 
-function authHeaders() {
-  return { 'x-telegram-init-data': initData() };
-}
+function authHeaders() { return { 'x-telegram-init-data': initData() }; }
 
 async function apiFetch(path, options = {}) {
   const url = apiUrl(path);
@@ -63,96 +72,103 @@ const WEEKDAYS = [
   { code: 'sun', pt: 'Dom', en: 'Sun' },
 ];
 
+const ALL_CARD_TYPES = [
+  { code: 'investigator', pt: 'Investigador', en: 'Investigator' },
+  { code: 'asset',        pt: 'Recurso',      en: 'Asset' },
+  { code: 'event',        pt: 'Evento',        en: 'Event' },
+  { code: 'skill',        pt: 'Habilidade',    en: 'Skill' },
+  { code: 'enemy',        pt: 'Inimigo',       en: 'Enemy' },
+  { code: 'location',     pt: 'Localização',   en: 'Location' },
+  { code: 'treachery',    pt: 'Traição',       en: 'Treachery' },
+  { code: 'act',          pt: 'Ato',           en: 'Act' },
+  { code: 'agenda',       pt: 'Agenda',        en: 'Agenda' },
+  { code: 'story',        pt: 'História',      en: 'Story' },
+];
+
+const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
+
 const I18N = {
   pt: {
     locale: 'pt-BR',
     langName: 'Português',
-    langToggle: 'Switch to English',
     subtitle: 'Console Admin',
     outsideTelegram: 'Abra pelo Telegram para autenticar.',
-    workerNotConfigured: 'Worker não configurado.',
-    defineApiUrl: 'Defina VITE_COMMANDS_API_URL.',
+    workerNotConfigured: 'Worker não configurado. Defina VITE_COMMANDS_API_URL.',
+    // tabs
     postCard: 'Postar carta',
-    postCardCaption: 'Buscar carta, escolher destino e publicar',
-    controls: 'Controles',
-    controlsCaption: 'Pausar, sincronizar, resetar ciclo e limpar fila',
-    schedule: 'Agenda',
-    scheduleCaption: 'Horários e dias de postagem',
+    settings: 'Configurações',
+    maintenance: 'Manutenção',
     queue: 'Fila',
-    queueCaption: 'Comandos recentes e cancelamento',
     health: 'Saúde',
-    healthCaption: 'Worker, acesso, cards e diagnóstico',
     language: 'Idioma',
-    searchByCodeOrName: 'Buscar por código ou nome',
+    // post
     searchPlaceholder: '01001 ou Shrivelling',
-    search: 'Buscar',
-    selectedCard: 'Carta selecionada',
-    selectedCardHint: 'Postar agora aceita código vazio (escolha automática). Repostar e pular exigem código.',
-    selectedCardPlaceholder: 'Código da carta, ex: 01001',
-    destination: 'Destino',
-    defaultChat: 'Chat padrão do bot',
-    postNow: 'Postar agora',
-    automaticChoice: 'Escolha automática',
+    noCardSelected: 'Nenhuma carta selecionada',
+    automaticChoice: 'Escolha automática pela IA',
     card: 'Carta',
+    postNow: 'Postar agora',
     repostCard: 'Repostar carta',
     skipCard: 'Pular carta',
-    informCardCode: 'Informe o código da carta',
-    modeSettings: 'Modos de operação',
+    informCardCode: 'Informe um código de carta para repostar ou pular',
+    destination: 'Destino',
+    defaultChat: 'Chat padrão',
+    // settings sections
     dailyPost: 'Postagem diária',
-    automaticPosting: 'Publicação automática',
-    automaticPostingCaption: 'Liga ou pausa a carta diária',
-    postTimes: 'Horários de postagem',
-    postTimesCaption: 'Horários 24h separados por vírgula. Ex: 09:00, 21:30',
+    automaticPosting: 'Postagem automática',
+    postTimes: 'Horários (24h, separados por vírgula)',
     postDays: 'Dias da semana',
-    postDaysCaption: 'Escolha quando a rotina pode publicar',
     timezoneLabel: 'Fuso horário',
-    timezoneCaption: 'Padrão usado para calcular os horários',
+    cardFilter: 'Filtro de cartas',
+    cardTypes: 'Tipos permitidos',
+    includeSpoilers: 'Incluir spoilers',
+    includeSpoilersCaption: 'Permite cartas marcadas como spoiler',
+    aiSection: 'Inteligência Artificial',
+    aiEnabled: 'IA habilitada',
+    aiEnabledCaption: 'Seleciona e comenta cartas automaticamente',
     aiLanguage: 'Idioma da IA',
-    aiLanguageCaption: 'Idioma usado nos comentários gerados pela IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
-    cardTypes: 'Tipos de carta',
-    cardTypesCaption: 'Selecione quais tipos de carta podem ser postados',
+    // maintenance
     syncArkhamDB: 'Sincronizar ArkhamDB',
-    syncCaption: 'Atualiza cartas e pacotes',
-    resetCycle: 'Resetar ciclo',
-    resetCaption: 'Permite repetir cartas já usadas',
-    clearQueue: 'Limpar fila',
-    clearQueueCaption: 'Cancela comandos pendentes',
-    maintenance: 'Manutenção',
-    dangerZone: 'Zona de risco',
-    reloadSettings: 'Recarregar configurações',
-    saveSettings: 'Salvar configurações',
-    result: 'Resultado',
-    success: 'Sucesso',
-    error: 'Erro',
-    details: 'Detalhes',
+    syncCaption: 'Atualiza cartas e pacotes do banco de dados',
+    resetCycle: 'Resetar ciclo de cartas',
+    resetCaption: 'Permite repetir cartas já postadas',
+    clearQueue: 'Limpar fila de comandos',
+    clearQueueCaption: 'Cancela todos os comandos pendentes',
+    // queue
     commandQueue: 'Fila de comandos',
-    refreshQueue: 'Atualizar fila',
+    refreshQueue: 'Atualizar',
     noRecentCommands: 'Nenhum comando recente',
     cancelCommand: 'Cancelar',
+    // health
     summary: 'Resumo',
     worker: 'Worker',
     access: 'Acesso',
-    cards: 'Cards',
+    cards: 'Cartas',
+    packs: 'Pacotes',
+    lastSync: 'Último sync',
     account: 'Conta',
     telegramWebApp: 'Telegram WebApp',
     initDataLabel: 'initData',
     admin: 'Admin',
-    recheckAuth: 'Reverificar autenticação',
+    recheckAuth: 'Verificar autenticação',
     system: 'Sistema',
-    packs: 'Packs',
-    lastSync: 'Último sync',
-    refreshStatus: 'Atualizar status',
     diagnostic: 'Diagnóstico',
     showDetails: 'Mostrar detalhes',
     apiConfigured: 'API configurada',
-    apiBase: 'Endpoint base',
-    userUnsafe: 'Usuário unsafe',
+    apiBase: 'Endpoint',
+    userUnsafe: 'Usuário',
     initDataPresent: 'initData presente',
     initDataLength: 'initData length',
-    role: 'Role',
-    adminSource: 'Admin source',
+    role: 'Papel',
+    adminSource: 'Fonte admin',
+    // common
+    saveSettings: 'Salvar configurações',
+    reloadSettings: 'Recarregar',
+    result: 'Resultado',
+    success: 'Sucesso',
+    error: 'Erro',
+    details: 'Detalhes',
     yes: 'sim',
     no: 'não',
     checking: 'verificando…',
@@ -170,122 +186,111 @@ const I18N = {
     timezoneRequired: 'Fuso horário obrigatório.',
     settingsSaved: 'Configurações salvas.',
     unknownError: 'Erro desconhecido.',
-    confirmPause: 'Pausar a postagem diária?',
-    confirmResume: 'Reativar a postagem diária?',
-    confirmReset: 'Resetar o ciclo de cartas? Cartas já usadas poderão ser repetidas.',
-    confirmClear: 'Limpar toda a fila de comandos?',
-    confirm: 'Confirmar',
-    cancel: 'Cancelar',
+    // popup messages
+    confirmPostNow: (code) => `Postar ${code ? `carta ${code}` : 'carta automática'} agora?`,
+    confirmRepost: (code) => `Repostar carta ${code}?`,
+    confirmSkip: (code) => `Pular carta ${code} do ciclo?`,
+    confirmSync: 'Sincronizar cartas e pacotes com ArkhamDB?',
+    confirmReset: 'Resetar o ciclo? Cartas já postadas poderão ser repetidas.',
+    confirmClear: 'Limpar toda a fila de comandos pendentes?',
+    confirmCancel: (type) => `Cancelar comando "${type}"?`,
+    popupConfirm: 'Confirmar',
+    popupCancel: 'Cancelar',
     errors: {
       invalid_telegram_init_data: ['Abra pelo Telegram para autenticar.', 'initData inválido.'],
-      unauthorized: ['Usuário sem permissão administrativa.', 'O Telegram ID não está cadastrado como admin.'],
+      unauthorized: ['Acesso negado.', 'Seu Telegram ID não tem permissão de administrador.'],
       not_found: ['Endpoint não encontrado.', 'Verifique VITE_COMMANDS_API_URL.'],
       origin_not_allowed: ['Origem não autorizada.', 'Verifique ALLOWED_ORIGINS no Worker.'],
       bot_command_insert_failed: ['Falha ao criar comando.', 'Verifique Worker e Supabase.'],
-      command_type_required: ['Tipo de comando não informado.', 'command_type_required'],
-      unsupported_command_type: ['Comando não suportado.', 'unsupported_command_type'],
-      method_not_allowed: ['Método HTTP não permitido.', 'method_not_allowed'],
-      settings_fetch_failed: ['Falha ao carregar configurações.', 'settings_fetch_failed'],
-      settings_upsert_failed: ['Falha ao salvar configurações.', 'settings_upsert_failed'],
-      invalid_setting_value: ['Configuração inválida.', 'invalid_setting_value'],
-      unsupported_setting: ['Configuração não suportada.', 'unsupported_setting'],
-      settings_required: ['Nenhuma configuração para salvar.', 'settings_required'],
-      overview_fetch_failed: ['Falha ao carregar gestão.', 'overview_fetch_failed'],
-      commands_fetch_failed: ['Falha ao carregar fila.', 'commands_fetch_failed'],
-      cards_search_failed: ['Falha ao buscar cartas.', 'cards_search_failed'],
-      command_cancel_failed: ['Falha ao cancelar comando.', 'command_cancel_failed'],
-      command_not_cancellable: ['Comando não pode mais ser cancelado.', 'command_not_cancellable'],
+      command_type_required: ['Tipo de comando não informado.', ''],
+      unsupported_command_type: ['Comando não suportado.', ''],
+      method_not_allowed: ['Método HTTP não permitido.', ''],
+      settings_fetch_failed: ['Falha ao carregar configurações.', ''],
+      settings_upsert_failed: ['Falha ao salvar configurações.', ''],
+      invalid_setting_value: ['Configuração inválida.', ''],
+      unsupported_setting: ['Configuração não suportada.', ''],
+      settings_required: ['Nenhuma configuração para salvar.', ''],
+      overview_fetch_failed: ['Falha ao carregar painel.', ''],
+      commands_fetch_failed: ['Falha ao carregar fila.', ''],
+      cards_search_failed: ['Falha ao buscar cartas.', ''],
+      command_cancel_failed: ['Falha ao cancelar.', ''],
+      command_not_cancellable: ['Comando não pode mais ser cancelado.', ''],
     },
   },
   en: {
     locale: 'en-US',
     langName: 'English',
-    langToggle: 'Mudar para Português',
     subtitle: 'Admin Console',
     outsideTelegram: 'Open from Telegram to authenticate.',
-    workerNotConfigured: 'Worker is not configured.',
-    defineApiUrl: 'Set VITE_COMMANDS_API_URL.',
+    workerNotConfigured: 'Worker not configured. Set VITE_COMMANDS_API_URL.',
     postCard: 'Post Card',
-    postCardCaption: 'Search a card, choose target, and publish',
-    controls: 'Controls',
-    controlsCaption: 'Pause, sync, reset cycle, and clear queue',
-    schedule: 'Schedule',
-    scheduleCaption: 'Posting times and days',
+    settings: 'Settings',
+    maintenance: 'Maintenance',
     queue: 'Queue',
-    queueCaption: 'Recent commands and cancellation',
     health: 'Health',
-    healthCaption: 'Worker, access, cards, and diagnostics',
     language: 'Language',
-    searchByCodeOrName: 'Search by code or name',
     searchPlaceholder: '01001 or Shrivelling',
-    search: 'Search',
-    selectedCard: 'Selected card',
-    selectedCardHint: 'Post now accepts an empty code (automatic choice). Repost and skip require a code.',
-    selectedCardPlaceholder: 'Card code, e.g. 01001',
-    destination: 'Destination',
-    defaultChat: 'Bot default chat',
-    postNow: 'Post now',
-    automaticChoice: 'Automatic choice',
+    noCardSelected: 'No card selected',
+    automaticChoice: 'Automatic AI choice',
     card: 'Card',
+    postNow: 'Post now',
     repostCard: 'Repost card',
     skipCard: 'Skip card',
-    informCardCode: 'Enter the card code',
-    modeSettings: 'Mode Settings',
+    informCardCode: 'Enter a card code to repost or skip',
+    destination: 'Destination',
+    defaultChat: 'Default chat',
     dailyPost: 'Daily post',
     automaticPosting: 'Automatic posting',
-    automaticPostingCaption: 'Turns the daily card on or off',
-    postTimes: 'Posting times',
-    postTimesCaption: '24h times separated by commas. E.g. 09:00, 21:30',
+    postTimes: 'Times (24h, comma-separated)',
     postDays: 'Weekdays',
-    postDaysCaption: 'Choose when the routine may publish',
     timezoneLabel: 'Timezone',
-    timezoneCaption: 'Timezone used to calculate posting times',
-    aiLanguage: 'AI Language',
-    aiLanguageCaption: 'Language used in AI-generated commentary',
+    cardFilter: 'Card filter',
+    cardTypes: 'Allowed types',
+    includeSpoilers: 'Include spoilers',
+    includeSpoilersCaption: 'Allow cards marked as spoilers',
+    aiSection: 'Artificial Intelligence',
+    aiEnabled: 'AI enabled',
+    aiEnabledCaption: 'Automatically selects and comments on cards',
+    aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
-    cardTypes: 'Card types',
-    cardTypesCaption: 'Select which card types may be posted',
     syncArkhamDB: 'Sync ArkhamDB',
-    syncCaption: 'Updates cards and packs',
-    resetCycle: 'Reset cycle',
-    resetCaption: 'Allows cards already used to repeat',
-    clearQueue: 'Clear queue',
-    clearQueueCaption: 'Cancels pending commands',
-    maintenance: 'Maintenance',
-    dangerZone: 'Danger zone',
-    reloadSettings: 'Reload settings',
-    saveSettings: 'Save settings',
-    result: 'Result',
-    success: 'Success',
-    error: 'Error',
-    details: 'Details',
+    syncCaption: 'Updates cards and packs from the database',
+    resetCycle: 'Reset card cycle',
+    resetCaption: 'Allows already-posted cards to repeat',
+    clearQueue: 'Clear command queue',
+    clearQueueCaption: 'Cancels all pending commands',
     commandQueue: 'Command queue',
-    refreshQueue: 'Refresh queue',
+    refreshQueue: 'Refresh',
     noRecentCommands: 'No recent commands',
     cancelCommand: 'Cancel',
     summary: 'Summary',
     worker: 'Worker',
     access: 'Access',
     cards: 'Cards',
+    packs: 'Packs',
+    lastSync: 'Last sync',
     account: 'Account',
     telegramWebApp: 'Telegram WebApp',
     initDataLabel: 'initData',
     admin: 'Admin',
-    recheckAuth: 'Recheck authentication',
+    recheckAuth: 'Check authentication',
     system: 'System',
-    packs: 'Packs',
-    lastSync: 'Last sync',
-    refreshStatus: 'Refresh status',
     diagnostic: 'Diagnostic',
     showDetails: 'Show details',
     apiConfigured: 'API configured',
-    apiBase: 'Base endpoint',
-    userUnsafe: 'Unsafe user',
+    apiBase: 'Endpoint',
+    userUnsafe: 'User',
     initDataPresent: 'initData present',
     initDataLength: 'initData length',
     role: 'Role',
     adminSource: 'Admin source',
+    saveSettings: 'Save settings',
+    reloadSettings: 'Reload',
+    result: 'Result',
+    success: 'Success',
+    error: 'Error',
+    details: 'Details',
     yes: 'yes',
     no: 'no',
     checking: 'checking…',
@@ -303,31 +308,34 @@ const I18N = {
     timezoneRequired: 'Timezone is required.',
     settingsSaved: 'Settings saved.',
     unknownError: 'Unknown error.',
-    confirmPause: 'Pause the daily posting?',
-    confirmResume: 'Resume the daily posting?',
-    confirmReset: 'Reset the card cycle? Previously posted cards may repeat.',
-    confirmClear: 'Clear the entire command queue?',
-    confirm: 'Confirm',
-    cancel: 'Cancel',
+    confirmPostNow: (code) => `Post ${code ? `card ${code}` : 'automatic card'} now?`,
+    confirmRepost: (code) => `Repost card ${code}?`,
+    confirmSkip: (code) => `Skip card ${code} from cycle?`,
+    confirmSync: 'Sync cards and packs with ArkhamDB?',
+    confirmReset: 'Reset cycle? Previously posted cards may repeat.',
+    confirmClear: 'Clear all pending commands from the queue?',
+    confirmCancel: (type) => `Cancel command "${type}"?`,
+    popupConfirm: 'Confirm',
+    popupCancel: 'Cancel',
     errors: {
       invalid_telegram_init_data: ['Open from Telegram to authenticate.', 'Invalid initData.'],
-      unauthorized: ['User has no admin permission.', 'The Telegram ID is not registered as admin.'],
+      unauthorized: ['Access denied.', 'Your Telegram ID has no admin permission.'],
       not_found: ['Endpoint not found.', 'Check VITE_COMMANDS_API_URL.'],
-      origin_not_allowed: ['Origin is not allowed.', 'Check ALLOWED_ORIGINS in the Worker.'],
+      origin_not_allowed: ['Origin not allowed.', 'Check ALLOWED_ORIGINS in Worker.'],
       bot_command_insert_failed: ['Failed to create command.', 'Check Worker and Supabase.'],
-      command_type_required: ['Command type was not provided.', 'command_type_required'],
-      unsupported_command_type: ['Unsupported command.', 'unsupported_command_type'],
-      method_not_allowed: ['HTTP method is not allowed.', 'method_not_allowed'],
-      settings_fetch_failed: ['Failed to load settings.', 'settings_fetch_failed'],
-      settings_upsert_failed: ['Failed to save settings.', 'settings_upsert_failed'],
-      invalid_setting_value: ['Invalid setting.', 'invalid_setting_value'],
-      unsupported_setting: ['Unsupported setting.', 'unsupported_setting'],
-      settings_required: ['No settings to save.', 'settings_required'],
-      overview_fetch_failed: ['Failed to load management data.', 'overview_fetch_failed'],
-      commands_fetch_failed: ['Failed to load queue.', 'commands_fetch_failed'],
-      cards_search_failed: ['Failed to search cards.', 'cards_search_failed'],
-      command_cancel_failed: ['Failed to cancel command.', 'command_cancel_failed'],
-      command_not_cancellable: ['Command can no longer be cancelled.', 'command_not_cancellable'],
+      command_type_required: ['Command type not provided.', ''],
+      unsupported_command_type: ['Unsupported command.', ''],
+      method_not_allowed: ['HTTP method not allowed.', ''],
+      settings_fetch_failed: ['Failed to load settings.', ''],
+      settings_upsert_failed: ['Failed to save settings.', ''],
+      invalid_setting_value: ['Invalid setting.', ''],
+      unsupported_setting: ['Unsupported setting.', ''],
+      settings_required: ['No settings to save.', ''],
+      overview_fetch_failed: ['Failed to load dashboard.', ''],
+      commands_fetch_failed: ['Failed to load queue.', ''],
+      cards_search_failed: ['Failed to search cards.', ''],
+      command_cancel_failed: ['Failed to cancel.', ''],
+      command_not_cancellable: ['Command can no longer be cancelled.', ''],
     },
   },
 };
@@ -338,92 +346,66 @@ function resolveError(code, fallback, copy) {
   return { friendly: fallback || copy.unknownError, detail: code || '' };
 }
 
-// ─── Language persistence via CloudStorage with localStorage fallback ─────────
+// ─── Language persistence ─────────────────────────────────────────────────────
 
 function readLangStorage(cb) {
   const cs = tg()?.CloudStorage;
   if (cs) {
-    cs.getItem(LANGUAGE_KEY, (err, val) => {
-      if (!err && (val === 'en' || val === 'pt')) cb(val);
-    });
+    cs.getItem(LANGUAGE_KEY, (err, val) => { if (!err && (val === 'en' || val === 'pt')) cb(val); });
   } else {
-    try {
-      const val = localStorage.getItem(LANGUAGE_KEY);
-      if (val === 'en' || val === 'pt') cb(val);
-    } catch {}
+    try { const v = localStorage.getItem(LANGUAGE_KEY); if (v === 'en' || v === 'pt') cb(v); } catch {}
   }
 }
 
 function writeLangStorage(lang) {
   const cs = tg()?.CloudStorage;
-  if (cs) {
-    cs.setItem(LANGUAGE_KEY, lang, () => {});
-  } else {
-    try { localStorage.setItem(LANGUAGE_KEY, lang); } catch {}
-  }
+  if (cs) { cs.setItem(LANGUAGE_KEY, lang, () => {}); }
+  else { try { localStorage.setItem(LANGUAGE_KEY, lang); } catch {} }
 }
 
 function getInitialLanguage() {
-  try {
-    const stored = localStorage.getItem(LANGUAGE_KEY);
-    if (stored === 'en' || stored === 'pt') return stored;
-  } catch {}
+  try { const s = localStorage.getItem(LANGUAGE_KEY); if (s === 'en' || s === 'pt') return s; } catch {}
   const code = tgUser()?.language_code || navigator.language || '';
   return code.toLowerCase().startsWith('en') ? 'en' : 'pt';
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-const ALL_CARD_TYPES = [
-  { code: 'investigator', pt: 'Investigador', en: 'Investigator' },
-  { code: 'asset',        pt: 'Recurso',      en: 'Asset' },
-  { code: 'event',        pt: 'Evento',        en: 'Event' },
-  { code: 'skill',        pt: 'Habilidade',    en: 'Skill' },
-  { code: 'enemy',        pt: 'Inimigo',       en: 'Enemy' },
-  { code: 'location',     pt: 'Localização',   en: 'Location' },
-  { code: 'treachery',    pt: 'Traição',       en: 'Treachery' },
-  { code: 'act',          pt: 'Ato',           en: 'Act' },
-  { code: 'agenda',       pt: 'Agenda',        en: 'Agenda' },
-  { code: 'story',        pt: 'História',      en: 'Story' },
-];
-
-const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
-
 const DEFAULT_SETTINGS = {
   daily_post_enabled: true,
   daily_post_times: ['08:00'],
   daily_post_days: WEEKDAYS.map((d) => d.code),
   timezone: 'America/Sao_Paulo',
+  ai_enabled: true,
   ai_language: 'pt-BR',
+  include_spoilers: false,
   allowed_card_types: DEFAULT_CARD_TYPES,
 };
 
 function normalizeSettings(s = {}) {
   return {
-    daily_post_enabled: typeof s.daily_post_enabled === 'boolean'
-      ? s.daily_post_enabled : DEFAULT_SETTINGS.daily_post_enabled,
-    daily_post_times: Array.isArray(s.daily_post_times) && s.daily_post_times.length
-      ? s.daily_post_times : DEFAULT_SETTINGS.daily_post_times,
-    daily_post_days: Array.isArray(s.daily_post_days) && s.daily_post_days.length
-      ? s.daily_post_days : DEFAULT_SETTINGS.daily_post_days,
-    timezone: typeof s.timezone === 'string' && s.timezone.trim()
-      ? s.timezone : DEFAULT_SETTINGS.timezone,
+    daily_post_enabled: typeof s.daily_post_enabled === 'boolean' ? s.daily_post_enabled : DEFAULT_SETTINGS.daily_post_enabled,
+    daily_post_times: Array.isArray(s.daily_post_times) && s.daily_post_times.length ? s.daily_post_times : DEFAULT_SETTINGS.daily_post_times,
+    daily_post_days: Array.isArray(s.daily_post_days) && s.daily_post_days.length ? s.daily_post_days : DEFAULT_SETTINGS.daily_post_days,
+    timezone: typeof s.timezone === 'string' && s.timezone.trim() ? s.timezone : DEFAULT_SETTINGS.timezone,
+    ai_enabled: typeof s.ai_enabled === 'boolean' ? s.ai_enabled : DEFAULT_SETTINGS.ai_enabled,
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
-    allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length
-      ? s.allowed_card_types : DEFAULT_CARD_TYPES,
+    include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
+    allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length ? s.allowed_card_types : DEFAULT_CARD_TYPES,
   };
 }
 
-function parseTimesInput(value) {
-  return value.split(',').map((t) => t.trim()).filter(Boolean);
-}
-
+function parseTimesInput(v) { return v.split(',').map((t) => t.trim()).filter(Boolean); }
 function validateTimes(times) {
   return times.length > 0 && times.every((t) => {
     if (!/^\d{2}:\d{2}$/.test(t)) return false;
     const [h, m] = t.split(':').map(Number);
     return h >= 0 && h <= 23 && m >= 0 && m <= 59;
   });
+}
+
+function settingsEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -437,7 +419,6 @@ const ICON_PATHS = {
   search: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></>,
   queue: <><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h10" /></>,
   x: <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>,
-  save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" /><path d="M17 21v-8H7v8" /><path d="M7 3v5h8" /></>,
   repeat: <><path d="m17 2 4 4-4 4" /><path d="M3 11V9a3 3 0 0 1 3-3h15" /><path d="m7 22-4-4 4-4" /><path d="M21 13v2a3 3 0 0 1-3 3H3" /></>,
   reset: <><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 3v6h6" /></>,
   trash: <><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 15H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></>,
@@ -453,22 +434,13 @@ const ICON_PATHS = {
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" /></>,
   language: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a13.5 13.5 0 0 1 0 18" /><path d="M12 3a13.5 13.5 0 0 0 0 18" /></>,
   chevron: <path d="m9 18 6-6-6-6" />,
-  pause: <><path d="M8 5v14" /><path d="M16 5v14" /></>,
-  play: <path d="m7 4 13 8-13 8Z" />,
+  wrench: <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>,
+  ai: <><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1H1a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2M7.5 13a4.5 4.5 0 0 0 0 9h9a4.5 4.5 0 0 0 0-9h-9M9 16.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3M15 16.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3" /></>,
 };
 
 function Icon({ name, className = '' }) {
   return (
-    <svg
-      className={`icon ${className}`.trim()}
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg className={`icon ${className}`.trim()} aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       {ICON_PATHS[name]}
     </svg>
   );
@@ -476,9 +448,7 @@ function Icon({ name, className = '' }) {
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-function Spinner() {
-  return <span className="spinner" aria-hidden="true" />;
-}
+function Spinner() { return <span className="spinner" aria-hidden="true" />; }
 
 function Badge({ tone = '', children }) {
   return <span className={`badge ${tone}`.trim()}>{children}</span>;
@@ -517,31 +487,23 @@ function Row({ icon, label, value, badgeTone = '', caption, mono = false }) {
   );
 }
 
-function ActionRow({ icon, label, caption, onClick, disabled, loading, danger }) {
+function MenuRow({ icon, label, value, onClick, disabled, loading }) {
   return (
-    <button
-      className={`row row-action ${danger ? 'danger' : ''}`.trim()}
-      onClick={onClick}
-      disabled={disabled || loading}
-      type="button"
-    >
+    <button className="row row-action" onClick={onClick} disabled={disabled || loading} type="button">
       {icon && <Icon name={icon} />}
-      <div className="row-main">
-        <span className="row-label">{label}</span>
-        {caption && <span className="row-caption">{caption}</span>}
-      </div>
+      <span className="row-label">{label}</span>
+      {value !== undefined && <span className="row-value">{value}</span>}
       {loading ? <Spinner /> : <Icon name="chevron" className="chevron" />}
     </button>
   );
 }
 
-function MenuRow({ icon, label, value, onClick, disabled }) {
+function DangerRow({ icon, label, onClick, disabled, loading }) {
   return (
-    <button className="row row-action" onClick={onClick} disabled={disabled} type="button">
+    <button className="row row-action danger" onClick={onClick} disabled={disabled || loading} type="button">
       {icon && <Icon name={icon} />}
       <span className="row-label">{label}</span>
-      {value !== undefined && <span className="row-value">{value}</span>}
-      <Icon name="chevron" className="chevron" />
+      {loading ? <Spinner /> : <Icon name="chevron" className="chevron" />}
     </button>
   );
 }
@@ -550,30 +512,31 @@ function ToggleRow({ label, checked, onChange, disabled = false }) {
   return (
     <label className="toggle-row">
       <span className="row-label">{label}</span>
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => { haptic('selection'); onChange(e.target.checked); }} />
       <span className="toggle" aria-hidden="true" />
     </label>
   );
 }
 
-function Field({ label, hint, children }) {
+function InputRow({ label, value, onChange, placeholder, hint }) {
   return (
-    <label className="field">
-      <span className="field-label">{label}</span>
-      {children}
-      {hint && <span className="field-hint">{hint}</span>}
-    </label>
+    <div className="row input-row">
+      <div className="row-main">
+        <span className="row-label">{label}</span>
+        <input className="inline-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} inputMode="text" />
+      </div>
+      {hint && <span className="row-caption-block">{hint}</span>}
+    </div>
   );
 }
 
-function SelectField({ label, value, onChange, hint, children }) {
+function SelectRow({ label, value, onChange, children }) {
   return (
-    <label className="field">
-      {label && <span className="field-label">{label}</span>}
-      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+    <label className="row select-row">
+      <span className="row-label">{label}</span>
+      <select className="inline-select" value={value} onChange={(e) => { haptic('selection'); onChange(e.target.value); }}>
         {children}
       </select>
-      {hint && <span className="field-hint">{hint}</span>}
     </label>
   );
 }
@@ -590,7 +553,7 @@ function CommandRow({ command, onCancel, loading, copy }) {
       </div>
       <Badge tone={tone}>{command.status}</Badge>
       {cancellable && (
-        <button className="icon-btn" type="button" onClick={() => onCancel(command.id)} disabled={loading} aria-label={copy.cancelCommand}>
+        <button className="icon-btn" type="button" onClick={() => onCancel(command)} disabled={loading} aria-label={copy.cancelCommand}>
           {loading ? <Spinner /> : <Icon name="x" />}
         </button>
       )}
@@ -613,19 +576,11 @@ function CardResult({ card, selected, onSelect }) {
 // ─── Auth gate screens ────────────────────────────────────────────────────────
 
 function GateScreen({ children }) {
-  return (
-    <div className="gate">
-      <div className="gate-inner">{children}</div>
-    </div>
-  );
+  return <div className="gate"><div className="gate-inner">{children}</div></div>;
 }
 
 function LoadingGate() {
-  return (
-    <GateScreen>
-      <Spinner />
-    </GateScreen>
-  );
+  return <GateScreen><Spinner /></GateScreen>;
 }
 
 function NoTelegramGate({ copy }) {
@@ -644,22 +599,24 @@ function App() {
   const [language, setLanguage] = useState(getInitialLanguage);
   const copy = I18N[language];
 
-  // 'loading' | 'no_telegram' | 'unauthorized' | 'ready'
   const [authState, setAuthState] = useState('loading');
-
   const [me, setMe] = useState(null);
   const [sysStatus, setSysStatus] = useState(null);
   const [overview, setOverview] = useState(null);
   const [commands, setCommands] = useState([]);
+
+  // Settings state: current (edited) and saved (last confirmed from server)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [savedSettings, setSavedSettings] = useState(DEFAULT_SETTINGS);
   const [timesInput, setTimesInput] = useState(DEFAULT_SETTINGS.daily_post_times.join(', '));
+
   const [result, setResult] = useState(null);
   const [settingsResult, setSettingsResult] = useState(null);
   const [cardCode, setCardCode] = useState('');
   const [cardQuery, setCardQuery] = useState('');
   const [cardResults, setCardResults] = useState([]);
   const [targetChatId, setTargetChatId] = useState('');
-  const [activeTab, setActiveTab] = useState('menu');
+  const [activeTab, setActiveTab] = useState('home');
 
   const [loadingCmd, setLoadingCmd] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -675,6 +632,7 @@ function App() {
   const apiConfigured = Boolean(getApiBase());
   const isAdmin = me?.admin === true;
   const actionsDisabled = !isAdmin || !apiConfigured || loadingCmd !== null;
+  const settingsDirty = !settingsEqual(settings, savedSettings);
 
   // ── Telegram setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -691,7 +649,6 @@ function App() {
       try { app.setBackgroundColor?.('bg_color'); } catch {}
       try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
     };
-
     const onViewportChanged = ({ isStateStable }) => { if (isStateStable) app.expand?.(); };
 
     app.onEvent?.('themeChanged', applyColors);
@@ -699,18 +656,44 @@ function App() {
     app.onEvent?.('safeAreaChanged', () => {});
     app.onEvent?.('contentSafeAreaChanged', () => {});
 
+    // SettingsButton in Telegram header → jump to settings tab
+    try {
+      const sb = app.SettingsButton;
+      if (sb) {
+        sb.show?.();
+        sb.onClick?.(() => setActiveTab('settings'));
+      }
+    } catch {}
+
     return () => {
       app.offEvent?.('themeChanged', applyColors);
       app.offEvent?.('viewportChanged', onViewportChanged);
     };
   }, []);
 
+  // ── MainButton: shows "Save" when settings are dirty ───────────────────────
+  useEffect(() => {
+    const app = tg();
+    const btn = app?.MainButton;
+    if (!btn) return;
+
+    if (activeTab === 'settings' && settingsDirty && !savingSettings) {
+      btn.setText(copy.saveSettings);
+      btn.show?.();
+      const handler = () => saveSettings();
+      btn.onClick?.(handler);
+      return () => { btn.offClick?.(handler); btn.hide?.(); };
+    } else {
+      btn.hide?.();
+    }
+  }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
+
   // ── BackButton ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
-    const goHome = () => setActiveTab('menu');
-    if (activeTab === 'menu') {
+    const goHome = () => setActiveTab('home');
+    if (activeTab === 'home') {
       btn.hide?.();
     } else {
       btn.show?.();
@@ -720,21 +703,13 @@ function App() {
   }, [activeTab]);
 
   // ── CloudStorage language sync ──────────────────────────────────────────────
-  useEffect(() => {
-    readLangStorage((lang) => setLanguage(lang));
-  }, []);
+  useEffect(() => { readLangStorage((lang) => setLanguage(lang)); }, []);
 
-  // ── Auth gate: check before loading anything else ───────────────────────────
+  // ── Auth gate ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!tg() || !initData()) {
-      setAuthState('no_telegram');
-      return;
-    }
-    if (!apiConfigured) {
-      // No API configured — still show UI in dev mode but warn
-      setAuthState('ready');
-      return;
-    }
+    if (!tg() || !initData()) { setAuthState('no_telegram'); return; }
+    if (!apiConfigured) { setAuthState('ready'); return; }
+
     apiFetch('/me').then(({ ok, json }) => {
       if (ok && json?.admin === true) {
         setMe(json);
@@ -743,42 +718,28 @@ function App() {
         fetchOverview();
         fetchCommands();
       } else {
-        // Unauthorized: show native alert then close per Telegram docs
         const msg = copy.errors.unauthorized?.[0] || 'Access denied.';
         const app = tg();
-        if (app?.showAlert) {
-          app.showAlert(msg, () => app.close?.());
-        } else {
-          app?.close?.();
-        }
+        if (app?.showAlert) app.showAlert(msg, () => app.close?.());
+        else app?.close?.();
         setAuthState('unauthorized');
       }
-    }).catch(() => {
-      setAuthState('ready'); // network error: degrade gracefully, let UI handle it
-    });
+    }).catch(() => setAuthState('ready'));
   }, []);
 
-  // ── API calls ───────────────────────────────────────────────────────────────
+  // ── Auto-load settings when entering settings tab ───────────────────────────
+  useEffect(() => {
+    if (activeTab === 'settings') fetchSettings();
+  }, [activeTab]);
 
-  async function fetchMe() {
-    if (!apiConfigured) return;
-    try {
-      const { json } = await apiFetch('/me');
-      setMe(json);
-    } catch {}
-  }
+  // ── API calls ───────────────────────────────────────────────────────────────
 
   async function fetchStatus() {
     if (!apiConfigured) return;
     setLoadingStatus(true);
-    try {
-      const { json } = await apiFetch('/status');
-      setSysStatus(json);
-    } catch {
-      setSysStatus({ ok: false });
-    } finally {
-      setLoadingStatus(false);
-    }
+    try { const { json } = await apiFetch('/status'); setSysStatus(json); }
+    catch { setSysStatus({ ok: false }); }
+    finally { setLoadingStatus(false); }
   }
 
   async function fetchOverview() {
@@ -786,18 +747,10 @@ function App() {
     setLoadingOverview(true);
     try {
       const { ok, status, json } = await apiFetch('/overview');
-      if (!ok) {
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setResult({ ok: false, friendly: err.friendly, detail: err.detail });
-      } else {
-        setOverview(json);
-        if (json.settings) applySettings(json.settings);
-      }
-    } catch {
-      setResult({ ok: false, friendly: copy.networkError, detail: '' });
-    } finally {
-      setLoadingOverview(false);
-    }
+      if (ok) { setOverview(json); if (json.settings) applySettings(json.settings); }
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+    } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingOverview(false); }
   }
 
   async function fetchCommands() {
@@ -805,56 +758,32 @@ function App() {
     setLoadingCommands(true);
     try {
       const { ok, status, json } = await apiFetch('/commands');
-      if (!ok) {
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setResult({ ok: false, friendly: err.friendly, detail: err.detail });
-      } else {
-        setCommands(json.commands || []);
-      }
-    } catch {
-      setResult({ ok: false, friendly: copy.networkError, detail: '' });
-    } finally {
-      setLoadingCommands(false);
-    }
+      if (ok) setCommands(json.commands || []);
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+    } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingCommands(false); }
   }
 
   async function fetchSettings() {
     if (!apiConfigured) return;
     setLoadingSettings(true);
+    setSettingsResult(null);
     try {
       const { ok, status, json } = await apiFetch('/settings');
-      if (!ok) {
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setSettingsResult({ ok: false, friendly: err.friendly, detail: err.detail });
-      } else {
-        applySettings(json.settings);
-        setSettingsResult(null);
-      }
-    } catch {
-      setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' });
-    } finally {
-      setLoadingSettings(false);
-    }
+      if (ok) { applySettings(json.settings); }
+      else setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+    } catch { setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingSettings(false); }
   }
 
   async function saveSettings() {
     const times = parseTimesInput(timesInput);
-    if (!validateTimes(times)) {
-      haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: copy.invalidTime, detail: '' });
-      return;
-    }
-    if (!settings.daily_post_days.length) {
-      haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: copy.selectAtLeastOneDay, detail: '' });
-      return;
-    }
-    if (!settings.timezone.trim()) {
-      haptic('notification', 'error');
-      setSettingsResult({ ok: false, friendly: copy.timezoneRequired, detail: '' });
-      return;
-    }
+    if (!validateTimes(times)) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.invalidTime, detail: '' }); return; }
+    if (!settings.daily_post_days.length) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.selectAtLeastOneDay, detail: '' }); return; }
+    if (!settings.timezone.trim()) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.timezoneRequired, detail: '' }); return; }
+
     setSavingSettings(true);
+    tg()?.MainButton?.showProgress?.(false);
     try {
       const body = { ...settings, daily_post_times: times, timezone: settings.timezone.trim() };
       const { ok, status, json } = await apiFetch('/settings', {
@@ -864,8 +793,7 @@ function App() {
       });
       if (!ok) {
         haptic('notification', 'error');
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setSettingsResult({ ok: false, friendly: err.friendly, detail: [err.detail, json.key && `key: ${json.key}`].filter(Boolean).join('\n') });
+        setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
       } else {
         haptic('notification', 'success');
         applySettings(json.settings);
@@ -876,33 +804,32 @@ function App() {
       setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' });
     } finally {
       setSavingSettings(false);
+      tg()?.MainButton?.hideProgress?.();
     }
   }
 
-  async function cancelCommand(commandId) {
-    setCancellingCommand(commandId);
+  async function cancelCommand(command) {
+    const confirmed = await tgShowPopup({
+      title: copy.cancelCommand,
+      message: copy.confirmCancel(command.command_type),
+      buttons: [
+        { id: 'confirm', type: 'destructive', text: copy.popupConfirm },
+        { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+      ],
+    });
+    if (confirmed !== 'confirm') return;
+
+    setCancellingCommand(command.id);
     try {
-      const { ok, status, json } = await apiFetch(`/commands/${commandId}`, {
+      const { ok, status, json } = await apiFetch(`/commands/${command.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ status: 'cancelled' }),
       });
-      if (!ok) {
-        haptic('notification', 'error');
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setResult({ ok: false, friendly: err.friendly, detail: err.detail });
-      } else {
-        haptic('notification', 'success');
-        setResult({ ok: true, friendly: copy.commandCancelled, detail: '' });
-        fetchCommands();
-        fetchOverview();
-      }
-    } catch {
-      haptic('notification', 'error');
-      setResult({ ok: false, friendly: copy.networkError, detail: '' });
-    } finally {
-      setCancellingCommand(null);
-    }
+      if (!ok) { haptic('notification', 'error'); setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) }); }
+      else { haptic('notification', 'success'); setResult({ ok: true, friendly: copy.commandCancelled, detail: '' }); fetchCommands(); fetchOverview(); }
+    } catch { haptic('notification', 'error'); setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setCancellingCommand(null); }
   }
 
   const enqueue = useCallback(async (command_type, payload = {}) => {
@@ -917,46 +844,57 @@ function App() {
       });
       if (!ok) {
         haptic('notification', 'error');
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setResult({
-          ok: false,
-          command_type,
-          friendly: err.friendly,
-          detail: [err.detail, json.role && `role: ${json.role}`, json.admin_source && `source: ${json.admin_source}`].filter(Boolean).join('\n'),
-        });
+        setResult({ ok: false, command_type, ...resolveError(json.error, `HTTP ${status}`, copy) });
       } else {
         haptic('notification', 'success');
-        setResult({
-          ok: true,
-          command_type: json.command?.command_type || command_type,
-          friendly: copy.commandQueued,
-          detail: json.command?.id ? `ID: ${json.command.id}` : '',
-        });
-        fetchStatus();
-        fetchCommands();
-        fetchOverview();
+        setResult({ ok: true, command_type: json.command?.command_type || command_type, friendly: copy.commandQueued, detail: json.command?.id ? `ID: ${json.command.id}` : '' });
+        fetchStatus(); fetchCommands(); fetchOverview();
       }
-    } catch {
-      haptic('notification', 'error');
-      setResult({ ok: false, command_type, friendly: copy.networkError, detail: '' });
-    } finally {
-      setLoadingCmd(null);
-    }
+    } catch { haptic('notification', 'error'); setResult({ ok: false, command_type, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingCmd(null); }
   }, [loadingCmd, targetChatId, copy]);
+
+  async function confirmEnqueue(message, command_type, payload = {}) {
+    const confirmed = await tgShowPopup({
+      message,
+      buttons: [
+        { id: 'confirm', type: 'default', text: copy.popupConfirm },
+        { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+      ],
+    });
+    if (confirmed === 'confirm') enqueue(command_type, payload);
+  }
 
   function applySettings(next) {
     const n = normalizeSettings(next);
     setSettings(n);
+    setSavedSettings(n);
     setTimesInput(n.daily_post_times.join(', '));
   }
 
+  function updateSetting(key, value) {
+    haptic('selection');
+    setSettings((cur) => ({ ...cur, [key]: value }));
+  }
+
   function toggleDay(code) {
-    setSettings((cur) => ({
-      ...cur,
-      daily_post_days: cur.daily_post_days.includes(code)
+    setSettings((cur) => {
+      const next = cur.daily_post_days.includes(code)
         ? cur.daily_post_days.filter((d) => d !== code)
-        : [...cur.daily_post_days, code],
-    }));
+        : [...cur.daily_post_days, code];
+      return { ...cur, daily_post_days: next.length ? next : cur.daily_post_days };
+    });
+    haptic('selection');
+  }
+
+  function toggleCardType(code) {
+    setSettings((cur) => {
+      const next = cur.allowed_card_types.includes(code)
+        ? cur.allowed_card_types.filter((t) => t !== code)
+        : [...cur.allowed_card_types, code];
+      return { ...cur, allowed_card_types: next.length ? next : cur.allowed_card_types };
+    });
+    haptic('selection');
   }
 
   function toggleLanguage() {
@@ -978,36 +916,16 @@ function App() {
     setSearchingCards(true);
     try {
       const { ok, status, json } = await apiFetch(`/cards?q=${encodeURIComponent(query)}`);
-      if (!ok) {
-        const err = resolveError(json.error, `HTTP ${status}`, copy);
-        setResult({ ok: false, friendly: err.friendly, detail: err.detail });
-      } else {
-        setCardResults(json.cards || []);
-      }
-    } catch {
-      setResult({ ok: false, friendly: copy.networkError, detail: '' });
-    } finally {
-      setSearchingCards(false);
-    }
+      if (ok) setCardResults(json.cards || []);
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+    } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setSearchingCards(false); }
   }
 
-  function confirmThenEnqueue(message, command_type, payload = {}) {
-    const app = tg();
-    if (app?.showConfirm) {
-      app.showConfirm(message, (confirmed) => { if (confirmed) enqueue(command_type, payload); });
-    } else if (window.confirm(message)) {
-      enqueue(command_type, payload);
-    }
-  }
-
-  // ── Derived values ──────────────────────────────────────────────────────────
-
-  const adminValue = !apiConfigured ? copy.noApi
-    : me?.ok && isAdmin ? (me.role || 'admin')
-    : me?.ok ? (me.role || 'none')
-    : copy.pending;
+  // ── Derived ─────────────────────────────────────────────────────────────────
 
   const workerValue = loadingStatus ? '…' : sysStatus?.ok ? copy.online : copy.offline;
+  const workerTone = sysStatus?.ok ? 'ok' : 'err';
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
@@ -1022,7 +940,7 @@ function App() {
   return (
     <div className="app">
 
-      {/* Header — centered, BotFather-style */}
+      {/* Header */}
       <header className="app-header">
         <div className="avatar">
           {getBotPhotoUrl()
@@ -1033,227 +951,203 @@ function App() {
         <div className="header-subtitle">{copy.subtitle}</div>
       </header>
 
-      {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured} {copy.defineApiUrl}</Notice>}
+      {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured}</Notice>}
 
-      {/* ── MENU ── */}
-      {activeTab === 'menu' && (
-        <Section>
-          <MenuRow icon="send" label={copy.postCard} caption={copy.postCardCaption} onClick={() => setActiveTab('post')} />
-          <MenuRow icon="settings" label={copy.controls} caption={copy.controlsCaption} onClick={() => setActiveTab('controls')} />
-          <MenuRow icon="clock" label={copy.schedule} caption={copy.scheduleCaption} onClick={() => setActiveTab('schedule')} />
-          <MenuRow icon="queue" label={copy.queue} caption={copy.queueCaption} value={queueValue > 0 ? String(queueValue) : undefined} onClick={() => setActiveTab('queue')} />
-          <MenuRow icon="server" label={copy.health} caption={copy.healthCaption} value={workerValue} onClick={() => setActiveTab('status')} />
-          <MenuRow icon="language" label={copy.language} caption={copy.langToggle} value={copy.langName} onClick={toggleLanguage} />
-        </Section>
-      )}
-
-      {/* ── POST CARD ── */}
-      {activeTab === 'post' && (
-        <Section title={copy.postCard}>
-          <div className="form-row">
-            <Field label={copy.searchByCodeOrName}>
-              <div className="search-line">
-                <input
-                  className="input"
-                  type="search"
-                  value={cardQuery}
-                  onChange={handleSearchChange}
-                  placeholder={copy.searchPlaceholder}
-                  inputMode="text"
-                />
-                {searchingCards && <Spinner />}
-              </div>
-            </Field>
-          </div>
-
-          {cardResults.length > 0 && (
-            <div className="card-results">
-              {cardResults.map((card) => (
-                <CardResult
-                  key={card.code}
-                  card={card}
-                  selected={cardCode === card.code}
-                  onSelect={(sel) => {
-                    setCardCode(sel.code);
-                    setCardQuery(`${sel.code} – ${sel.name || sel.real_name}`);
-                    setCardResults([]);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="form-row">
-            <Field label={copy.selectedCard} hint={copy.selectedCardHint}>
-              <input
-                className="input"
-                type="text"
-                placeholder={copy.selectedCardPlaceholder}
-                value={cardCode}
-                onChange={(e) => setCardCode(e.target.value.trim())}
-                inputMode="text"
-              />
-            </Field>
-          </div>
-
-          {targetChats.length > 0 && (
-            <div className="form-row">
-              <SelectField label={copy.destination} value={targetChatId} onChange={setTargetChatId}>
-                <option value="">{copy.defaultChat}</option>
-                {targetChats.map((chat) => (
-                  <option key={chat.chat_id} value={chat.chat_id}>{chat.title || chat.chat_id}</option>
-                ))}
-              </SelectField>
-            </div>
-          )}
-
-          <ActionRow
-            icon="send"
-            label={copy.postNow}
-            caption={cardCode ? `${copy.card} ${cardCode}` : copy.automaticChoice}
-            onClick={() => enqueue('post_now', cardCode ? { card_code: cardCode } : {})}
-            loading={loadingCmd === 'post_now'}
-            disabled={actionsDisabled}
-          />
-          <ActionRow
-            icon="repeat"
-            label={copy.repostCard}
-            caption={cardCode ? `${copy.card} ${cardCode}` : copy.informCardCode}
-            onClick={() => enqueue('repost_card', { card_code: cardCode })}
-            loading={loadingCmd === 'repost_card'}
-            disabled={actionsDisabled || !cardCode}
-          />
-          <ActionRow
-            icon="skip"
-            label={copy.skipCard}
-            caption={cardCode ? `${copy.card} ${cardCode}` : copy.informCardCode}
-            onClick={() => enqueue('skip_card', { card_code: cardCode })}
-            loading={loadingCmd === 'skip_card'}
-            disabled={actionsDisabled || !cardCode}
-          />
-        </Section>
-      )}
-
-      {/* ── CONTROLS ── */}
-      {activeTab === 'controls' && (
+      {/* ── HOME ── */}
+      {activeTab === 'home' && (
         <>
-          <Section title={copy.modeSettings} footer={copy.automaticPostingCaption}>
-            <ToggleRow
-              label={copy.automaticPosting}
-              checked={settings.daily_post_enabled}
-              disabled={actionsDisabled}
-              onChange={(checked) => confirmThenEnqueue(
-                checked ? copy.confirmResume : copy.confirmPause,
-                checked ? 'resume_daily_post' : 'pause_daily_post'
-              )}
-            />
+          <Section>
+            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
+            <Row icon="cards" label={copy.cards} value={cardsValue} />
+            <Row icon="queue" label={copy.queue} value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
           </Section>
 
-          <Section title={copy.maintenance} footer={copy.syncCaption}>
-            <ActionRow icon="sync" label={copy.syncArkhamDB} onClick={() => enqueue('sync_arkhamdb', { sync_faq: false })} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} />
-          </Section>
-
-          <Section title={copy.dangerZone} danger>
-            <ActionRow icon="reset" label={copy.resetCycle} onClick={() => confirmThenEnqueue(copy.confirmReset, 'reset_cycle')} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} danger />
-            <ActionRow icon="trash" label={copy.clearQueue} onClick={() => confirmThenEnqueue(copy.confirmClear, 'clear_queue')} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} danger />
+          <Section>
+            <MenuRow icon="send"     label={copy.postCard}    onClick={() => setActiveTab('post')} />
+            <MenuRow icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
+            <MenuRow icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
+            <MenuRow icon="queue"    label={copy.queue}       value={queueValue > 0 ? String(queueValue) : undefined} onClick={() => setActiveTab('queue')} />
+            <MenuRow icon="server"   label={copy.health}      value={workerValue} onClick={() => setActiveTab('health')} />
+            <MenuRow icon="language" label={copy.language}    value={copy.langName} onClick={toggleLanguage} />
           </Section>
         </>
       )}
 
-      {/* ── SCHEDULE ── */}
-      {activeTab === 'schedule' && (
+      {/* ── POST CARD ── */}
+      {activeTab === 'post' && (
         <>
-          <Section title={copy.scheduleTitle || copy.schedule} footer={copy.automaticPostingCaption}>
-            <ToggleRow
-              label={copy.automaticPosting}
-              checked={settings.daily_post_enabled}
-              onChange={(checked) => setSettings((cur) => ({ ...cur, daily_post_enabled: checked }))}
-            />
-            <div className="form-row">
-              <Field label={copy.postTimes} hint={copy.postTimesCaption}>
-                <input className="input" type="text" value={timesInput} onChange={(e) => setTimesInput(e.target.value)} placeholder="09:00, 21:30" inputMode="text" />
-              </Field>
+          <Section title={copy.postCard}>
+            <div className="row search-row">
+              <Icon name="search" />
+              <input
+                className="search-input"
+                type="search"
+                value={cardQuery}
+                onChange={handleSearchChange}
+                placeholder={copy.searchPlaceholder}
+                inputMode="text"
+              />
+              {searchingCards && <Spinner />}
             </div>
-            <div className="form-row">
-              <span className="field-label">{copy.postDays}</span>
-              <span className="field-hint">{copy.postDaysCaption}</span>
-              <div className="day-grid">
-                {WEEKDAYS.map((day) => (
-                  <button
-                    key={day.code}
-                    className={`day-btn ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()}
-                    type="button"
-                    onClick={() => toggleDay(day.code)}
-                  >
-                    {day[language]}
-                  </button>
+
+            {cardResults.length > 0 && cardResults.map((card) => (
+              <CardResult
+                key={card.code}
+                card={card}
+                selected={cardCode === card.code}
+                onSelect={(sel) => {
+                  setCardCode(sel.code);
+                  setCardQuery(`${sel.code} – ${sel.name || sel.real_name}`);
+                  setCardResults([]);
+                  haptic('impact', 'light');
+                }}
+              />
+            ))}
+          </Section>
+
+          {targetChats.length > 0 && (
+            <Section title={copy.destination}>
+              <SelectRow label={copy.destination} value={targetChatId} onChange={setTargetChatId}>
+                <option value="">{copy.defaultChat}</option>
+                {targetChats.map((chat) => (
+                  <option key={chat.chat_id} value={chat.chat_id}>{chat.title || chat.chat_id}</option>
                 ))}
+              </SelectRow>
+            </Section>
+          )}
+
+          <Section footer={!cardCode ? copy.automaticChoice : undefined}>
+            <MenuRow
+              icon="send"
+              label={copy.postNow}
+              value={cardCode || undefined}
+              loading={loadingCmd === 'post_now'}
+              disabled={actionsDisabled}
+              onClick={() => confirmEnqueue(copy.confirmPostNow(cardCode), 'post_now', cardCode ? { card_code: cardCode } : {})}
+            />
+            <MenuRow
+              icon="repeat"
+              label={copy.repostCard}
+              value={cardCode || undefined}
+              loading={loadingCmd === 'repost_card'}
+              disabled={actionsDisabled || !cardCode}
+              onClick={() => confirmEnqueue(copy.confirmRepost(cardCode), 'repost_card', { card_code: cardCode })}
+            />
+            <MenuRow
+              icon="skip"
+              label={copy.skipCard}
+              value={cardCode || undefined}
+              loading={loadingCmd === 'skip_card'}
+              disabled={actionsDisabled || !cardCode}
+              onClick={() => confirmEnqueue(copy.confirmSkip(cardCode), 'skip_card', { card_code: cardCode })}
+            />
+          </Section>
+
+          {result && (
+            <Section>
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+            </Section>
+          )}
+        </>
+      )}
+
+      {/* ── SETTINGS ── */}
+      {activeTab === 'settings' && (
+        <>
+          {/* Daily post */}
+          <Section title={copy.dailyPost}>
+            <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
+            {settings.daily_post_enabled && (
+              <>
+                <div className="row form-block">
+                  <div className="row-main">
+                    <span className="row-label">{copy.postTimes}</span>
+                    <input className="inline-input" value={timesInput} onChange={(e) => setTimesInput(e.target.value)} placeholder="08:00, 21:30" inputMode="text" />
+                  </div>
+                </div>
+                <div className="row form-block">
+                  <div className="row-main">
+                    <span className="row-label">{copy.postDays}</span>
+                    <div className="day-grid">
+                      {WEEKDAYS.map((day) => (
+                        <button key={day.code} type="button" className={`day-btn ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()} onClick={() => toggleDay(day.code)}>
+                          {day[language]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="row form-block">
+                  <div className="row-main">
+                    <span className="row-label">{copy.timezoneLabel}</span>
+                    <input className="inline-input" value={settings.timezone} onChange={(e) => setSettings((c) => ({ ...c, timezone: e.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
+                  </div>
+                </div>
+              </>
+            )}
+          </Section>
+
+          {/* Card filter */}
+          <Section title={copy.cardFilter}>
+            <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
+            <div className="row form-block">
+              <div className="row-main">
+                <span className="row-label">{copy.cardTypes}</span>
+                <div className="type-grid">
+                  {ALL_CARD_TYPES.map((type) => {
+                    const active = settings.allowed_card_types.includes(type.code);
+                    return (
+                      <button key={type.code} type="button" className={`type-btn ${active ? 'active' : ''}`.trim()} onClick={() => toggleCardType(type.code)}>
+                        {type[language]}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            <div className="form-row">
-              <Field label={copy.timezoneLabel} hint={copy.timezoneCaption}>
-                <input className="input" type="text" value={settings.timezone} onChange={(e) => setSettings((cur) => ({ ...cur, timezone: e.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
-              </Field>
             </div>
           </Section>
 
-          <Section title={copy.aiLanguage} footer={copy.aiLanguageCaption}>
-            <div className="form-row">
-              <SelectField
-                value={settings.ai_language}
-                onChange={(val) => setSettings((cur) => ({ ...cur, ai_language: val }))}
-              >
+          {/* AI */}
+          <Section title={copy.aiSection}>
+            <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
+            {settings.ai_enabled && (
+              <SelectRow label={copy.aiLanguage} value={settings.ai_language} onChange={(v) => updateSetting('ai_language', v)}>
                 <option value="pt-BR">{copy.aiLanguagePt}</option>
                 <option value="en-US">{copy.aiLanguageEn}</option>
-              </SelectField>
-            </div>
-          </Section>
-
-          <Section title={copy.cardTypes} footer={copy.cardTypesCaption}>
-            <div className="form-row">
-              <div className="type-grid">
-                {ALL_CARD_TYPES.map((type) => {
-                  const active = settings.allowed_card_types.includes(type.code);
-                  return (
-                    <button
-                      key={type.code}
-                      type="button"
-                      className={`type-btn ${active ? 'active' : ''}`.trim()}
-                      onClick={() => setSettings((cur) => {
-                        const next = active
-                          ? cur.allowed_card_types.filter((t) => t !== type.code)
-                          : [...cur.allowed_card_types, type.code];
-                        return { ...cur, allowed_card_types: next.length ? next : cur.allowed_card_types };
-                      })}
-                    >
-                      {type[language]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </Section>
-
-          <Section>
-            <ActionRow icon="refresh" label={copy.reloadSettings} onClick={fetchSettings} loading={loadingSettings} disabled={!apiConfigured} />
-            <ActionRow icon="save" label={copy.saveSettings} onClick={saveSettings} loading={savingSettings} disabled={actionsDisabled} />
+              </SelectRow>
+            )}
           </Section>
 
           {settingsResult && (
             <Section>
-              <Row
-                icon={settingsResult.ok ? 'result' : 'info'}
-                label={settingsResult.ok ? copy.success : copy.error}
-                value={settingsResult.ok ? 'ok' : 'err'}
-                badgeTone={settingsResult.ok ? 'ok' : 'err'}
-                caption={settingsResult.friendly}
-              />
-              {settingsResult.detail && (
-                <details className="details">
-                  <summary>{copy.details}</summary>
-                  <pre className="details-pre">{settingsResult.detail}</pre>
-                </details>
-              )}
+              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+            </Section>
+          )}
+
+          {loadingSettings && (
+            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.checking}</span></div></Section>
+          )}
+        </>
+      )}
+
+      {/* ── MAINTENANCE ── */}
+      {activeTab === 'maintenance' && (
+        <>
+          <Section title={copy.maintenance} footer={copy.syncCaption}>
+            <MenuRow icon="sync" label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+          </Section>
+
+          <Section footer={copy.resetCaption}>
+            <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
+          </Section>
+
+          <Section footer={copy.clearQueueCaption}>
+            <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
+          </Section>
+
+          {result && (
+            <Section>
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
             </Section>
           )}
         </>
@@ -1261,38 +1155,37 @@ function App() {
 
       {/* ── QUEUE ── */}
       {activeTab === 'queue' && (
-        <Section title={copy.commandQueue}>
-          <ActionRow icon="refresh" label={copy.refreshQueue} onClick={fetchCommands} loading={loadingCommands} disabled={!apiConfigured} />
-          {commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
-          {commands.map((cmd) => (
-            <CommandRow key={cmd.id} command={cmd} onCancel={cancelCommand} loading={cancellingCommand === cmd.id} copy={copy} />
-          ))}
-        </Section>
+        <>
+          <Section title={copy.commandQueue}>
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
+            {commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
+            {commands.map((cmd) => (
+              <CommandRow key={cmd.id} command={cmd} onCancel={cancelCommand} loading={cancellingCommand === cmd.id} copy={copy} />
+            ))}
+          </Section>
+        </>
       )}
 
       {/* ── HEALTH ── */}
-      {activeTab === 'status' && (
+      {activeTab === 'health' && (
         <>
           <Section title={copy.summary}>
-            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={sysStatus?.ok ? 'ok' : 'err'} />
-            <Row icon="shield" label={copy.access} value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} />
-            <Row icon="cards" label={copy.cards} value={cardsValue} />
-            <Row icon="queue" label={copy.queue} value={queueValue} />
+            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
+            <Row icon="shield" label={copy.access} value={me?.role || copy.admin} badgeTone="ok" />
+            <Row icon="cards"  label={copy.cards}  value={cardsValue} />
+            <Row icon="packs"  label={copy.packs}  value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
+            <Row icon="clock"  label={copy.lastSync} value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus?.last_sync).toLocaleString(copy.locale) : '-'} mono />
+            <Row icon="queue"  label={copy.queue}  value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
           </Section>
 
           <Section title={copy.account}>
-            <Row icon="plug" label={copy.telegramWebApp} value={tg() ? copy.yes : copy.no} badgeTone={tg() ? 'ok' : 'err'} />
-            <Row icon="key" label={copy.initDataLabel} value={initData() ? copy.yes : copy.no} badgeTone={initData() ? 'ok' : 'err'} />
-            <Row icon="shield" label={copy.admin} value={adminValue} badgeTone={isAdmin ? 'ok' : 'err'} caption={me?.admin_source ? `source: ${me.admin_source}` : undefined} />
-            <ActionRow icon="refresh" label={copy.recheckAuth} onClick={fetchMe} loading={loadingMe} disabled={!apiConfigured} />
+            <Row icon="plug"   label={copy.telegramWebApp} value={tg() ? copy.yes : copy.no} badgeTone={tg() ? 'ok' : 'err'} />
+            <Row icon="key"    label={copy.initDataLabel}  value={initData() ? copy.yes : copy.no} badgeTone={initData() ? 'ok' : 'err'} />
+            <Row icon="shield" label={copy.admin}          value={me?.role || '-'} badgeTone="ok" caption={me?.admin_source ? `source: ${me.admin_source}` : undefined} />
           </Section>
 
           <Section title={copy.system}>
-            <Row icon="server" label={copy.worker} value={sysStatus?.ok ? copy.online : copy.offline} badgeTone={sysStatus?.ok ? 'ok' : 'err'} />
-            <Row icon="cards" label={copy.cards} value={loadingStatus ? '…' : (sysStatus?.total_cards ?? '-')} />
-            <Row icon="packs" label={copy.packs} value={loadingStatus ? '…' : (sysStatus?.total_packs ?? '-')} />
-            <Row icon="clock" label={copy.lastSync} value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus?.last_sync).toLocaleString(copy.locale) : '-'} mono />
-            <ActionRow icon="refresh" label={copy.refreshStatus} onClick={() => { fetchStatus(); fetchOverview(); }} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} />
+            <MenuRow icon="refresh" label={copy.recheckAuth} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} onClick={() => { fetchStatus(); fetchOverview(); }} />
           </Section>
 
           <Section title={copy.diagnostic}>
@@ -1312,25 +1205,6 @@ function App() {
             </details>
           </Section>
         </>
-      )}
-
-      {/* ── RESULT TOAST ── */}
-      {result && activeTab !== 'status' && (
-        <Section>
-          <Row
-            icon={result.ok ? 'result' : 'info'}
-            label={result.ok ? copy.success : copy.error}
-            value={result.command_type || (result.ok ? 'ok' : 'err')}
-            badgeTone={result.ok ? 'ok' : 'err'}
-            caption={result.friendly}
-          />
-          {result.detail && (
-            <details className="details">
-              <summary>{copy.details}</summary>
-              <pre className="details-pre">{result.detail}</pre>
-            </details>
-          )}
-        </Section>
       )}
 
     </div>

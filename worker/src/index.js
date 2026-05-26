@@ -21,7 +21,9 @@ const SETTINGS_KEYS = new Set([
   'daily_post_times',
   'daily_post_days',
   'timezone',
+  'ai_enabled',
   'ai_language',
+  'include_spoilers',
   'allowed_card_types',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
@@ -249,8 +251,16 @@ function validateSettingsPatch(body) {
       if (!timezone) return { error: 'invalid_setting_value', key };
       settings[key] = timezone;
     }
+    if (key === 'ai_enabled') {
+      if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
     if (key === 'ai_language') {
       if (!AI_LANGUAGE_VALUES.has(value)) return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'include_spoilers') {
+      if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };
       settings[key] = value;
     }
     if (key === 'allowed_card_types') {
