@@ -874,63 +874,21 @@ function SelectRow({ label, value, onChange, children }) {
   );
 }
 
-function PickerColumn({ values, selected, label, onChange, disabled }) {
-  const ref = React.useRef(null);
-  const itemH = 44;
-  const lastEmit = React.useRef(selected);
+const DELAY_OPTIONS = [
+  0, 10, 15, 20, 30, 45,
+  60, 90, 120, 150, 180, 240, 300,
+  360, 420, 480, 540, 600,
+  900, 1200, 1500, 1800,
+  2700, 3600,
+];
 
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const idx = values.indexOf(selected);
-    if (idx >= 0) el.scrollTop = idx * itemH;
-  }, [selected, values]);
-
-  const commit = React.useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const idx = Math.round(el.scrollTop / itemH);
-    const v = values[Math.max(0, Math.min(idx, values.length - 1))];
-    if (v !== lastEmit.current) { lastEmit.current = v; haptic('selection'); onChange(v); }
-  }, [values, onChange]);
-
-  return (
-    <div className="picker-col-wrap">
-      <div className={`picker-col${disabled ? ' picker-col-disabled' : ''}`} ref={ref} onScroll={commit}>
-        <div className="picker-spacer" />
-        {values.map((v) => (
-          <div key={v} className={`picker-item${v === selected ? ' picker-item-sel' : ''}`}>
-            {String(v).padStart(2, '0')}
-          </div>
-        ))}
-        <div className="picker-spacer" />
-      </div>
-      <span className="picker-label">{label}</span>
-    </div>
-  );
-}
-
-const HOURS_VALS = Array.from({ length: 2 }, (_, i) => i);
-const MINS_VALS  = Array.from({ length: 60 }, (_, i) => i);
-const SECS_VALS  = Array.from({ length: 60 }, (_, i) => i);
-
-function TimePickerRow({ label, value, onChange, lang }) {
-  const h = Math.floor(value / 3600);
-  const m = Math.floor((value % 3600) / 60);
-  const s = value % 60;
-  const set = (nh, nm, ns) => onChange(Math.min(3600, nh * 3600 + nm * 60 + ns));
-  const hLabel = lang === 'pt' ? 'horas' : 'hours';
-  return (
-    <div className="time-picker-row">
-      <span className="time-picker-label">{label}</span>
-      <div className="time-picker">
-        <div className="picker-highlight" />
-        <PickerColumn values={HOURS_VALS} selected={h} label={hLabel} onChange={(v) => set(v, h === 1 ? 0 : m, h === 1 ? 0 : s)} />
-        <PickerColumn values={MINS_VALS}  selected={m} label="min" onChange={(v) => set(h, v, s)} disabled={h >= 1} />
-        <PickerColumn values={SECS_VALS}  selected={s} label="s"   onChange={(v) => set(h, m, v)} disabled={h >= 1} />
-      </div>
-    </div>
-  );
+function formatDelay(v, lang) {
+  if (v === 0) return lang === 'pt' ? 'Sem delay' : 'No delay';
+  if (v < 60) return `${v}s`;
+  const m = Math.floor(v / 60);
+  const s = v % 60;
+  if (s === 0) return lang === 'pt' ? `${m} min` : `${m} min`;
+  return `${m}min ${s}s`;
 }
 
 function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, copy }) {
@@ -1939,12 +1897,11 @@ function App() {
                   <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
                   {settings.ai_pre_message_enabled && <>
                     <Row icon="info" label={copy.aiPreMessageCaption} />
-                    <TimePickerRow
-                      label={copy.aiPreMessageDelay}
-                      value={settings.ai_pre_message_delay_seconds}
-                      onChange={(v) => updateSetting('ai_pre_message_delay_seconds', v)}
-                      lang={lang}
-                    />
+                    <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
+                      {DELAY_OPTIONS.map((v) => (
+                        <option key={v} value={v}>{formatDelay(v, lang)}</option>
+                      ))}
+                    </SelectRow>
                   </>}
                   <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
                   {settings.ai_post_question_enabled && <Row icon="info" label={copy.aiPostQuestionCaption} />}
