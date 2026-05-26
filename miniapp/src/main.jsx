@@ -165,6 +165,50 @@ const I18N = {
     aiLanguage: 'Idioma da IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    // bot identity
+    botDescription: 'Órfã. Investigadora. Sobrevivente. Wendy enfrenta o desconhecido com coragem e seu amuleto da sorte.',
+    // home sections
+    overviewTitle: 'Visão geral',
+    actionsTitle: 'Painel',
+    // history
+    historyTab: 'Histórico',
+    historyTitle: 'Histórico de postagens',
+    postedCardsCount: 'Cartas postadas no ciclo',
+    noHistory: 'Nenhuma postagem recente',
+    // command type labels (friendly)
+    commandTypeLabels: {
+      post_now: 'Postar carta',
+      repost_card: 'Repostar carta',
+      skip_card: 'Pular carta',
+      sync_arkhamdb: 'Sincronizar ArkhamDB',
+      reset_cycle: 'Resetar ciclo',
+      clear_queue: 'Limpar fila',
+      update_setting: 'Configurar',
+      pause_daily_post: 'Pausar postagem',
+      resume_daily_post: 'Retomar postagem',
+    },
+    commandStatusLabels: {
+      pending: 'pendente',
+      retrying: 'tentando novamente',
+      processing: 'processando',
+      executed: 'executado',
+      failed: 'falhou',
+      cancelled: 'cancelado',
+    },
+    postStatusLabels: {
+      POSTED_FRONT_SUCCESS: 'Postada',
+      POSTED_BACK: 'Com verso',
+      POSTED_BACK_TEXT_ONLY: 'Verso (texto)',
+      FAILED_DOWNLOAD: 'Falha no download',
+      SUCCESS: 'Sucesso',
+    },
+    roleLabels: {
+      owner: 'proprietário',
+      admin: 'administrador',
+      administrator: 'administrador',
+      member: 'membro',
+      creator: 'criador',
+    },
     // maintenance
     syncArkhamDB: 'Sincronizar ArkhamDB',
     syncCaption: 'Atualiza cartas e pacotes do banco de dados',
@@ -300,6 +344,50 @@ const I18N = {
     aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    // bot identity
+    botDescription: 'Orphan. Investigator. Survivor. Wendy faces the unknown with courage and her lucky charm.',
+    // home sections
+    overviewTitle: 'Overview',
+    actionsTitle: 'Dashboard',
+    // history
+    historyTab: 'History',
+    historyTitle: 'Posting history',
+    postedCardsCount: 'Cards posted in cycle',
+    noHistory: 'No recent posts',
+    // command type labels (friendly)
+    commandTypeLabels: {
+      post_now: 'Post card',
+      repost_card: 'Repost card',
+      skip_card: 'Skip card',
+      sync_arkhamdb: 'Sync ArkhamDB',
+      reset_cycle: 'Reset cycle',
+      clear_queue: 'Clear queue',
+      update_setting: 'Update setting',
+      pause_daily_post: 'Pause posting',
+      resume_daily_post: 'Resume posting',
+    },
+    commandStatusLabels: {
+      pending: 'pending',
+      retrying: 'retrying',
+      processing: 'processing',
+      executed: 'executed',
+      failed: 'failed',
+      cancelled: 'cancelled',
+    },
+    postStatusLabels: {
+      POSTED_FRONT_SUCCESS: 'Posted',
+      POSTED_BACK: 'With back',
+      POSTED_BACK_TEXT_ONLY: 'Back (text)',
+      FAILED_DOWNLOAD: 'Download failed',
+      SUCCESS: 'Success',
+    },
+    roleLabels: {
+      owner: 'owner',
+      admin: 'admin',
+      administrator: 'administrator',
+      member: 'member',
+      creator: 'creator',
+    },
     syncArkhamDB: 'Sync ArkhamDB',
     syncCaption: 'Updates cards and packs from the database',
     lastSyncAt: 'Last sync',
@@ -599,14 +687,19 @@ function SelectRow({ label, value, onChange, children }) {
 function CommandRow({ command, onCancel, loading, copy }) {
   const cancellable = ['pending', 'retrying'].includes(command.status);
   const tone = command.status === 'failed' ? 'err' : command.status === 'executed' ? 'ok' : 'warn';
-  const parts = [command.status, command.created_at ? new Date(command.created_at).toLocaleString(copy.locale) : null, command.last_error || null].filter(Boolean);
+  const friendlyStatus = copy.commandStatusLabels[command.status] || command.status;
+  const friendlyType = copy.commandTypeLabels[command.command_type] || command.command_type;
+  const parts = [
+    command.created_at ? new Date(command.created_at).toLocaleString(copy.locale) : null,
+    command.last_error || null,
+  ].filter(Boolean);
   return (
     <div className="command-row">
       <div className="row-main">
-        <span className="row-label">{command.command_type}</span>
+        <span className="row-label">{friendlyType}</span>
         <span className="row-caption">{parts.join(' · ')}</span>
       </div>
-      <Badge tone={tone}>{command.status}</Badge>
+      <Badge tone={tone}>{friendlyStatus}</Badge>
       {cancellable && (
         <button className="icon-btn" type="button" onClick={() => onCancel(command)} disabled={loading} aria-label={copy.cancelCommand}>
           {loading ? <Spinner /> : <Icon name="x" />}
@@ -999,11 +1092,12 @@ function App() {
       <header className="app-header">
         <div className="avatar">
           {getBotPhotoUrl()
-            ? <img src={getBotPhotoUrl()} alt="Arkham Bot" className="avatar-img" />
+            ? <img src={getBotPhotoUrl()} alt="Wendy Adams" className="avatar-img" />
             : <Icon name="bot" />}
         </div>
-        <div className="header-title">Arkham Bot</div>
+        <div className="header-title">Wendy Adams</div>
         <div className="header-subtitle">{copy.subtitle}</div>
+        <div className="header-description">{copy.botDescription}</div>
       </header>
 
       {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured}</Notice>}
@@ -1011,16 +1105,17 @@ function App() {
       {/* ── HOME ── */}
       {activeTab === 'home' && (
         <>
-          <Section>
+          <Section title={copy.overviewTitle}>
             <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
-            <Row icon="cards" label={copy.cards} value={cardsValue} />
+            <Row icon="cards" label={copy.cards} value={`${cardsValue} / ${overview?.counts?.posted_cards ?? '-'}`} />
             <Row icon="queue" label={copy.queue} value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
           </Section>
 
-          <Section>
+          <Section title={copy.actionsTitle}>
             <MenuRow icon="send"     label={copy.postCard}    onClick={() => setActiveTab('post')} />
             <MenuRow icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
             <MenuRow icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
+            <MenuRow icon="clock"    label={copy.historyTab}  onClick={() => setActiveTab('history')} />
             <MenuRow icon="queue"    label={copy.queue}       value={queueValue > 0 ? String(queueValue) : undefined} onClick={() => setActiveTab('queue')} />
             <MenuRow icon="server"   label={copy.health}      value={workerValue} onClick={() => setActiveTab('health')} />
             <MenuRow icon="language" label={copy.language}    value={copy.langName} onClick={() => setActiveTab('language')} />
@@ -1219,6 +1314,36 @@ function App() {
         </>
       )}
 
+      {/* ── HISTORY ── */}
+      {activeTab === 'history' && (
+        <>
+          <Section title={copy.historyTitle} footer={`${copy.postedCardsCount}: ${overview?.counts?.posted_cards ?? '—'}`}>
+            {loadingOverview && <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.checking}</span></div>}
+            {!loadingOverview && (!overview?.recent_posts || overview.recent_posts.length === 0) && (
+              <Row icon="cards" label={copy.noHistory} />
+            )}
+            {(overview?.recent_posts || []).map((post) => {
+              const friendlyStatus = copy.postStatusLabels[post.status] || post.status;
+              const tone = post.status?.startsWith('POSTED') ? 'ok' : post.status?.startsWith('FAIL') ? 'err' : '';
+              return (
+                <div key={post.id} className="row">
+                  <div className="row-main">
+                    <span className="row-label">{post.card_name || post.card_code}</span>
+                    <span className="row-caption">
+                      {[post.card_code, post.created_at ? new Date(post.created_at).toLocaleString(copy.locale) : null].filter(Boolean).join(' · ')}
+                    </span>
+                  </div>
+                  <Badge tone={tone}>{friendlyStatus}</Badge>
+                </div>
+              );
+            })}
+          </Section>
+          <Section>
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingOverview} disabled={!apiConfigured} onClick={fetchOverview} />
+          </Section>
+        </>
+      )}
+
       {/* ── LANGUAGE ── */}
       {activeTab === 'language' && (
         <Section title={copy.chooseLanguage}>
@@ -1240,7 +1365,7 @@ function App() {
         <>
           <Section title={copy.summary}>
             <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
-            <Row icon="shield" label={copy.access} value={me?.role || copy.admin} badgeTone="ok" />
+            <Row icon="shield" label={copy.access} value={copy.roleLabels[me?.role] || me?.role || copy.admin} badgeTone="ok" />
             <Row icon="cards"  label={copy.cards}  value={cardsValue} />
             <Row icon="packs"  label={copy.packs}  value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
             <Row icon="clock"  label={copy.lastSync} value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus?.last_sync).toLocaleString(copy.locale) : '-'} mono />
@@ -1250,7 +1375,7 @@ function App() {
           <Section title={copy.account}>
             <Row icon="plug"   label={copy.telegramWebApp} value={tg() ? copy.yes : copy.no} badgeTone={tg() ? 'ok' : 'err'} />
             <Row icon="key"    label={copy.initDataLabel}  value={initData() ? copy.yes : copy.no} badgeTone={initData() ? 'ok' : 'err'} />
-            <Row icon="shield" label={copy.admin}          value={me?.role || '-'} badgeTone="ok" caption={me?.admin_source ? `${copy.adminSourcePrefix}: ${me.admin_source}` : undefined} />
+            <Row icon="shield" label={copy.admin}          value={copy.roleLabels[me?.role] || me?.role || '-'} badgeTone="ok" caption={me?.admin_source ? `${copy.adminSourcePrefix}: ${me.admin_source}` : undefined} />
           </Section>
 
           <Section title={copy.system}>

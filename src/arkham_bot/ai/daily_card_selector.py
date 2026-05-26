@@ -90,7 +90,13 @@ async def _call_openai(prompt: dict) -> dict:
 
 async def choose_daily_card_with_ai(candidates: list[dict], language: str = "pt-BR") -> AIDailyCardChoice | None:
     """Selects a card from candidates AND generates commentary for it."""
-    if not AI_DAILY_CARD_ENABLED or not OPENAI_API_KEY or not candidates:
+    if not AI_DAILY_CARD_ENABLED:
+        logger.debug("choose_daily_card_with_ai: skipped — AI_DAILY_CARD_ENABLED=false")
+        return None
+    if not OPENAI_API_KEY:
+        logger.warning("choose_daily_card_with_ai: skipped — OPENAI_API_KEY not configured")
+        return None
+    if not candidates:
         return None
 
     tone = random.choice(TONES)
@@ -135,7 +141,13 @@ async def choose_daily_card_with_ai(candidates: list[dict], language: str = "pt-
 
 async def generate_card_commentary(card: dict, language: str = "pt-BR") -> AIDailyCardChoice | None:
     """Generates pre_message and post_question for a specific card (used for manual posts)."""
-    if not AI_DAILY_CARD_ENABLED or not OPENAI_API_KEY or not card:
+    if not AI_DAILY_CARD_ENABLED:
+        logger.debug("generate_card_commentary: skipped — AI_DAILY_CARD_ENABLED=false")
+        return None
+    if not OPENAI_API_KEY:
+        logger.warning("generate_card_commentary: skipped — OPENAI_API_KEY not configured")
+        return None
+    if not card:
         return None
 
     tone = random.choice(TONES)
