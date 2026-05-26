@@ -37,6 +37,7 @@ from .local_storage import (
     save_posted_card,
 )
 from .repositories.settings_repo import get_setting
+from .repositories.history_repo import create_history_entry
 from .text_formatters import format_card_back_caption, format_card_caption
 
 
@@ -332,6 +333,17 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 logger.info(f"Image (Front) for {card_code} posted successfully. Message ID: {message.message_id}")
                 save_posted_card(card_code)
                 log_posting_history(card_code, card.get('name'), "POSTED_FRONT_SUCCESS")
+                try:
+                    create_history_entry({
+                        'card_code': card_code,
+                        'card_name': card.get('name'),
+                        'status': 'POSTED_FRONT_SUCCESS',
+                        'source': 'scheduled' if is_scheduled else 'manual',
+                        'telegram_message_id': message.message_id,
+                        'target_chat_id': chat_id,
+                    })
+                except Exception as _he:
+                    logger.warning(f"history_entry_failed: {_he}")
                 break
 
             except RetryAfter as exc:

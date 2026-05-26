@@ -200,7 +200,8 @@ const I18N = {
     aiCreativityCreative: 'Criativo',
     // weekly schedule
     weeklySchedule: 'Programação semanal',
-    weeklyScheduleCaption: 'Configure ciclos e tipos de carta por dia da semana',
+    weeklyScheduleCaption: 'Configure horários, ciclos e tipos por dia',
+    dailySchedule: 'Programação diária',
     allWeekdays: 'Todos os dias',
     configureAllWeekdays: 'Configurar todos os dias',
     configureDay: 'Configurar',
@@ -225,6 +226,11 @@ const I18N = {
     historyTitle: 'Histórico de postagens',
     postedCardsCount: 'Cartas postadas no ciclo',
     noHistory: 'Nenhuma postagem recente',
+    historyDateFilter: 'Data',
+    clearFilter: 'Limpar filtros',
+    loadMore: 'Carregar mais',
+    scheduledPost: 'Automático',
+    manualPost: 'Manual',
     // command type labels (friendly)
     commandTypeLabels: {
       post_now: 'Postar carta',
@@ -417,7 +423,8 @@ const I18N = {
     aiCreativityCreative: 'Creative',
     // weekly schedule
     weeklySchedule: 'Weekly schedule',
-    weeklyScheduleCaption: 'Configure cycles and card types per day of the week',
+    weeklyScheduleCaption: 'Configure times, cycles and types per day',
+    dailySchedule: 'Daily schedule',
     allWeekdays: 'All days',
     configureAllWeekdays: 'Configure all days',
     configureDay: 'Configure',
@@ -442,6 +449,11 @@ const I18N = {
     historyTitle: 'Posting history',
     postedCardsCount: 'Cards posted in cycle',
     noHistory: 'No recent posts',
+    historyDateFilter: 'Date',
+    clearFilter: 'Clear filters',
+    loadMore: 'Load more',
+    scheduledPost: 'Scheduled',
+    manualPost: 'Manual',
     // command type labels (friendly)
     commandTypeLabels: {
       post_now: 'Post card',
@@ -728,15 +740,17 @@ function normalizeSettings(s = {}) {
 function settingsPatchPayload(settings, times) {
   const normalized = normalizeSettings({
     ...settings,
-    daily_post_times: times,
+    daily_post_times: times.map((t) => t.slice(0, 5)),
     timezone: settings.timezone.trim(),
   });
   return Object.fromEntries(SETTINGS_PATCH_KEYS.map((key) => [key, normalized[key]]));
 }
 
 function isValidTimeValue(t) {
-  if (!/^\d{2}:\d{2}$/.test(t)) return false;
-  const [h, m] = t.split(':').map(Number);
+  if (typeof t !== 'string') return false;
+  const clean = t.slice(0, 5);
+  if (!/^\d{2}:\d{2}$/.test(clean)) return false;
+  const [h, m] = clean.split(':').map(Number);
   return h >= 0 && h <= 23 && m >= 0 && m <= 59;
 }
 function validateTimes(times) {
@@ -885,7 +899,7 @@ function SelectRow({ label, value, onChange, children }) {
 const DELAY_OPTIONS = [
   0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 54, 55, 60,
   120, 180, 240, 300, 360, 420, 480, 540, 600,
-  900, 1200, 1500, 1800, 2100, 2400, 2700, 3000, 3240, 3600,
+  900, 1200, 1500, 1800, 2100, 2400, 2700, 3000, 3300, 3600,
 ];
 
 function formatDelay(v, lang) {
@@ -912,17 +926,21 @@ function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, 
           </button>
         </div>
       ))}
-      <div className="time-add-row">
+      <label className="row select-row">
+        <Icon name="clock" />
+        <span className="row-label">{copy.postTime}</span>
         <input
-          className="time-add-input"
+          className="inline-select"
           type="time"
           value={pendingTime}
-          onChange={(e) => onPendingTimeChange(e.target.value)}
+          onChange={(e) => onPendingTimeChange(e.target.value.slice(0, 5))}
         />
-        <button className="time-add-btn" type="button" onClick={onAdd}>
-          {copy.addTime}
-        </button>
-      </div>
+      </label>
+      <button className="row row-action" type="button" onClick={onAdd} style={{ color: 'var(--link)' }}>
+        <Icon name="clock" />
+        <span className="row-label">{copy.addTime}</span>
+        <Icon name="chevron" className="chevron" />
+      </button>
     </>
   );
 }
@@ -1042,6 +1060,12 @@ function App() {
   const [cancellingCommand, setCancellingCommand] = useState(null);
 
   const searchTimerRef = useRef(null);
+  const historySearchTimerRef = useRef(null);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoadingState, setHistoryLoadingState] = useState(false);
+  const [historyDate, setHistoryDate] = useState('');
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyHasMore, setHistoryHasMore] = useState(false);
 
   const apiConfigured = Boolean(getApiBase());
   const isAdmin = me?.admin === true;
@@ -1158,6 +1182,11 @@ function App() {
   // ── Auto-load settings when entering settings or ai tab ────────────────────
   useEffect(() => {
     if ((activeTab === 'settings' || activeTab === 'ai') && !settingsDirty) fetchSettings();
+  }, [activeTab]);
+
+  // ── Auto-load history when entering history tab ─────────────────────────────
+  useEffect(() => {
+    if (activeTab === 'history') fetchHistoryItems(historyDate, historyQuery, 0);
   }, [activeTab]);
 
   // ── API calls ───────────────────────────────────────────────────────────────
@@ -1483,6 +1512,24 @@ function App() {
     finally { setSearchingCards(false); }
   }
 
+  async function fetchHistoryItems(date, query, offset) {
+    if (!apiConfigured) return;
+    setHistoryLoadingState(true);
+    const params = new URLSearchParams({ limit: '30', offset: String(offset) });
+    if (date) params.set('date', date);
+    if ((query || '').trim().length >= 2) params.set('q', query.trim());
+    try {
+      const { ok, json } = await apiFetch(`/history?${params.toString()}`);
+      if (ok) {
+        const items = json.history || [];
+        if (offset === 0) setHistoryItems(items);
+        else setHistoryItems((prev) => [...prev, ...items]);
+        setHistoryHasMore(items.length === 30);
+      }
+    } catch {}
+    finally { setHistoryLoadingState(false); }
+  }
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const workerValue = loadingStatus ? '…' : sysStatus?.ok ? copy.online : copy.offline;
@@ -1626,11 +1673,6 @@ function App() {
       {/* ── SETTINGS ── */}
       {activeTab === 'settings' && (
         <>
-          {/* Post card shortcut */}
-          <Section title={copy.postCard}>
-            <MenuRow icon="send" label={copy.postNow} onClick={() => setActiveTab('post')} />
-          </Section>
-
           {/* Daily post */}
           <Section title={copy.dailyPost}>
             <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
@@ -1649,12 +1691,12 @@ function App() {
           </Section>
 
           {/* Weekly schedule */}
-          <Section title={copy.weeklySchedule} footer={copy.weeklyScheduleCaption}>
-            {(() => {
-              const lang = language === 'pt' ? 'pt' : 'en';
-              const allEnabled = settings.daily_post_days.length === WEEKDAYS.length;
-              return (
-                <>
+          {(() => {
+            const lang = language === 'pt' ? 'pt' : 'en';
+            const allEnabled = settings.daily_post_days.length === WEEKDAYS.length;
+            return (
+              <>
+                <Section title={copy.weeklySchedule}>
                   <DayScheduleRow
                     label={copy.allWeekdays}
                     subtitle={dayConfigSummary('all', copy)}
@@ -1662,6 +1704,8 @@ function App() {
                     onToggle={setAllWeekdays}
                     onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
                   />
+                </Section>
+                <Section title={copy.dailySchedule} footer={copy.weeklyScheduleCaption}>
                   {WEEKDAYS.map((day) => {
                     const enabled = settings.daily_post_days.includes(day.code);
                     return (
@@ -1680,13 +1724,14 @@ function App() {
                           haptic('selection');
                         }}
                         onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
+                        disabled={allEnabled}
                       />
                     );
                   })}
-                </>
-              );
-            })()}
-          </Section>
+                </Section>
+              </>
+            );
+          })()}
 
           {settingsResult && (
             <Section>
@@ -1816,14 +1861,57 @@ function App() {
       {/* ── HISTORY ── */}
       {activeTab === 'history' && (
         <>
-          <Section title={copy.historyTitle} footer={`${copy.postedCardsCount}: ${overview?.counts?.posted_cards ?? '—'}`}>
-            {loadingOverview && <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.checking}</span></div>}
-            {!loadingOverview && (!overview?.recent_posts || overview.recent_posts.length === 0) && (
+          <Section title={copy.historyTitle}>
+            <label className="row select-row">
+              <span className="row-label">{copy.historyDateFilter}</span>
+              <input
+                className="inline-select"
+                type="date"
+                value={historyDate}
+                onChange={(e) => {
+                  setHistoryDate(e.target.value);
+                  fetchHistoryItems(e.target.value, historyQuery, 0);
+                }}
+              />
+            </label>
+            <div className="row search-row">
+              <Icon name="search" />
+              <input
+                className="search-input"
+                type="search"
+                value={historyQuery}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setHistoryQuery(val);
+                  clearTimeout(historySearchTimerRef.current);
+                  historySearchTimerRef.current = setTimeout(() => fetchHistoryItems(historyDate, val, 0), 400);
+                }}
+                placeholder={copy.searchPlaceholder}
+              />
+              {historyLoadingState && <Spinner />}
+            </div>
+            {(historyDate || historyQuery) && (
+              <button className="row row-action" type="button" style={{ color: 'var(--link)' }} onClick={() => {
+                setHistoryDate('');
+                setHistoryQuery('');
+                fetchHistoryItems('', '', 0);
+              }}>
+                <Icon name="x" />
+                <span className="row-label">{copy.clearFilter}</span>
+                <Icon name="chevron" className="chevron" />
+              </button>
+            )}
+          </Section>
+
+          <Section footer={`${copy.postedCardsCount}: ${overview?.counts?.posted_cards ?? '—'}`}>
+            {!historyLoadingState && historyItems.length === 0 && (
               <Row icon="cards" label={copy.noHistory} />
             )}
-            {(overview?.recent_posts || []).map((post) => {
+            {historyItems.map((post) => {
               const friendlyStatus = copy.postStatusLabels[post.status] || post.status;
               const tone = post.status?.startsWith('POSTED') ? 'ok' : post.status?.startsWith('FAIL') ? 'err' : '';
+              const srcTone = post.source === 'scheduled' ? 'ok' : 'warn';
+              const srcLabel = post.source === 'scheduled' ? copy.scheduledPost : post.source === 'manual' ? copy.manualPost : null;
               return (
                 <div key={post.id} className="row">
                   <div className="row-main">
@@ -1832,13 +1920,15 @@ function App() {
                       {[post.card_code, post.created_at ? new Date(post.created_at).toLocaleString(copy.locale) : null].filter(Boolean).join(' · ')}
                     </span>
                   </div>
+                  {srcLabel && <Badge tone={srcTone}>{srcLabel}</Badge>}
                   <Badge tone={tone}>{friendlyStatus}</Badge>
                 </div>
               );
             })}
-          </Section>
-          <Section>
-            <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingOverview} disabled={!apiConfigured} onClick={fetchOverview} />
+            {historyHasMore && (
+              <MenuRow icon="refresh" label={copy.loadMore} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyQuery, historyItems.length)} />
+            )}
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyQuery, 0)} />
           </Section>
         </>
       )}
@@ -1859,10 +1949,8 @@ function App() {
             {settings.ai_enabled && (
               <>
                 <Section title={copy.aiLanguage}>
-                  <SelectRow label={copy.aiLanguage} value={settings.ai_language} onChange={(v) => updateSetting('ai_language', v)}>
-                    <option value="pt-BR">{copy.aiLanguagePt}</option>
-                    <option value="en-US">{copy.aiLanguageEn}</option>
-                  </SelectRow>
+                  <ToggleRow label={copy.aiLanguagePt} checked={settings.ai_language === 'pt-BR'} onChange={(v) => { if (v) updateSetting('ai_language', 'pt-BR'); }} />
+                  <ToggleRow label={copy.aiLanguageEn} checked={settings.ai_language === 'en-US'} onChange={(v) => { if (v) updateSetting('ai_language', 'en-US'); }} />
                 </Section>
 
                 <Section title={copy.aiTone}>

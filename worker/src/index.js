@@ -616,6 +616,35 @@ async function handleGetPacks(_env, ao) {
   }
 }
 
+async function handleGetHistory(request, env, ao) {
+  const url = new URL(request.url);
+  const date = (url.searchParams.get('date') || '').trim();
+  const q = (url.searchParams.get('q') || '').trim().replace(/[^\w\s:-]/g, '');
+  const limit = boundedLimit(url.searchParams.get('limit'), 30, 100);
+  const offset = Math.max(0, Number(url.searchParams.get('offset') || 0));
+
+  let path = `/rest/v1/bot_posting_history?select=id,card_code,card_name,status,source,created_at,telegram_message_id&order=created_at.desc&limit=${limit}&offset=${offset}`;
+
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const d = new Date(date + 'T12:00:00Z');
+    const next = new Date(d);
+    next.setDate(next.getDate() + 1);
+    const nextStr = next.toISOString().slice(0, 10);
+    path += `&created_at=gte.${date}T00:00:00&created_at=lt.${nextStr}T00:00:00`;
+  }
+
+  if (q.length >= 2) {
+    path += `&or=(card_code.ilike.*${encodeURIComponent(q)}*,card_name.ilike.*${encodeURIComponent(q)}*)`;
+  }
+
+  try {
+    const rows = await fetchSupabaseJson(env, path);
+    return withCors(jsonResponse({ ok: true, history: rows }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'history_fetch_failed' }, 500), ao);
+  }
+}
+
 function cardSearchPath(request) {
   const url = new URL(request.url);
   const query = (url.searchParams.get('q') || '').trim().replace(/[^\w\s:'-]/g, ' ');
@@ -861,6 +890,12 @@ export default {
       return handleGetPacks(env, ao);
     }
 
+    if (pathname === '/history' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/history');
+      if (auth.response) return auth.response;
+      return handleGetHistory(request, env, ao);
+    }
+
     if (pathname === '/bot-info' && request.method === 'GET') {
       const auth = await requireAdmin(request, env, ao, '/bot-info');
       if (auth.response) return auth.response;
@@ -883,7 +918,7 @@ export default {
       return handleBotCommand(request, env, user, ao);
     }
 
-    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/') {
+    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/' || pathname === '/history') {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 
