@@ -134,3 +134,40 @@ test('settings save exposes Supabase upsert details', async (t) => {
   assert.equal(json.upstream_status, 409);
   assert.match(json.detail, /unique constraint/);
 });
+
+test('settings save accepts empty weekdays and disabled day filters', async (t) => {
+  const upsertBodies = [];
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    const path = String(url);
+    if (path.includes('/bot_admins')) {
+      return Response.json([{ role: 'admin' }]);
+    }
+    if (path.includes('/bot_settings?on_conflict=key')) {
+      upsertBodies.push(JSON.parse(options.body));
+      return Response.json([]);
+    }
+    if (path.includes('/bot_settings?select=')) {
+      return Response.json([]);
+    }
+    throw new Error(`unexpected fetch ${path}`);
+  });
+
+  const request = new Request('https://worker.example/settings', {
+    method: 'PATCH',
+    headers: {
+      origin: ORIGIN,
+      'content-type': 'application/json',
+      'x-telegram-init-data': signedInitData(),
+    },
+    body: JSON.stringify({
+      daily_post_days: [],
+      day_config: { mon: { packs: ['__none__'], types: ['__none__'] } },
+    }),
+  });
+
+  const response = await worker.fetch(request, env());
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(upsertBodies[0].find((row) => row.key === 'daily_post_days').value, []);
+  assert.deepEqual(upsertBodies[0].find((row) => row.key === 'day_config').value.mon.types, ['__none__']);
+});

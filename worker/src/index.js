@@ -29,6 +29,7 @@ const SETTINGS_KEYS = new Set([
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+const NONE_SELECTED = '__none__';
 const VALID_CARD_TYPES = new Set([
   'investigator', 'asset', 'event', 'skill',
   'enemy', 'location', 'treachery', 'act', 'agenda', 'story',
@@ -255,7 +256,7 @@ function validateSettingsPatch(body) {
       settings[key] = value;
     }
     if (key === 'daily_post_days') {
-      if (!Array.isArray(value) || value.length === 0 || !value.every((day) => WEEKDAY_CODES.has(day))) {
+      if (!Array.isArray(value) || !value.every((day) => WEEKDAY_CODES.has(day))) {
         return { error: 'invalid_setting_value', key };
       }
       settings[key] = value;
@@ -296,7 +297,7 @@ function validateSettingsPatch(body) {
           if (p !== undefined && (!Array.isArray(p) || !p.every((x) => typeof x === 'string' && x.length > 0))) {
             return { error: 'invalid_setting_value', key };
           }
-          if (t !== undefined && (!Array.isArray(t) || !t.every((x) => VALID_CARD_TYPES.has(x)))) {
+          if (t !== undefined && (!Array.isArray(t) || !t.every((x) => x === NONE_SELECTED || VALID_CARD_TYPES.has(x)))) {
             return { error: 'invalid_setting_value', key };
           }
         }
