@@ -1109,6 +1109,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return ConversationHandler.END
     # If query was passed inline (e.g. /search shrivelling), run immediately
     if context.args:
+        context.user_data["search_user_msg_id"] = update.message.message_id
         return await _search_run(update, context, " ".join(context.args).strip())
     prompt = await update.message.reply_text(
         "🔍 Digite o nome ou código da carta:",
