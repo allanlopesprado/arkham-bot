@@ -57,6 +57,7 @@ def map_card_to_row(card: dict) -> dict:
         "sanity": card.get("sanity"),
         "imagesrc": card.get("imagesrc"),
         "backimagesrc": card.get("backimagesrc"),
+        "spoiler": bool(card.get("spoiler")),
         "raw": card,
     }
 

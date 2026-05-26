@@ -1307,7 +1307,19 @@ async def queue_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def sync_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _require_admin(update):
         return
-    await update.message.reply_text("Sync must be run on the server/CI: python scripts/sync_arkhamdb.py --dry-run, then without --dry-run.")
+    from .repositories.commands_repo import enqueue_command
+    user_id = update.effective_user.id if update.effective_user else None
+    args = context.args or []
+    sync_faq = "faq" in args
+    cmd = enqueue_command("sync_arkhamdb", payload={"sync_faq": sync_faq}, requested_by=user_id)
+    if cmd:
+        await update.message.reply_text(
+            f"✅ Sync enfileirado (ID: <code>{cmd.get('id', '?')}</code>).\n"
+            f"Será executado em até {30}s. Inclui FAQ: {'sim' if sync_faq else 'não'}.",
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await update.message.reply_text("❌ Falha ao enfileirar sync. Verifique a conexão com o Supabase.")
 
 
 async def reset_cycle_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
