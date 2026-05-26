@@ -803,7 +803,8 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 
         if is_numeric:
             # Partial numeric → match codes that start with the digits typed
-            results = [c for c in cards if (c.get('code') or '').startswith(q)][:15]
+            matched = [c for c in cards if (c.get('code') or '').startswith(q)]
+            results = matched[:15]
         else:
             results = [
                 c for c in cards
@@ -836,7 +837,9 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 
         buttons.append([InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL)])
         markup = InlineKeyboardMarkup(buttons)
-        text = f"🔍 <b>{len(results)} resultado(s)</b> para «{escape(q)}»:"
+        total = len(matched) if is_numeric else len(results)
+        suffix = f" (mostrando 15 de {total}, seja mais específico)" if total > 15 else ""
+        text = f"🔍 <b>{total} resultado(s)</b> para «{escape(q)}»{suffix}:"
         if update.message:
             await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
         elif update.callback_query:
