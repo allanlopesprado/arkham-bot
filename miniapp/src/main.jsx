@@ -210,8 +210,6 @@ const I18N = {
     noCycleConfig: 'Sem filtro — todas as cartas',
     cyclesSelected: (n) => `${n} ciclo${n !== 1 ? 's' : ''}`,
     typesSelected: (n) => `${n} tipo${n !== 1 ? 's' : ''}`,
-    // bot identity
-    botDescription: 'Órfã. Investigadora. Sobrevivente. Wendy enfrenta o desconhecido com coragem e seu amuleto da sorte.',
     // home sections
     overviewTitle: 'Visão geral',
     actionsTitle: 'Painel',
@@ -422,8 +420,6 @@ const I18N = {
     noCycleConfig: 'No filter — all cards',
     cyclesSelected: (n) => `${n} cycle${n !== 1 ? 's' : ''}`,
     typesSelected: (n) => `${n} type${n !== 1 ? 's' : ''}`,
-    // bot identity
-    botDescription: 'Orphan. Investigator. Survivor. Wendy faces the unknown with courage and her lucky charm.',
     // home sections
     overviewTitle: 'Overview',
     actionsTitle: 'Dashboard',
@@ -597,12 +593,12 @@ const AI_TONES = [
   { value: 'random',       pt: 'Aleatório',    en: 'Random' },
   { value: 'misterioso',   pt: 'Misterioso',   en: 'Mysterious' },
   { value: 'tenso',        pt: 'Tenso',         en: 'Tense' },
-  { value: 'épico',        pt: 'Épico',         en: 'Epic' },
+  { value: 'epico',        pt: 'Épico',         en: 'Epic' },
   { value: 'sombrio',      pt: 'Sombrio',       en: 'Dark' },
   { value: 'reflexivo',    pt: 'Reflexivo',     en: 'Reflective' },
-  { value: 'esperançoso',  pt: 'Esperançoso',   en: 'Hopeful' },
+  { value: 'esperancoso',  pt: 'Esperançoso',   en: 'Hopeful' },
   { value: 'perturbador',  pt: 'Perturbador',   en: 'Disturbing' },
-  { value: 'melancólico',  pt: 'Melancólico',   en: 'Melancholic' },
+  { value: 'melancolico',  pt: 'Melancólico',   en: 'Melancholic' },
 ];
 
 const AI_MODELS = [
@@ -636,11 +632,20 @@ const SETTINGS_PATCH_KEYS = [
   'include_spoilers', 'allowed_card_types', 'day_config',
 ];
 
+function parseJsonArray(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); if (Array.isArray(p)) return p; } catch {} }
+  return null;
+}
+
 function normalizeSettings(s = {}) {
+  const times = parseJsonArray(s.daily_post_times);
+  const days = parseJsonArray(s.daily_post_days);
+  const types = parseJsonArray(s.allowed_card_types);
   return {
     daily_post_enabled: typeof s.daily_post_enabled === 'boolean' ? s.daily_post_enabled : DEFAULT_SETTINGS.daily_post_enabled,
-    daily_post_times: Array.isArray(s.daily_post_times) && s.daily_post_times.length ? s.daily_post_times : DEFAULT_SETTINGS.daily_post_times,
-    daily_post_days: Array.isArray(s.daily_post_days) ? s.daily_post_days : DEFAULT_SETTINGS.daily_post_days,
+    daily_post_times: times && times.length ? times : DEFAULT_SETTINGS.daily_post_times,
+    daily_post_days: days ? days : DEFAULT_SETTINGS.daily_post_days,
     timezone: typeof s.timezone === 'string' && s.timezone.trim() ? s.timezone : DEFAULT_SETTINGS.timezone,
     ai_enabled: typeof s.ai_enabled === 'boolean' ? s.ai_enabled : DEFAULT_SETTINGS.ai_enabled,
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
@@ -650,8 +655,8 @@ function normalizeSettings(s = {}) {
     ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gpt-4.1-mini',
     ai_creativity: ['conservative', 'default', 'creative'].includes(s.ai_creativity) ? s.ai_creativity : 'default',
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
-    allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length ? s.allowed_card_types : DEFAULT_CARD_TYPES,
-    day_config: (s.day_config && typeof s.day_config === 'object' && !Array.isArray(s.day_config)) ? s.day_config : {},
+    allowed_card_types: types && types.length ? types : DEFAULT_CARD_TYPES,
+    day_config: (() => { let dc = s.day_config; if (typeof dc === 'string') { try { dc = JSON.parse(dc); } catch {} } return (dc && typeof dc === 'object' && !Array.isArray(dc)) ? dc : {}; })(),
   };
 }
 
@@ -739,20 +744,22 @@ function Section({ title, footer, danger, bare, children }) {
 
 // ─── Row components ───────────────────────────────────────────────────────────
 
-function Row({ icon, label, value, badgeTone = '', caption, mono = false }) {
+function Row({ icon, label, value, badgeTone = '', caption, mono = false, onClick }) {
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <div className="row">
+    <Tag className={`row${onClick ? ' row-action' : ''}`} onClick={onClick} type={onClick ? 'button' : undefined}>
       {icon && <Icon name={icon} />}
       <div className="row-main">
         <span className="row-label">{label}</span>
         {caption && <span className="row-caption">{caption}</span>}
       </div>
-      {value !== undefined && (
+      {value !== undefined && value !== null && (
         <span className={`row-value ${mono ? 'mono' : ''}`.trim()}>
           {badgeTone ? <Badge tone={badgeTone}>{value}</Badge> : value}
         </span>
       )}
-    </div>
+      {onClick && <Icon name="chevron" className="chevron" />}
+    </Tag>
   );
 }
 
@@ -840,18 +847,18 @@ function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, 
   );
 }
 
-function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure }) {
+function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure, disabled }) {
   return (
-    <div className="row">
+    <div className={`row${disabled ? ' row-disabled' : ''}`}>
       <div className="row-main">
         <span className="row-label">{label}</span>
         {subtitle && <span className="row-caption">{subtitle}</span>}
       </div>
-      <button className="row-config-btn" type="button" onClick={onConfigure} aria-label="configurar">
+      <button className="row-config-btn" type="button" onClick={onConfigure} aria-label="configurar" disabled={disabled}>
         <Icon name="settings" />
       </button>
-      <label className="day-toggle-wrap">
-        <input type="checkbox" checked={enabled} onChange={(e) => { haptic('selection'); onToggle(e.target.checked); }} />
+      <label className={`day-toggle-wrap${disabled ? ' day-toggle-disabled' : ''}`}>
+        <input type="checkbox" checked={enabled} disabled={disabled} onChange={(e) => { if (!disabled) { haptic('selection'); onToggle(e.target.checked); } }} />
         <span className="toggle" aria-hidden="true" />
       </label>
     </div>
@@ -923,6 +930,7 @@ function App() {
 
   const [authState, setAuthState] = useState('loading');
   const [me, setMe] = useState(null);
+  const [botInfo, setBotInfo] = useState(null);
   const [sysStatus, setSysStatus] = useState(null);
   const [overview, setOverview] = useState(null);
   const [commands, setCommands] = useState([]);
@@ -1056,6 +1064,7 @@ function App() {
         fetchStatus();
         fetchOverview();
         fetchCommands();
+        fetchBotInfo();
       } else {
         const msg = copy.errors.unauthorized?.[0] || 'Access denied.';
         const app = tg();
@@ -1068,10 +1077,16 @@ function App() {
 
   // ── Auto-load settings when entering settings or ai tab ────────────────────
   useEffect(() => {
-    if (activeTab === 'settings' || activeTab === 'ai') fetchSettings();
+    if ((activeTab === 'settings' || activeTab === 'ai') && !settingsDirty) fetchSettings();
   }, [activeTab]);
 
   // ── API calls ───────────────────────────────────────────────────────────────
+
+  async function fetchBotInfo() {
+    if (!apiConfigured) return;
+    try { const { ok, json } = await apiFetch('/bot-info'); if (ok) setBotInfo(json); }
+    catch {}
+  }
 
   async function fetchStatus() {
     if (!apiConfigured) return;
@@ -1124,16 +1139,21 @@ function App() {
     tg()?.MainButton?.showProgress?.(false);
     try {
       const body = settingsPatchPayload(settings, times);
+      console.log('[saveSettings] payload:', JSON.stringify(body));
       const { ok, status, json } = await apiFetch('/settings', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
+      console.log('[saveSettings] response ok=%s status=%s', ok, status, json?.error || '');
       if (!ok) {
         haptic('notification', 'error');
-        setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
+        const errInfo = resolveError(json.error, `HTTP ${status}`, copy, json);
+        console.error('[saveSettings] error:', json);
+        setSettingsResult({ ok: false, ...errInfo, detail: json.error || errInfo.detail || `HTTP ${status}` });
       } else {
         haptic('notification', 'success');
+        console.log('[saveSettings] returned day_config:', JSON.stringify(json.settings?.day_config));
         applySettings(json.settings);
         setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '' });
       }
@@ -1404,13 +1424,15 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <div className="avatar">
-          {getBotPhotoUrl()
-            ? <img src={getBotPhotoUrl()} alt="Wendy Adams" className="avatar-img" />
+          {(botInfo?.photo_url || getBotPhotoUrl())
+            ? <img src={botInfo?.photo_url || getBotPhotoUrl()} alt={botInfo?.name || 'Bot'} className="avatar-img" />
             : <Icon name="bot" />}
         </div>
-        <div className="header-title">Wendy Adams</div>
-        <div className="header-subtitle">{copy.subtitle}</div>
-        <div className="header-description">{copy.botDescription}</div>
+        <div className="header-title">{botInfo?.name || '…'}</div>
+        {botInfo?.username && <div className="header-subtitle">@{botInfo.username}</div>}
+        {(botInfo?.short_description || botInfo?.description) && (
+          <div className="header-description">{botInfo.short_description || botInfo.description}</div>
+        )}
       </header>
 
       {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured}</Notice>}
@@ -1424,25 +1446,15 @@ function App() {
             <Row icon="queue" label={copy.queue} value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
           </Section>
 
-          <Section title={copy.actionsTitle} bare>
-            <div className="action-grid">
-              {[
-                { icon: 'send',     label: copy.postCard,    tab: 'post' },
-                { icon: 'settings', label: copy.settings,    tab: 'settings' },
-                { icon: 'ai',       label: copy.aiTab,       tab: 'ai' },
-                { icon: 'wrench',   label: copy.maintenance, tab: 'maintenance' },
-                { icon: 'clock',    label: copy.historyTab,  tab: 'history' },
-                { icon: 'queue',    label: copy.queue,       tab: 'queue',    badge: queueValue > 0 ? String(queueValue) : null },
-                { icon: 'server',   label: copy.health,      tab: 'health',   badge: workerValue, badgeTone: workerTone },
-                { icon: 'language', label: copy.language,    tab: 'language', badge: copy.langName },
-              ].map(({ icon, label, tab, badge, badgeTone }) => (
-                <button key={tab} className="action-tile" type="button" onClick={() => setActiveTab(tab)}>
-                  <Icon name={icon} className="action-tile-icon" />
-                  <span className="action-tile-label">{label}</span>
-                  {badge && <Badge tone={badgeTone || ''}>{badge}</Badge>}
-                </button>
-              ))}
-            </div>
+          <Section title={copy.actionsTitle}>
+            <Row icon="send"     label={copy.postCard}    onClick={() => setActiveTab('post')} />
+            <Row icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
+            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
+            <Row icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
+            <Row icon="clock"    label={copy.historyTab}  onClick={() => setActiveTab('history')} />
+            <Row icon="queue"    label={copy.queue}       onClick={() => setActiveTab('queue')}    value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} />
+            <Row icon="server"   label={copy.health}      onClick={() => setActiveTab('health')}   value={workerValue} badgeTone={workerTone} />
+            <Row icon="language" label={copy.language}    onClick={() => setActiveTab('language')} value={copy.langName} />
           </Section>
         </>
       )}
@@ -1559,10 +1571,11 @@ function App() {
                 <>
                   <DayScheduleRow
                     label={copy.allWeekdays}
-                    subtitle={allEnabled ? dayConfigSummary('all', copy) : undefined}
+                    subtitle={dayConfigSummary('all', copy)}
                     enabled={allEnabled}
                     onToggle={setAllWeekdays}
                     onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
+                    disabled={!allEnabled}
                   />
                   {WEEKDAYS.map((day) => {
                     const enabled = settings.daily_post_days.includes(day.code);
@@ -1582,6 +1595,7 @@ function App() {
                           haptic('selection');
                         }}
                         onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
+                        disabled={allEnabled}
                       />
                     );
                   })}
@@ -1656,6 +1670,12 @@ function App() {
           <>
             <header className="section-header-standalone">{dayLabel}</header>
 
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+
             <Section title={copy.postTimes}>
               <TimeEditor
                 times={getTimesForDay(activeDayCode)}
@@ -1705,11 +1725,6 @@ function App() {
               ))}
             </Section>
 
-            {settingsResult && (
-              <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
-              </Section>
-            )}
           </>
         );
       })()}

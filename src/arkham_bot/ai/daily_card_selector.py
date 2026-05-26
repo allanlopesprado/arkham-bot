@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 TONES = [
     "misterioso",
     "tenso",
-    "épico",
+    "epico",
     "sombrio",
     "reflexivo",
-    "esperançoso",
+    "esperancoso",
     "perturbador",
-    "melancólico",
+    "melancolico",
 ]
 
 _TAG_RE = re.compile(r'<[^>]+>|\[[^\]]+\]')

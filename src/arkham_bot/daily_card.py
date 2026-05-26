@@ -131,6 +131,13 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
             ai_model = get_setting('ai_model', None) or None
             ai_creativity = get_setting('ai_creativity', 'default')
 
+            from .config import AI_DAILY_CARD_ENABLED, OPENAI_API_KEY
+            logger.info(
+                f"AI config: enabled_db={ai_enabled} enabled_env={AI_DAILY_CARD_ENABLED} "
+                f"has_key={bool(OPENAI_API_KEY)} model={ai_model or 'default'} "
+                f"pre={ai_pre_message_enabled} post={ai_post_question_enabled}"
+            )
+
             if specific_card_code:
                 card, source = get_card(specific_card_code)
                 if not card:
@@ -151,7 +158,9 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         ai_post_question = _telegram_html_text(ai_choice.post_question)
                         logger.info(f"AI commentary generated for manual post: {card_code}")
                     else:
-                        logger.info(f"AI commentary unavailable for manual post: {card_code}")
+                        logger.warning(f"AI commentary returned None for manual post: {card_code} — check OPENAI_API_KEY and server logs")
+                else:
+                    logger.info(f"AI skipped for manual post: ai_enabled=False in database")
 
             if card is None:
                 all_cards = load_card_cache()
@@ -227,6 +236,8 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         logger.warning(f"No unposted cards match type filter for {today}: {types_to_apply}. Ignoring.")
 
                 # AI selects card AND generates commentary in one call
+                if not ai_enabled:
+                    logger.info("AI skipped: ai_enabled=False in database — using random card selection")
                 ai_choice = await choose_daily_card_with_ai(
                     unposted_cards, language=ai_language, tone=ai_tone,
                     pre_message_enabled=ai_pre_message_enabled,
@@ -240,6 +251,8 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     logger.info(f"AI Card Selected: {card.get('name')} ({card.get('code')}). Reason: {ai_choice.reason}")
                 else:
                     card = random.choice(unposted_cards)
+                    if ai_enabled:
+                        logger.warning(f"AI returned None for daily card — check OPENAI_API_KEY and server logs. Falling back to random.")
                     logger.info(f"Random Card Selected: {card.get('name')} ({card.get('code')}).")
                 card_code = card.get('code')
 

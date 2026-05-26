@@ -643,6 +643,19 @@ input, select { outline: none; }
   pointer-events: none;
 }
 
+.row-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.day-toggle-disabled {
+  cursor: not-allowed;
+}
+
+.day-toggle-wrap input:disabled + .toggle {
+  opacity: 0.4;
+}
+
 /* ── Day detail standalone header ─────────────────────────────────────────── */
 
 .section-header-standalone {

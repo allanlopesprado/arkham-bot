@@ -23,7 +23,7 @@ const SETTINGS_KEYS = new Set([
   'include_spoilers', 'allowed_card_types', 'day_config',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
-const AI_TONES = new Set(['random','misterioso','tenso','épico','sombrio','reflexivo','esperançoso','perturbador','melancólico']);
+const AI_TONES = new Set(['random','misterioso','tenso','epico','sombrio','reflexivo','esperancoso','perturbador','melancolico']);
 const AI_MODELS = new Set(['gpt-4.1-mini','gpt-4.1','gpt-4o','gpt-4o-mini']);
 const AI_CREATIVITY_VALUES = new Set(['conservative','default','creative']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'all']);
@@ -544,6 +544,45 @@ async function handleCancelCommand(request, env, user, ao, commandId) {
   }
 }
 
+async function handleBotInfo(env, ao) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return withCors(jsonResponse({ error: 'bot_token_not_configured' }, 500), ao);
+
+  const tgApi = (path) =>
+    fetch(`https://api.telegram.org/bot${token}/${path}`, { headers: { Accept: 'application/json' } })
+      .then((r) => r.json());
+
+  try {
+    // getMe returns bot id, name, username + description/short_description (Bot API 6.7+)
+    const meResp = await tgApi('getMe');
+    if (!meResp.ok) return withCors(jsonResponse({ error: 'telegram_api_failed' }, 502), ao);
+
+    const bot = meResp.result;
+    let photo_url = null;
+
+    // Fetch profile photos using the bot's own numeric id
+    const photosResp = await tgApi(`getUserProfilePhotos?user_id=${bot.id}&limit=1`);
+    const fileId = photosResp.result?.photos?.[0]?.at(-1)?.file_id;
+    if (fileId) {
+      const fileResp = await tgApi(`getFile?file_id=${fileId}`);
+      if (fileResp.ok && fileResp.result?.file_path) {
+        photo_url = `https://api.telegram.org/file/bot${token}/${fileResp.result.file_path}`;
+      }
+    }
+
+    return withCors(jsonResponse({
+      ok: true,
+      name: bot.first_name || null,
+      username: bot.username || null,
+      description: bot.description || null,
+      short_description: bot.short_description || null,
+      photo_url,
+    }), ao);
+  } catch {
+    return withCors(jsonResponse({ error: 'bot_info_fetch_failed' }, 500), ao);
+  }
+}
+
 async function handleGetPacks(_env, ao) {
   try {
     const resp = await fetch('https://arkhamdb.com/api/public/packs/', {
@@ -812,6 +851,12 @@ export default {
       return handleGetPacks(env, ao);
     }
 
+    if (pathname === '/bot-info' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/bot-info');
+      if (auth.response) return auth.response;
+      return handleBotInfo(env, ao);
+    }
+
     if ((pathname === '/bot-command' || pathname === '/') && request.method === 'POST') {
       const initData = request.headers.get('x-telegram-init-data') || '';
       safeLog({
@@ -828,7 +873,7 @@ export default {
       return handleBotCommand(request, env, user, ao);
     }
 
-    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-command' || pathname === '/') {
+    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/') {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 
