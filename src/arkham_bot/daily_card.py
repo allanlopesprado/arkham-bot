@@ -41,7 +41,6 @@ from .text_formatters import format_card_back_caption, format_card_caption
 
 
 logger = logging.getLogger(__name__)
-NONE_SELECTED = "__none__"
 
 _WEEKDAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
@@ -162,15 +161,16 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     and (include_spoilers or not c.get('spoiler', False))
                 ]
 
-                # Per-day config: { mon: { packs: [...], types: [...] }, ... }
+                # Per-day config: { mon: { packs: [...], types: [...] }, all: {...}, ... }
                 day_config = get_setting('day_config', {})
                 today = _today_code(timezone_str)
-                today_cfg = day_config.get(today) if isinstance(day_config, dict) else None
+                today_cfg = (
+                    (day_config.get(today) or day_config.get('all'))
+                    if isinstance(day_config, dict) else None
+                )
 
                 # Pack/cycle filter from today's config
                 today_packs = today_cfg.get('packs', []) if isinstance(today_cfg, dict) else []
-                if isinstance(today_packs, list) and NONE_SELECTED in today_packs:
-                    raise RuntimeError(f"No packs enabled for {today}.")
                 if isinstance(today_packs, list) and today_packs:
                     pack_filtered = [c for c in valid_cards if c.get('pack_code') in today_packs]
                     if pack_filtered:
@@ -204,8 +204,6 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
 
                 # Card type filter from today's config (falls back to global allowed_card_types)
                 today_types = today_cfg.get('types', []) if isinstance(today_cfg, dict) else []
-                if isinstance(today_types, list) and NONE_SELECTED in today_types:
-                    raise RuntimeError(f"No card types enabled for {today}.")
                 global_types = get_setting('allowed_card_types', None)
                 types_to_apply = today_types if (isinstance(today_types, list) and today_types) else (
                     global_types if isinstance(global_types, list) and global_types else None

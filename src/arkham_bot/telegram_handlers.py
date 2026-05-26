@@ -141,6 +141,27 @@ def _bold(value) -> str:
     return f"<b>{_safe_status_value(value)}</b>"
 
 
+_DAY_LABELS = {'mon': 'Seg', 'tue': 'Ter', 'wed': 'Qua', 'thu': 'Qui', 'fri': 'Sex', 'sat': 'Sab', 'sun': 'Dom', 'all': 'Todos'}
+
+
+def _format_day_config_lines(day_config: dict) -> list[str]:
+    if not isinstance(day_config, dict) or not day_config:
+        return []
+    lines = ["", "<b>Config por dia</b>"]
+    order = ['all', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    for code in order:
+        cfg = day_config.get(code)
+        if not cfg:
+            continue
+        label = _DAY_LABELS.get(code, code)
+        packs = cfg.get('packs') or []
+        types = cfg.get('types') or []
+        packs_str = f"{len(packs)} packs" if packs else "todos"
+        types_str = ", ".join(types[:4]) + ("…" if len(types) > 4 else "") if types else "todos"
+        lines.append(f"- {label}: packs={packs_str} | tipos={_code(types_str)}")
+    return lines if len(lines) > 2 else []
+
+
 def _format_status_report(payload: dict) -> str:
     lines = [
         "<b>Arkham Bot</b>",
@@ -160,6 +181,7 @@ def _format_status_report(payload: dict) -> str:
         f"- Horarios: {_code(_format_list(payload['daily_post_times']))}",
         f"- Dias: {_code(_format_days(payload['daily_post_days']))}",
         f"- Ultimo resultado: {_code(payload['last_daily_post_status'])}",
+        *_format_day_config_lines(payload.get('day_config', {})),
         f"- Ultima carta: {_code(payload['last_daily_post_card_code'])}",
         "",
         "<b>Dados</b>",
@@ -256,6 +278,7 @@ def _collect_status_payload(update: Update) -> dict:
     pending_commands = "-"
     cards_count = "-"
     packs_count = "-"
+    day_config = {}
 
     try:
         from .repositories.settings_repo import get_all_settings
@@ -268,6 +291,9 @@ def _collect_status_payload(update: Update) -> dict:
             daily_post_times = _as_list(settings.get("daily_post_times", daily_post_times), daily_post_times)
             daily_post_days = _as_list(settings.get("daily_post_days", daily_post_days), daily_post_days)
             timezone_name = str(settings.get("timezone", timezone_name) or timezone_name)
+            day_config = settings.get("day_config") or {}
+        else:
+            day_config = {}
     except Exception as exc:
         logger.warning("status_settings_lookup_failed: %s", exc)
         supabase_status = "erro"
@@ -309,6 +335,7 @@ def _collect_status_payload(update: Update) -> dict:
         "daily_post_enabled": _as_bool(daily_post_enabled),
         "daily_post_times": daily_post_times,
         "daily_post_days": daily_post_days,
+        "day_config": day_config,
         "last_daily_post_status": state.get("last_daily_post_status", "-"),
         "last_daily_post_card_code": state.get("last_daily_post_card_code", "-"),
         "supabase_configured": SUPABASE_ENABLED,

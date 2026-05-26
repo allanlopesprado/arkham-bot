@@ -337,24 +337,45 @@ input, select { outline: none; }
 .inline-input:focus { border-color: color-mix(in srgb, var(--link) 50%, transparent); }
 .inline-input::placeholder { color: var(--hint); }
 
-.time-editor-row { min-height: 64px; }
+.time-add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--sep);
+}
 
-.time-input {
-  width: 136px;
-  padding: 8px 10px;
-  border: 1px solid var(--sep);
-  border-radius: 8px;
-  background: var(--section-bg);
+.time-add-input {
+  flex: 1;
+  background: none;
+  border: none;
   color: var(--text);
-  font-size: 22px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
 }
 
-.time-input:focus {
-  border-color: color-mix(in srgb, var(--link) 50%, transparent);
-  outline: none;
+.time-add-btn {
+  flex-shrink: 0;
+  background: var(--btn);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.12s;
 }
+
+.time-add-btn:active { opacity: 0.7; }
+
+.icon-btn-danger { color: var(--destructive, #e53935); }
+
+.hint-text { color: var(--hint); }
 
 /* ── Select row ───────────────────────────────────────────────────────────── */
 

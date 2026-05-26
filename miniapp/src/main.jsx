@@ -86,7 +86,6 @@ const ALL_CARD_TYPES = [
 ];
 
 const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
-const NONE_SELECTED = '__none__';
 
 // Cycle names derived dynamically from fetched packs (first pack per cycle_position)
 function deriveCycles(packs) {
@@ -182,6 +181,8 @@ const I18N = {
     aiLanguage: 'Idioma da IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    aiTab: 'Inteligência Artificial',
+    aiTabCaption: 'A IA seleciona cartas com critério narrativo e gera comentários atmosféricos antes e após cada postagem.',
     // weekly schedule
     weeklySchedule: 'Programação semanal',
     weeklyScheduleCaption: 'Configure ciclos e tipos de carta por dia da semana',
@@ -382,6 +383,8 @@ const I18N = {
     aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
+    aiTab: 'Artificial Intelligence',
+    aiTabCaption: 'The AI selects cards with narrative criteria and generates atmospheric commentary before and after each post.',
     // weekly schedule
     weeklySchedule: 'Weekly schedule',
     weeklyScheduleCaption: 'Configure cycles and card types per day of the week',
@@ -765,28 +768,32 @@ function SelectRow({ label, value, onChange, children }) {
   );
 }
 
-function TimeEditor({ label, times, pendingTime, onPendingTimeChange, onAdd, onRemove, copy }) {
+function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, copy }) {
   return (
     <>
-      <div className="row time-editor-row">
-        <div className="row-main">
-          <span className="row-label">{label}</span>
-          <input className="time-input" type="time" value={pendingTime} onChange={(e) => onPendingTimeChange(e.target.value)} />
-        </div>
-        <button className="icon-btn" type="button" onClick={onAdd} aria-label={copy.addTime}>
-          <Icon name="send" />
-        </button>
-      </div>
-      {times.length === 0 && <Row icon="clock" label={copy.noTimesConfigured} />}
+      {times.length === 0 && (
+        <div className="row"><Icon name="clock" /><span className="row-label hint-text">{copy.noTimesConfigured}</span></div>
+      )}
       {times.map((time) => (
         <div className="row" key={time}>
           <Icon name="clock" />
-          <span className="row-label">{time}</span>
-          <button className="icon-btn" type="button" onClick={() => onRemove(time)} aria-label={copy.removeTime}>
-            <Icon name="trash" />
+          <span className="row-label mono">{time}</span>
+          <button className="icon-btn icon-btn-danger" type="button" onClick={() => onRemove(time)} aria-label={copy.removeTime}>
+            <Icon name="x" />
           </button>
         </div>
       ))}
+      <div className="time-add-row">
+        <input
+          className="time-add-input"
+          type="time"
+          value={pendingTime}
+          onChange={(e) => onPendingTimeChange(e.target.value)}
+        />
+        <button className="time-add-btn" type="button" onClick={onAdd}>
+          {copy.addTime}
+        </button>
+      </div>
     </>
   );
 }
@@ -954,7 +961,7 @@ function App() {
     const btn = app?.MainButton;
     if (!btn) return;
 
-    if ((activeTab === 'settings' || activeTab === 'day_detail') && settingsDirty && !savingSettings) {
+    if ((activeTab === 'settings' || activeTab === 'day_detail' || activeTab === 'ai') && settingsDirty && !savingSettings) {
       btn.setText(copy.saveSettings);
       btn.show?.();
       const handler = () => saveSettings();
@@ -966,7 +973,7 @@ function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', language: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', language: 'home', ai: 'settings' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -1174,25 +1181,18 @@ function App() {
   function getTimesForDay(dayCode) {
     if (dayCode === 'all') return settings.daily_post_times;
     const cfg = getDayConfig(dayCode);
-    return Array.isArray(cfg.times) ? cfg.times : settings.daily_post_times;
+    return Array.isArray(cfg.times) && cfg.times.length ? cfg.times : settings.daily_post_times;
   }
 
   function updateDayConfig(dayCode, updater) {
     const baseConfig = (cfg) => ({ packs: [], types: [], ...(cfg || {}) });
-    setSettings((cur) => {
-      const apply = (code, nextConfig) => ({
+    setSettings((cur) => ({
+      ...cur,
+      day_config: {
         ...cur.day_config,
-        [code]: updater(baseConfig(nextConfig)),
-      });
-      if (dayCode === 'all') {
-        const nextDayConfig = WEEKDAYS.reduce(
-          (acc, day) => ({ ...acc, [day.code]: updater(baseConfig(cur.day_config[day.code])) }),
-          { ...cur.day_config },
-        );
-        return { ...cur, day_config: nextDayConfig };
-      }
-      return { ...cur, day_config: apply(dayCode, cur.day_config[dayCode]) };
-    });
+        [dayCode]: updater(baseConfig(cur.day_config[dayCode])),
+      },
+    }));
   }
 
   function addTimeForDay(dayCode) {
@@ -1202,54 +1202,39 @@ function App() {
       setSettings((cur) => ({
         ...cur,
         daily_post_times: [...new Set([...cur.daily_post_times, pendingTime])].sort(),
-        day_config: WEEKDAYS.reduce((acc, day) => {
-          const cfg = cur.day_config[day.code] || { packs: [], types: [] };
-          const times = Array.isArray(cfg.times) ? cfg.times : cur.daily_post_times;
-          return { ...acc, [day.code]: { ...cfg, times: [...new Set([...times, pendingTime])].sort() } };
-        }, { ...cur.day_config }),
       }));
       return;
     }
     updateDayConfig(dayCode, (cfg) => {
-      const times = Array.isArray(cfg.times) ? cfg.times : settings.daily_post_times;
-      return { ...cfg, times: [...new Set([...times, pendingTime])].sort() };
+      const base = Array.isArray(cfg.times) && cfg.times.length ? cfg.times : settings.daily_post_times;
+      return { ...cfg, times: [...new Set([...base, pendingTime])].sort() };
     });
   }
 
   function removeTimeForDay(dayCode, time) {
     haptic('selection');
-    const withoutTime = (times) => times.filter((t) => t !== time);
     if (dayCode === 'all') {
-      setSettings((cur) => ({
-        ...cur,
-        daily_post_times: withoutTime(cur.daily_post_times).length ? withoutTime(cur.daily_post_times) : cur.daily_post_times,
-        day_config: WEEKDAYS.reduce((acc, day) => {
-          const cfg = cur.day_config[day.code] || { packs: [], types: [] };
-          const times = Array.isArray(cfg.times) ? cfg.times : cur.daily_post_times;
-          return { ...acc, [day.code]: { ...cfg, times: withoutTime(times) } };
-        }, { ...cur.day_config }),
-      }));
+      setSettings((cur) => {
+        const next = cur.daily_post_times.filter((t) => t !== time);
+        return { ...cur, daily_post_times: next.length ? next : cur.daily_post_times };
+      });
       return;
     }
     updateDayConfig(dayCode, (cfg) => {
-      const times = Array.isArray(cfg.times) ? cfg.times : settings.daily_post_times;
-      return { ...cfg, times: withoutTime(times) };
+      const base = Array.isArray(cfg.times) && cfg.times.length ? cfg.times : settings.daily_post_times;
+      return { ...cfg, times: base.filter((t) => t !== time) };
     });
   }
 
   function isCycleSelectedForDay(dayCode, cyclePos) {
-    if (dayCode === 'all') return WEEKDAYS.every((day) => isCycleSelectedForDay(day.code, cyclePos));
     const { packs: dp } = getDayConfig(dayCode);
-    if (dp.includes(NONE_SELECTED)) return false;
     const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
     if (!cyclePacks.length) return false;
     return dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
   }
 
   function isTypeSelectedForDay(dayCode, typeCode) {
-    if (dayCode === 'all') return WEEKDAYS.every((day) => isTypeSelectedForDay(day.code, typeCode));
     const { types: dt } = getDayConfig(dayCode);
-    if (dt.includes(NONE_SELECTED)) return false;
     return dt.length === 0 || dt.includes(typeCode);
   }
 
@@ -1259,38 +1244,33 @@ function App() {
   }
 
   function areAllCyclesSelectedForDay(dayCode) {
-    if (dayCode === 'all') return WEEKDAYS.every((day) => areAllCyclesSelectedForDay(day.code));
     const { packs: dp } = getDayConfig(dayCode);
-    return packs.length > 0 && !dp.includes(NONE_SELECTED) && (dp.length === 0 || packs.every((p) => dp.includes(p.code)));
+    return dp.length === 0 || (packs.length > 0 && packs.every((p) => dp.includes(p.code)));
   }
 
   function areAllTypesSelectedForDay(dayCode) {
-    if (dayCode === 'all') return WEEKDAYS.every((day) => areAllTypesSelectedForDay(day.code));
     const { types: dt } = getDayConfig(dayCode);
-    return !dt.includes(NONE_SELECTED) && (dt.length === 0 || ALL_CARD_TYPES.every((t) => dt.includes(t.code)));
+    return dt.length === 0 || ALL_CARD_TYPES.every((t) => dt.includes(t.code));
   }
 
   function setAllCyclesForDay(dayCode, enabled) {
     haptic('selection');
-    updateDayConfig(dayCode, (cfg) => ({ ...cfg, packs: enabled ? [] : [NONE_SELECTED] }));
+    updateDayConfig(dayCode, (cfg) => ({ ...cfg, packs: enabled ? [] : packs.map((p) => p.code).slice(0, 0) }));
   }
 
   function setAllTypesForDay(dayCode, enabled) {
     haptic('selection');
-    updateDayConfig(dayCode, (cfg) => ({ ...cfg, types: enabled ? [] : [NONE_SELECTED] }));
+    updateDayConfig(dayCode, (cfg) => ({ ...cfg, types: enabled ? [] : [] }));
   }
 
   function toggleCycleForDay(dayCode, cyclePos) {
     haptic('selection');
     const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
     updateDayConfig(dayCode, (cfg) => {
-      const noneSelected = cfg.packs.includes(NONE_SELECTED);
-      const dp = noneSelected ? [] : cfg.packs;
+      const dp = cfg.packs;
       const allSelected = dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
       let nextPacks;
-      if (noneSelected) {
-        nextPacks = cyclePacks;
-      } else if (allSelected) {
+      if (allSelected) {
         const base = dp.length === 0 ? packs.map((p) => p.code) : dp;
         nextPacks = base.filter((pc) => !cyclePacks.includes(pc));
       } else {
@@ -1305,17 +1285,13 @@ function App() {
   function toggleTypeForDay(dayCode, typeCode) {
     haptic('selection');
     updateDayConfig(dayCode, (cfg) => {
-      const noneSelected = cfg.types.includes(NONE_SELECTED);
-      const dt = noneSelected ? [] : cfg.types;
+      const dt = cfg.types;
       let nextTypes;
-      if (noneSelected) {
-        nextTypes = [typeCode];
-      } else if (dt.length === 0) {
-        // All selected → exclude this one
+      if (dt.length === 0) {
         nextTypes = ALL_CARD_TYPES.map((t) => t.code).filter((c) => c !== typeCode);
       } else if (dt.includes(typeCode)) {
         nextTypes = dt.filter((c) => c !== typeCode);
-        if (nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
+        if (nextTypes.length === 0 || nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
       } else {
         nextTypes = [...dt, typeCode];
         if (nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
@@ -1327,16 +1303,12 @@ function App() {
   function dayConfigSummary(dayCode, copy) {
     const { packs: dp, types: dt } = getDayConfig(dayCode);
     const cycles = deriveCycles(packs);
-    const noPacks = dp.includes(NONE_SELECTED);
-    const noTypes = dt.includes(NONE_SELECTED);
-    const activeCycles = dp.length === 0 || noPacks ? 0 : cycles.filter((c) =>
+    const activeCycles = dp.length === 0 ? 0 : cycles.filter((c) =>
       packs.filter((p) => p.cycle_position === c.position).some((p) => dp.includes(p.code))
     ).length;
     const parts = [];
-    if (noPacks) parts.push(copy.cyclesSelected(0));
-    else if (dp.length > 0 && activeCycles > 0) parts.push(copy.cyclesSelected(activeCycles));
-    if (noTypes) parts.push(copy.typesSelected(0));
-    else if (dt.length > 0) parts.push(copy.typesSelected(dt.length));
+    if (dp.length > 0 && activeCycles > 0) parts.push(copy.cyclesSelected(activeCycles));
+    if (dt.length > 0) parts.push(copy.typesSelected(dt.length));
     return parts.length ? parts.join(' · ') : copy.noCycleConfig;
   }
 
@@ -1407,8 +1379,8 @@ function App() {
           </Section>
 
           <Section title={copy.actionsTitle}>
-            <MenuRow icon="send"     label={copy.postCard}    onClick={() => setActiveTab('post')} />
             <MenuRow icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
+            <MenuRow icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
             <MenuRow icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
             <MenuRow icon="clock"    label={copy.historyTab}  onClick={() => setActiveTab('history')} />
             <MenuRow icon="queue"    label={copy.queue}       value={queueValue > 0 ? String(queueValue) : undefined} onClick={() => setActiveTab('queue')} />
@@ -1499,6 +1471,11 @@ function App() {
       {/* ── SETTINGS ── */}
       {activeTab === 'settings' && (
         <>
+          {/* Post card shortcut */}
+          <Section title={copy.postCard}>
+            <MenuRow icon="send" label={copy.postNow} onClick={() => setActiveTab('post')} />
+          </Section>
+
           {/* Daily post */}
           <Section title={copy.dailyPost}>
             <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
@@ -1509,6 +1486,27 @@ function App() {
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
                   ))}
                 </SelectRow>
+                <TimeEditor
+                  times={settings.daily_post_times}
+                  pendingTime={pendingTime}
+                  onPendingTimeChange={setPendingTime}
+                  onAdd={() => {
+                    if (!isValidTimeValue(pendingTime)) return;
+                    haptic('selection');
+                    setSettings((cur) => ({
+                      ...cur,
+                      daily_post_times: [...new Set([...cur.daily_post_times, pendingTime])].sort(),
+                    }));
+                  }}
+                  onRemove={(time) => {
+                    haptic('selection');
+                    setSettings((cur) => {
+                      const next = cur.daily_post_times.filter((t) => t !== time);
+                      return { ...cur, daily_post_times: next.length ? next : cur.daily_post_times };
+                    });
+                  }}
+                  copy={copy}
+                />
               </>
             )}
           </Section>
@@ -1520,49 +1518,42 @@ function App() {
 
           {/* Weekly schedule */}
           <Section title={copy.weeklySchedule} footer={copy.weeklyScheduleCaption}>
-            <ToggleRow
-              label={copy.allWeekdays}
-              checked={settings.daily_post_days.length === WEEKDAYS.length}
-              onChange={setAllWeekdays}
-            />
-            <MenuRow
-              icon="settings"
-              label={copy.configureAllWeekdays}
-              onClick={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
-            />
-            {WEEKDAYS.map((day) => {
+            {(() => {
               const lang = language === 'pt' ? 'pt' : 'en';
-              const enabled = settings.daily_post_days.includes(day.code);
+              const allEnabled = settings.daily_post_days.length === WEEKDAYS.length;
               return (
-                <DayScheduleRow
-                  key={day.code}
-                  label={day[lang]}
-                  subtitle={enabled ? dayConfigSummary(day.code, copy) : undefined}
-                  enabled={enabled}
-                  onToggle={(v) => {
-                    setSettings((cur) => {
-                      const next = v
-                        ? [...cur.daily_post_days, day.code]
-                        : cur.daily_post_days.filter((d) => d !== day.code);
-                      return { ...cur, daily_post_days: [...new Set(next)] };
-                    });
-                    haptic('selection');
-                  }}
-                  onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
-                />
+                <>
+                  <DayScheduleRow
+                    label={copy.allWeekdays}
+                    subtitle={allEnabled ? dayConfigSummary('all', copy) : undefined}
+                    enabled={allEnabled}
+                    onToggle={setAllWeekdays}
+                    onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
+                  />
+                  {WEEKDAYS.map((day) => {
+                    const enabled = settings.daily_post_days.includes(day.code);
+                    return (
+                      <DayScheduleRow
+                        key={day.code}
+                        label={day[lang]}
+                        subtitle={enabled ? dayConfigSummary(day.code, copy) : undefined}
+                        enabled={enabled}
+                        onToggle={(v) => {
+                          setSettings((cur) => {
+                            const next = v
+                              ? [...cur.daily_post_days, day.code]
+                              : cur.daily_post_days.filter((d) => d !== day.code);
+                            return { ...cur, daily_post_days: [...new Set(next)] };
+                          });
+                          haptic('selection');
+                        }}
+                        onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
+                      />
+                    );
+                  })}
+                </>
               );
-            })}
-          </Section>
-
-          {/* AI */}
-          <Section title={copy.aiSection}>
-            <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
-            {settings.ai_enabled && (
-              <SelectRow label={copy.aiLanguage} value={settings.ai_language} onChange={(v) => updateSetting('ai_language', v)}>
-                <option value="pt-BR">{copy.aiLanguagePt}</option>
-                <option value="en-US">{copy.aiLanguageEn}</option>
-              </SelectRow>
-            )}
+            })()}
           </Section>
 
           {settingsResult && (
@@ -1631,18 +1622,6 @@ function App() {
           <>
             <header className="section-header-standalone">{dayLabel}</header>
 
-            <Section title={copy.postTimes}>
-              <TimeEditor
-                label={copy.postTime}
-                times={getTimesForDay(activeDayCode)}
-                pendingTime={pendingTime}
-                onPendingTimeChange={setPendingTime}
-                onAdd={() => addTimeForDay(activeDayCode)}
-                onRemove={(time) => removeTimeForDay(activeDayCode, time)}
-                copy={copy}
-              />
-            </Section>
-
             {/* Cycles */}
             <Section title={copy.cyclesToday}>
               {packsLoading && <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div>}
@@ -1681,16 +1660,6 @@ function App() {
               ))}
             </Section>
 
-            <Section>
-              <MenuRow
-                icon="result"
-                label={copy.saveSettings}
-                loading={savingSettings}
-                disabled={!settingsDirty || savingSettings}
-                onClick={saveSettings}
-              />
-            </Section>
-
             {settingsResult && (
               <Section>
                 <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
@@ -1727,6 +1696,28 @@ function App() {
           <Section>
             <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingOverview} disabled={!apiConfigured} onClick={fetchOverview} />
           </Section>
+        </>
+      )}
+
+      {/* ── AI ── */}
+      {activeTab === 'ai' && (
+        <>
+          <Section title={copy.aiSection} footer={copy.aiTabCaption}>
+            <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
+          </Section>
+          {settings.ai_enabled && (
+            <Section>
+              <SelectRow label={copy.aiLanguage} value={settings.ai_language} onChange={(v) => updateSetting('ai_language', v)}>
+                <option value="pt-BR">{copy.aiLanguagePt}</option>
+                <option value="en-US">{copy.aiLanguageEn}</option>
+              </SelectRow>
+            </Section>
+          )}
+          {settingsResult && (
+            <Section>
+              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+            </Section>
+          )}
         </>
       )}
 

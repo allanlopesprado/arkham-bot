@@ -28,8 +28,7 @@ const SETTINGS_KEYS = new Set([
   'day_config',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
-const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
-const NONE_SELECTED = '__none__';
+const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'all']);
 const VALID_CARD_TYPES = new Set([
   'investigator', 'asset', 'event', 'skill',
   'enemy', 'location', 'treachery', 'act', 'agenda', 'story',
@@ -297,7 +296,7 @@ function validateSettingsPatch(body) {
           if (p !== undefined && (!Array.isArray(p) || !p.every((x) => typeof x === 'string' && x.length > 0))) {
             return { error: 'invalid_setting_value', key };
           }
-          if (t !== undefined && (!Array.isArray(t) || !t.every((x) => x === NONE_SELECTED || VALID_CARD_TYPES.has(x)))) {
+          if (t !== undefined && (!Array.isArray(t) || !t.every((x) => VALID_CARD_TYPES.has(x)))) {
             return { error: 'invalid_setting_value', key };
           }
           if (times !== undefined && (!Array.isArray(times) || !times.every(isValidTime))) {
