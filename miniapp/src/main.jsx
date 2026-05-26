@@ -1067,11 +1067,12 @@ function App() {
   const [historyHasMore, setHistoryHasMore] = useState(false);
   // Explicit "all days" mode — never derived from daily_post_days length
   const [allDaysMode, setAllDaysMode] = useState(false);
+  const [savedAllDaysMode, setSavedAllDaysMode] = useState(false);
 
   const apiConfigured = Boolean(getApiBase());
   const isAdmin = me?.admin === true;
   const actionsDisabled = !isAdmin || !apiConfigured || loadingCmd !== null;
-  const settingsDirty = !settingsEqual(settings, savedSettings);
+  const settingsDirty = !settingsEqual(settings, savedSettings) || allDaysMode !== savedAllDaysMode;
   // Ref always holds the latest settingsDirty — safe to read inside stale async closures
   const settingsDirtyRef = useRef(false);
   settingsDirtyRef.current = settingsDirty;
@@ -1271,6 +1272,7 @@ function App() {
         haptic('notification', 'success');
         console.log('[saveSettings] returned day_config:', JSON.stringify(json.settings?.day_config));
         applySettings(json.settings);
+        setSavedAllDaysMode(allDaysMode);
         setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '' });
       }
     } catch {
