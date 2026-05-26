@@ -72,9 +72,9 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
     post = str(payload.get("post_question") or "").strip()
     reason = str(payload.get("reason") or "").strip()
     if len(pre) > 280:
-        raise ValueError("AI pre_message too long")
+        pre = pre[:280]
     if len(post) > 220:
-        raise ValueError("AI post_question too long")
+        post = post[:220]
     if len(reason) > 500:
         reason = reason[:500]
     return AIDailyCardChoice(code, pre, post, reason)
