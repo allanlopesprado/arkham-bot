@@ -567,6 +567,18 @@ const DEFAULT_SETTINGS = {
   day_config: {},
 };
 
+const SETTINGS_PATCH_KEYS = [
+  'daily_post_enabled',
+  'daily_post_times',
+  'daily_post_days',
+  'timezone',
+  'ai_enabled',
+  'ai_language',
+  'include_spoilers',
+  'allowed_card_types',
+  'day_config',
+];
+
 function normalizeSettings(s = {}) {
   return {
     daily_post_enabled: typeof s.daily_post_enabled === 'boolean' ? s.daily_post_enabled : DEFAULT_SETTINGS.daily_post_enabled,
@@ -579,6 +591,15 @@ function normalizeSettings(s = {}) {
     allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length ? s.allowed_card_types : DEFAULT_CARD_TYPES,
     day_config: (s.day_config && typeof s.day_config === 'object' && !Array.isArray(s.day_config)) ? s.day_config : {},
   };
+}
+
+function settingsPatchPayload(settings, times) {
+  const normalized = normalizeSettings({
+    ...settings,
+    daily_post_times: times,
+    timezone: settings.timezone.trim(),
+  });
+  return Object.fromEntries(SETTINGS_PATCH_KEYS.map((key) => [key, normalized[key]]));
 }
 
 function parseTimesInput(v) { return v.split(',').map((t) => t.trim()).filter(Boolean); }
@@ -1013,7 +1034,7 @@ function App() {
     setSavingSettings(true);
     tg()?.MainButton?.showProgress?.(false);
     try {
-      const body = { ...settings, daily_post_times: times, timezone: settings.timezone.trim() };
+      const body = settingsPatchPayload(settings, times);
       const { ok, status, json } = await apiFetch('/settings', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },

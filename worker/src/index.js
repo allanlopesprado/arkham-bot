@@ -241,7 +241,9 @@ function validateSettingsPatch(body) {
   }
   const settings = {};
   for (const [key, value] of Object.entries(body)) {
-    if (!SETTINGS_KEYS.has(key)) return { error: 'unsupported_setting', key };
+    if (!SETTINGS_KEYS.has(key)) {
+      return { error: 'unsupported_setting', key, detail: `Unsupported setting: ${key}` };
+    }
     if (key === 'daily_post_enabled') {
       if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };
       settings[key] = value;
