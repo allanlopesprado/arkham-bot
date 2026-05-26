@@ -7,7 +7,7 @@ from html import escape
 from urllib.parse import urljoin
 
 from PIL import Image
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     CallbackQueryHandler,
@@ -674,7 +674,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                             photo=back_image_bytes,
                             caption=back_caption,
                             parse_mode=ParseMode.HTML,
-                            reply_to_message_id=message.message_id
+                            reply_parameters=ReplyParameters(message_id=message.message_id)
                         )
                     except Exception as e:
                         logger.error(f"Failed to post interactive back image: {e}. Trying as text.")
@@ -686,7 +686,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                     await update.message.reply_text(
                         text=back_caption,
                         parse_mode=ParseMode.HTML,
-                        reply_to_message_id=message.message_id
+                        reply_parameters=ReplyParameters(message_id=message.message_id)
                     )
 
     except Exception as e:
@@ -1203,7 +1203,7 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
             await target.reply_text(
                 f"Carta <code>{escape(code)}</code> não encontrada.",
                 parse_mode=ParseMode.HTML,
-                **({"reply_to_message_id": reply_to} if reply_to else {})
+                **({"reply_parameters": ReplyParameters(message_id=reply_to)} if reply_to else {})
             )
         return
 
@@ -1214,8 +1214,14 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
     if not target:
         return
 
+    if prompt_message:
+        try:
+            await prompt_message.delete()
+        except Exception:
+            pass
+
     reply_to = update.message.message_id if update.message else None
-    kwargs = {"reply_to_message_id": reply_to} if reply_to else {}
+    kwargs = {"reply_parameters": ReplyParameters(message_id=reply_to)} if reply_to else {}
 
     if is_spoiler:
         await target.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **kwargs)
@@ -1236,7 +1242,7 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
                 lines = back_caption.split('\n', 1)
                 back_caption = f"{lines[0]}\n<tg-spoiler>{lines[1]}</tg-spoiler>" if len(lines) > 1 else lines[0]
             back_img = await _fetch_card_image(f"{code}b", back_image_src)
-            back_kwargs = {"reply_to_message_id": front_msg.message_id}
+            back_kwargs = {"reply_parameters": ReplyParameters(message_id=front_msg.message_id)}
             if back_img:
                 try:
                     await target.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **back_kwargs)
@@ -1245,21 +1251,14 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
             else:
                 await target.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
 
-    if prompt_message:
-        try:
-            await prompt_message.delete()
-        except Exception:
-            pass
-
 
 async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
     user_msg_id = context.user_data.get("search_user_msg_id")
-    reply_kwargs = {"reply_to_message_id": user_msg_id} if user_msg_id else {}
+    reply_kwargs = {"reply_parameters": ReplyParameters(message_id=user_msg_id)} if user_msg_id else {}
     try:
-        await query.edit_message_text("🔍 Pesquisando…", parse_mode=ParseMode.HTML)
         card, _ = await get_card_async(card_code)
         if not card:
             await query.edit_message_text("Carta não encontrada.")
@@ -1267,6 +1266,11 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         caption, is_spoiler = _spoiler_caption(card)
         image_src = card.get('imagesrc') or card.get('image_src')
         img = await _fetch_card_image(card_code, image_src)
+        try:
+            await query.delete_message()
+        except Exception:
+            pass
+        _pop_search_prompt(context)
         if is_spoiler:
             await query.message.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **reply_kwargs)
         if img:
@@ -1283,7 +1287,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
                     lines = back_caption.split('\n', 1)
                     back_caption = f"{lines[0]}\n<tg-spoiler>{lines[1]}</tg-spoiler>" if len(lines) > 1 else lines[0]
                 back_img = await _fetch_card_image(f"{card_code}b", card.get('backimagesrc'))
-                back_kwargs = {"reply_to_message_id": front_msg.message_id}
+                back_kwargs = {"reply_parameters": ReplyParameters(message_id=front_msg.message_id)}
                 if back_img:
                     try:
                         await query.message.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **back_kwargs)
@@ -1291,8 +1295,6 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
                         await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
                 else:
                     await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
-        await query.delete_message()
-        _pop_search_prompt(context)
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
