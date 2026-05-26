@@ -2006,8 +2006,8 @@ function App() {
       {activeTab === 'history' && (
         <>
           <Section title={copy.historyTitle}>
-            <div className="history-filter-row">
-              <label className="history-date-label">
+            <div className="history-toolbar">
+              <div className="history-date-wrap">
                 <Icon name="clock" />
                 <input
                   className="history-date-input"
@@ -2015,13 +2015,15 @@ function App() {
                   value={historyDate}
                   onChange={(e) => { setHistoryDate(e.target.value); fetchHistoryItems(e.target.value, 0); }}
                 />
-              </label>
-              {historyDate && (
-                <button className="history-clear-btn" type="button" onClick={() => { setHistoryDate(''); fetchHistoryItems('', 0); }} aria-label={copy.clearFilter}>
-                  <Icon name="x" />
-                </button>
-              )}
-              {historyLoadingState && <Spinner />}
+                {historyDate && (
+                  <button className="history-clear-btn" type="button" onClick={() => { setHistoryDate(''); fetchHistoryItems('', 0); }} aria-label={copy.clearFilter}>
+                    <Icon name="x" />
+                  </button>
+                )}
+              </div>
+              <button className="history-refresh-btn" type="button" onClick={() => fetchHistoryItems(historyDate, 0)} disabled={!apiConfigured} aria-label={copy.refreshQueue}>
+                {historyLoadingState ? <Spinner /> : <Icon name="refresh" />}
+              </button>
             </div>
           </Section>
 
@@ -2047,11 +2049,13 @@ function App() {
                     ) : (
                       <span className="history-item-name">{post.card_name || post.card_code}</span>
                     )}
-                    <span className="history-item-meta">{[post.card_code, timeStr].filter(Boolean).join(' · ')}</span>
-                  </div>
-                  <div className="history-item-badges">
-                    {srcLabel && <Badge tone={srcTone}>{srcLabel}</Badge>}
-                    <Badge tone={tone}>{friendlyStatus}</Badge>
+                    <div className="history-item-footer">
+                      <span className="history-item-meta">{[post.card_code, timeStr].filter(Boolean).join(' · ')}</span>
+                      <div className="history-item-badges">
+                        {srcLabel && <Badge tone={srcTone}>{srcLabel}</Badge>}
+                        <Badge tone={tone}>{friendlyStatus}</Badge>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -2059,7 +2063,6 @@ function App() {
             {historyHasMore && (
               <MenuRow icon="refresh" label={copy.loadMore} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyItems.length)} />
             )}
-            <MenuRow icon="refresh" label={copy.refreshQueue} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, 0)} />
           </Section>
         </>
       )}
