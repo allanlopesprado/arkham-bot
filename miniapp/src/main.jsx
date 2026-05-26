@@ -300,7 +300,7 @@ const I18N = {
     worker: 'Servidor',
     access: 'Acesso',
     cards: 'Cartas',
-    packs: 'Pacotes',
+    packs: 'Expansões',
     lastSync: 'Última sincronização',
     account: 'Conta',
     telegramWebApp: 'Telegram',
