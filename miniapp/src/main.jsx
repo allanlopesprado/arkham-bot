@@ -87,25 +87,17 @@ const ALL_CARD_TYPES = [
 
 const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
 
-const CYCLES = [
-  { position: 1,  name: 'Core Set' },
-  { position: 2,  name: 'The Dunwich Legacy' },
-  { position: 3,  name: 'The Path to Carcosa' },
-  { position: 4,  name: 'The Forgotten Age' },
-  { position: 5,  name: 'The Circle Undone' },
-  { position: 6,  name: 'The Dream-Eaters' },
-  { position: 7,  name: 'The Innsmouth Conspiracy' },
-  { position: 8,  name: 'Edge of the Earth' },
-  { position: 9,  name: 'The Scarlet Keys' },
-  { position: 10, name: 'The Feast of Hemlock Vale' },
-  { position: 11, name: 'The Drowned City' },
-  { position: 50, name: 'Return To...' },
-  { position: 60, name: 'Investigator Starters (Ch. 1)' },
-  { position: 61, name: 'Investigator Starters (Ch. 2)' },
-  { position: 70, name: 'Standalone Adventures' },
-  { position: 80, name: 'Special & Promo' },
-  { position: 90, name: 'Singles & Extras' },
-];
+// Cycle names derived dynamically from fetched packs (first pack per cycle_position)
+function deriveCycles(packs) {
+  const map = new Map();
+  for (const p of packs) {
+    const pos = p.cycle_position ?? 99;
+    if (!map.has(pos) || p.position < map.get(pos).position) map.set(pos, p);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([pos, first]) => ({ position: pos, name: first.name }));
+}
 
 const TIMEZONES = [
   { value: 'America/Sao_Paulo',              label: 'São Paulo (UTC−3)' },
@@ -185,19 +177,19 @@ const I18N = {
     aiLanguage: 'Idioma da IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
-    // cycles / packs
-    expansions: 'Expansões',
-    expansionsCaption: 'Selecione os ciclos e packs para sortear cartas',
-    allExpansions: 'Todas as expansões',
-    packsSelected: (n) => `${n} pack${n !== 1 ? 's' : ''} selecionado${n !== 1 ? 's' : ''}`,
-    cycleDetail: 'Packs do ciclo',
+    // weekly schedule
+    weeklySchedule: 'Programação semanal',
+    weeklyScheduleCaption: 'Configure ciclos e tipos de carta por dia da semana',
+    configureDay: 'Configurar',
+    dayDetail: 'Configuração do dia',
+    cyclesToday: 'Ciclos permitidos',
+    typesToday: 'Tipos de carta',
+    allCardsAllowed: 'Todas as cartas',
     loadingPacks: 'Carregando expansões…',
-    packsFailed: 'Falha ao carregar expansões.',
-    allPacksInCycle: (n) => `${n} pack${n !== 1 ? 's' : ''}`,
-    // day type map
-    dayTypeSection: 'Tipo de carta por dia',
-    dayTypeCaption: 'Define qual tipo de carta pode ser postado em cada dia',
-    allTypes: 'Todos os tipos',
+    packsFailed: 'Falha ao carregar expansões. Verifique a conexão.',
+    noCycleConfig: 'Sem filtro — todas as cartas',
+    cyclesSelected: (n) => `${n} ciclo${n !== 1 ? 's' : ''}`,
+    typesSelected: (n) => `${n} tipo${n !== 1 ? 's' : ''}`,
     // bot identity
     botDescription: 'Órfã. Investigadora. Sobrevivente. Wendy enfrenta o desconhecido com coragem e seu amuleto da sorte.',
     // home sections
@@ -377,19 +369,19 @@ const I18N = {
     aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
-    // cycles / packs
-    expansions: 'Expansions',
-    expansionsCaption: 'Select cycles and packs to draw cards from',
-    allExpansions: 'All expansions',
-    packsSelected: (n) => `${n} pack${n !== 1 ? 's' : ''} selected`,
-    cycleDetail: 'Cycle packs',
+    // weekly schedule
+    weeklySchedule: 'Weekly schedule',
+    weeklyScheduleCaption: 'Configure cycles and card types per day of the week',
+    configureDay: 'Configure',
+    dayDetail: 'Day configuration',
+    cyclesToday: 'Allowed cycles',
+    typesToday: 'Card types',
+    allCardsAllowed: 'All cards',
     loadingPacks: 'Loading expansions…',
-    packsFailed: 'Failed to load expansions.',
-    allPacksInCycle: (n) => `${n} pack${n !== 1 ? 's' : ''}`,
-    // day type map
-    dayTypeSection: 'Card type by day',
-    dayTypeCaption: 'Sets which card type can be posted on each day',
-    allTypes: 'All types',
+    packsFailed: 'Failed to load expansions. Check connection.',
+    noCycleConfig: 'No filter — all cards',
+    cyclesSelected: (n) => `${n} cycle${n !== 1 ? 's' : ''}`,
+    typesSelected: (n) => `${n} type${n !== 1 ? 's' : ''}`,
     // bot identity
     botDescription: 'Orphan. Investigator. Survivor. Wendy faces the unknown with courage and her lucky charm.',
     // home sections
@@ -569,8 +561,9 @@ const DEFAULT_SETTINGS = {
   ai_language: 'pt-BR',
   include_spoilers: false,
   allowed_card_types: DEFAULT_CARD_TYPES,
-  allowed_packs: [],   // empty = all packs allowed
-  day_type_map: {},    // { mon: ['investigator'], tue: ['event'] }
+  // day_config: per-day cycle+type config { mon: { packs: [], types: [] }, ... }
+  // empty packs = all packs; empty types = all types
+  day_config: {},
 };
 
 function normalizeSettings(s = {}) {
@@ -583,8 +576,7 @@ function normalizeSettings(s = {}) {
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
     allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length ? s.allowed_card_types : DEFAULT_CARD_TYPES,
-    allowed_packs: Array.isArray(s.allowed_packs) ? s.allowed_packs : [],
-    day_type_map: (s.day_type_map && typeof s.day_type_map === 'object' && !Array.isArray(s.day_type_map)) ? s.day_type_map : {},
+    day_config: (s.day_config && typeof s.day_config === 'object' && !Array.isArray(s.day_config)) ? s.day_config : {},
   };
 }
 
@@ -734,6 +726,26 @@ function SelectRow({ label, value, onChange, children }) {
   );
 }
 
+function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure }) {
+  return (
+    <div className="row">
+      <div className="row-main">
+        <span className="row-label">{label}</span>
+        {subtitle && <span className="row-caption">{subtitle}</span>}
+      </div>
+      {enabled && (
+        <button className="row-config-btn" type="button" onClick={onConfigure} aria-label="configurar">
+          <Icon name="settings" />
+        </button>
+      )}
+      <label className="day-toggle-wrap">
+        <input type="checkbox" checked={enabled} onChange={(e) => { haptic('selection'); onToggle(e.target.checked); }} />
+        <span className="toggle" aria-hidden="true" />
+      </label>
+    </div>
+  );
+}
+
 function CommandRow({ command, onCancel, loading, copy }) {
   const cancellable = ['pending', 'retrying'].includes(command.status);
   const tone = command.status === 'failed' ? 'err' : command.status === 'executed' ? 'ok' : 'warn';
@@ -815,10 +827,10 @@ function App() {
   const [cardResults, setCardResults] = useState([]);
   const [targetChatId, setTargetChatId] = useState('');
   const [activeTab, setActiveTab] = useState('home');
-  const [activeCyclePos, setActiveCyclePos] = useState(null);
+  const [activeDayCode, setActiveDayCode] = useState(null);
   const [packs, setPacks] = useState([]);
   const [packsLoading, setPacksLoading] = useState(false);
-  const [packsFailed, setPacksFailed] = useState(false);
+  const [packsError, setPacksError] = useState(false);
 
   const [loadingCmd, setLoadingCmd] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -891,7 +903,7 @@ function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { cycles: 'settings', cycle_detail: 'cycles', language: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', language: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -905,15 +917,15 @@ function App() {
     return () => btn.offClick?.(goBack);
   }, [activeTab]);
 
-  // ── Load packs when entering cycles tabs ────────────────────────────────────
+  // ── Load packs when entering day_detail tab ─────────────────────────────────
   useEffect(() => {
-    if ((activeTab === 'cycles' || activeTab === 'cycle_detail') && packs.length === 0 && !packsLoading) {
+    if (activeTab === 'day_detail' && packs.length === 0 && !packsLoading) {
       setPacksLoading(true);
-      setPacksFailed(false);
+      setPacksError(false);
       apiFetch('/packs').then(({ ok, json }) => {
         if (ok && Array.isArray(json.packs)) setPacks(json.packs);
-        else setPacksFailed(true);
-      }).catch(() => setPacksFailed(true)).finally(() => setPacksLoading(false));
+        else setPacksError(true);
+      }).catch(() => setPacksError(true)).finally(() => setPacksLoading(false));
     }
   }, [activeTab]);
 
@@ -1112,72 +1124,74 @@ function App() {
     haptic('selection');
   }
 
-  // ── Pack / cycle helpers ────────────────────────────────────────────────────
+  // ── Day config helpers ──────────────────────────────────────────────────────
 
-  function isPackSelected(packCode) {
-    const ap = settings.allowed_packs;
-    return ap.length === 0 || ap.includes(packCode);
+  function getDayConfig(dayCode) {
+    return settings.day_config[dayCode] || { packs: [], types: [] };
   }
 
-  function isCycleFullySelected(cyclePos) {
-    const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos);
-    return cyclePacks.length > 0 && cyclePacks.every((p) => isPackSelected(p.code));
+  function isCycleSelectedForDay(dayCode, cyclePos) {
+    const { packs: dp } = getDayConfig(dayCode);
+    const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
+    if (!cyclePacks.length) return false;
+    return dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
   }
 
-  function togglePack(packCode) {
+  function isTypeSelectedForDay(dayCode, typeCode) {
+    const { types: dt } = getDayConfig(dayCode);
+    return dt.length === 0 || dt.includes(typeCode);
+  }
+
+  function toggleCycleForDay(dayCode, cyclePos) {
     haptic('selection');
+    const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
     setSettings((cur) => {
-      const ap = cur.allowed_packs;
-      let next;
-      if (ap.length === 0) {
-        // All selected → remove this one (build explicit whitelist)
-        next = packs.map((p) => p.code).filter((c) => c !== packCode);
-      } else if (ap.includes(packCode)) {
-        next = ap.filter((c) => c !== packCode);
-      } else {
-        next = [...ap, packCode];
-        // If all packs now selected, simplify to []
-        if (next.length === packs.length) next = [];
-      }
-      return { ...cur, allowed_packs: next };
-    });
-  }
-
-  function toggleCycle(cyclePos) {
-    haptic('selection');
-    setSettings((cur) => {
-      const ap = cur.allowed_packs;
-      const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
-      const allSelected = ap.length === 0 || cyclePacks.every((c) => ap.includes(c));
-      let next;
+      const cfg = cur.day_config[dayCode] || { packs: [], types: [] };
+      const dp = cfg.packs;
+      const allSelected = dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
+      let nextPacks;
       if (allSelected) {
-        // Deselect all in this cycle
-        if (ap.length === 0) {
-          next = packs.map((p) => p.code).filter((c) => !cyclePacks.includes(c));
-        } else {
-          next = ap.filter((c) => !cyclePacks.includes(c));
-        }
+        const base = dp.length === 0 ? packs.map((p) => p.code) : dp;
+        nextPacks = base.filter((pc) => !cyclePacks.includes(pc));
       } else {
-        // Select all in this cycle
-        const base = ap.length === 0 ? packs.map((p) => p.code) : ap;
-        next = [...new Set([...base, ...cyclePacks])];
-        if (next.length === packs.length) next = [];
+        const base = dp.length === 0 ? packs.map((p) => p.code) : dp;
+        nextPacks = [...new Set([...base, ...cyclePacks])];
+        if (nextPacks.length === packs.length) nextPacks = [];
       }
-      return { ...cur, allowed_packs: next };
+      return { ...cur, day_config: { ...cur.day_config, [dayCode]: { ...cfg, packs: nextPacks } } };
     });
   }
 
-  function setDayType(dayCode, typeCode) {
+  function toggleTypeForDay(dayCode, typeCode) {
     haptic('selection');
     setSettings((cur) => {
-      const dtm = { ...cur.day_type_map };
-      if (!typeCode) {
-        delete dtm[dayCode];
+      const cfg = cur.day_config[dayCode] || { packs: [], types: [] };
+      const dt = cfg.types;
+      let nextTypes;
+      if (dt.length === 0) {
+        // All selected → exclude this one
+        nextTypes = ALL_CARD_TYPES.map((t) => t.code).filter((c) => c !== typeCode);
+      } else if (dt.includes(typeCode)) {
+        nextTypes = dt.filter((c) => c !== typeCode);
+        if (nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
       } else {
-        dtm[dayCode] = [typeCode];
+        nextTypes = [...dt, typeCode];
+        if (nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
       }
-      return { ...cur, day_type_map: dtm };
+      return { ...cur, day_config: { ...cur.day_config, [dayCode]: { ...cfg, types: nextTypes } } };
     });
+  }
+
+  function dayConfigSummary(dayCode, copy) {
+    const { packs: dp, types: dt } = getDayConfig(dayCode);
+    const cycles = deriveCycles(packs);
+    const activeCycles = dp.length === 0 ? 0 : cycles.filter((c) =>
+      packs.filter((p) => p.cycle_position === c.position).some((p) => dp.includes(p.code))
+    ).length;
+    const parts = [];
+    if (dp.length > 0 && activeCycles > 0) parts.push(copy.cyclesSelected(activeCycles));
+    if (dt.length > 0) parts.push(copy.typesSelected(dt.length));
+    return parts.length ? parts.join(' · ') : copy.noCycleConfig;
   }
 
   function toggleLanguage() {
@@ -1350,14 +1364,7 @@ function App() {
                     <input className="inline-input" value={timesInput} onChange={(e) => setTimesInput(e.target.value)} placeholder="08:00, 21:30" inputMode="text" />
                   </div>
                 </div>
-                {WEEKDAYS.map((day) => (
-                  <ToggleRow
-                    key={day.code}
-                    label={day[language === 'pt' ? 'pt' : 'en']}
-                    checked={settings.daily_post_days.includes(day.code)}
-                    onChange={() => toggleDay(day.code)}
-                  />
-                ))}
+                {/* days are now configured in the weekly schedule section below */}
                 <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
                   {TIMEZONES.map((tz) => (
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
@@ -1372,39 +1379,28 @@ function App() {
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
-          <Section title={copy.cardTypes}>
-            {ALL_CARD_TYPES.map((type) => (
-              <ToggleRow
-                key={type.code}
-                label={type[language === 'pt' ? 'pt' : 'en']}
-                checked={settings.allowed_card_types.includes(type.code)}
-                onChange={() => toggleCardType(type.code)}
-              />
-            ))}
-          </Section>
-
-          {/* Expansions */}
-          <Section title={copy.expansions} footer={copy.expansionsCaption}>
-            <MenuRow
-              icon="packs"
-              label={copy.expansions}
-              value={settings.allowed_packs.length === 0 ? copy.allExpansions : copy.packsSelected(settings.allowed_packs.length)}
-              onClick={() => setActiveTab('cycles')}
-            />
-          </Section>
-
-          {/* Day type map */}
-          <Section title={copy.dayTypeSection} footer={copy.dayTypeCaption}>
+          {/* Weekly schedule */}
+          <Section title={copy.weeklySchedule} footer={copy.weeklyScheduleCaption}>
             {WEEKDAYS.map((day) => {
-              const cur = settings.day_type_map[day.code];
-              const val = Array.isArray(cur) && cur.length ? cur[0] : '';
+              const lang = language === 'pt' ? 'pt' : 'en';
+              const enabled = settings.daily_post_days.includes(day.code);
               return (
-                <SelectRow key={day.code} label={day[language === 'pt' ? 'pt' : 'en']} value={val} onChange={(v) => setDayType(day.code, v)}>
-                  <option value="">{copy.allTypes}</option>
-                  {ALL_CARD_TYPES.map((t) => (
-                    <option key={t.code} value={t.code}>{t[language === 'pt' ? 'pt' : 'en']}</option>
-                  ))}
-                </SelectRow>
+                <DayScheduleRow
+                  key={day.code}
+                  label={day[lang]}
+                  subtitle={enabled ? dayConfigSummary(day.code, copy) : undefined}
+                  enabled={enabled}
+                  onToggle={(v) => {
+                    setSettings((cur) => {
+                      const next = v
+                        ? [...cur.daily_post_days, day.code]
+                        : cur.daily_post_days.filter((d) => d !== day.code);
+                      return { ...cur, daily_post_days: next.length ? next : cur.daily_post_days };
+                    });
+                    haptic('selection');
+                  }}
+                  onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
+                />
               );
             })}
           </Section>
@@ -1475,74 +1471,43 @@ function App() {
         </>
       )}
 
-      {/* ── CYCLES ── */}
-      {activeTab === 'cycles' && (
-        <>
-          {packsLoading && (
-            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div></Section>
-          )}
-          {packsFailed && !packsLoading && (
-            <Section><Row icon="info" label={copy.packsFailed} /></Section>
-          )}
-          {!packsLoading && !packsFailed && (() => {
-            // Group packs by cycle_position
-            const positions = [...new Set(packs.map((p) => p.cycle_position))].sort((a, b) => a - b);
-            return positions.map((pos) => {
-              const cycle = CYCLES.find((c) => c.position === pos) || { name: `Cycle ${pos}` };
-              const cyclePacks = packs.filter((p) => p.cycle_position === pos);
-              const selectedCount = cyclePacks.filter((p) => isPackSelected(p.code)).length;
-              const allSel = selectedCount === cyclePacks.length;
-              return (
-                <Section key={pos}>
-                  <div className="row">
-                    <div className="row-main">
-                      <span className="row-label">{cycle.name}</span>
-                      <span className="row-caption">{copy.allPacksInCycle(cyclePacks.length)} · {selectedCount}/{cyclePacks.length}</span>
-                    </div>
-                    <button
-                      className="row-action cycle-drill"
-                      type="button"
-                      onClick={() => { setActiveCyclePos(pos); setActiveTab('cycle_detail'); }}
-                      style={{ background: 'none', border: 'none', padding: '0 4px', cursor: 'pointer', color: 'var(--hint)', flexShrink: 0 }}
-                    >
-                      <Icon name="chevron" />
-                    </button>
-                    <label className="toggle-row" style={{ width: 'auto', minHeight: 'auto', padding: 0 }}>
-                      <input type="checkbox" checked={allSel} onChange={() => toggleCycle(pos)} />
-                      <span className="toggle" aria-hidden="true" />
-                    </label>
-                  </div>
-                </Section>
-              );
-            });
-          })()}
-        </>
-      )}
+      {/* ── DAY DETAIL ── */}
+      {activeTab === 'day_detail' && activeDayCode && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        const dayLabel = WEEKDAYS.find((d) => d.code === activeDayCode)?.[lang] || activeDayCode;
+        const cycles = deriveCycles(packs);
+        return (
+          <>
+            <header className="section-header-standalone">{dayLabel}</header>
 
-      {/* ── CYCLE DETAIL ── */}
-      {activeTab === 'cycle_detail' && activeCyclePos !== null && (
-        <>
-          {packsLoading && (
-            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div></Section>
-          )}
-          {!packsLoading && (() => {
-            const cyclePacks = packs.filter((p) => p.cycle_position === activeCyclePos);
-            const cycle = CYCLES.find((c) => c.position === activeCyclePos) || { name: `Cycle ${activeCyclePos}` };
-            return (
-              <Section title={cycle.name}>
-                {cyclePacks.map((pack) => (
-                  <ToggleRow
-                    key={pack.code}
-                    label={pack.name}
-                    checked={isPackSelected(pack.code)}
-                    onChange={() => togglePack(pack.code)}
-                  />
-                ))}
-              </Section>
-            );
-          })()}
-        </>
-      )}
+            {/* Cycles */}
+            <Section title={copy.cyclesToday}>
+              {packsLoading && <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div>}
+              {packsError && !packsLoading && <Row icon="info" label={copy.packsFailed} />}
+              {!packsLoading && !packsError && cycles.map((cycle) => (
+                <ToggleRow
+                  key={cycle.position}
+                  label={cycle.name}
+                  checked={isCycleSelectedForDay(activeDayCode, cycle.position)}
+                  onChange={() => toggleCycleForDay(activeDayCode, cycle.position)}
+                />
+              ))}
+            </Section>
+
+            {/* Card types */}
+            <Section title={copy.typesToday}>
+              {ALL_CARD_TYPES.map((type) => (
+                <ToggleRow
+                  key={type.code}
+                  label={type[lang]}
+                  checked={isTypeSelectedForDay(activeDayCode, type.code)}
+                  onChange={() => toggleTypeForDay(activeDayCode, type.code)}
+                />
+              ))}
+            </Section>
+          </>
+        );
+      })()}
 
       {/* ── HISTORY ── */}
       {activeTab === 'history' && (

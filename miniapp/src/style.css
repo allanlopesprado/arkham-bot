@@ -515,18 +515,49 @@ input, select { outline: none; }
   white-space: pre-wrap;
 }
 
-/* ── Cycle row (toggle + drill chevron in same row) ──────────────────────── */
+/* ── Day schedule row ─────────────────────────────────────────────────────── */
 
-.cycle-drill {
+.row-config-btn {
   display: flex;
   align-items: center;
-  padding: 8px 6px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
   color: var(--hint);
-  transition: color 0.12s;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
 }
 
 @media (hover: hover) {
-  .cycle-drill:hover { color: var(--text); }
+  .row-config-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+}
+
+.row-config-btn .icon { width: 17px; height: 17px; }
+
+.day-toggle-wrap {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding-left: 6px;
+}
+
+.day-toggle-wrap input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Day detail standalone header ─────────────────────────────────────────── */
+
+.section-header-standalone {
+  padding: 12px 4px 4px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */

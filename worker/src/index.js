@@ -25,8 +25,7 @@ const SETTINGS_KEYS = new Set([
   'ai_language',
   'include_spoilers',
   'allowed_card_types',
-  'allowed_packs',
-  'day_type_map',
+  'day_config',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
@@ -271,21 +270,20 @@ function validateSettingsPatch(body) {
       }
       settings[key] = value;
     }
-    if (key === 'allowed_packs') {
-      // Empty array = all packs allowed; non-empty = whitelist of pack codes
-      if (!Array.isArray(value) || !value.every((p) => typeof p === 'string' && p.length > 0)) {
-        return { error: 'invalid_setting_value', key };
-      }
-      settings[key] = value;
-    }
-    if (key === 'day_type_map') {
+    if (key === 'day_config') {
+      // { mon: { packs: ['core','dwl',...], types: ['investigator'] }, ... }
       if (typeof value !== 'object' || Array.isArray(value) || value === null) {
         return { error: 'invalid_setting_value', key };
       }
-      for (const [day, types] of Object.entries(value)) {
+      for (const [day, cfg] of Object.entries(value)) {
         if (!WEEKDAY_CODES.has(day)) return { error: 'invalid_setting_value', key };
-        if (types !== null && types !== undefined) {
-          if (!Array.isArray(types) || !types.every((t) => !t || VALID_CARD_TYPES.has(t))) {
+        if (cfg !== null && cfg !== undefined) {
+          if (typeof cfg !== 'object' || Array.isArray(cfg)) return { error: 'invalid_setting_value', key };
+          const { packs: p, types: t } = cfg;
+          if (p !== undefined && (!Array.isArray(p) || !p.every((x) => typeof x === 'string' && x.length > 0))) {
+            return { error: 'invalid_setting_value', key };
+          }
+          if (t !== undefined && (!Array.isArray(t) || !t.every((x) => VALID_CARD_TYPES.has(x)))) {
             return { error: 'invalid_setting_value', key };
           }
         }
@@ -516,23 +514,26 @@ async function handleCancelCommand(request, env, user, ao, commandId) {
   }
 }
 
-async function handleGetPacks(env, ao) {
+async function handleGetPacks(_env, ao) {
   try {
-    const rows = await fetchSupabaseJson(env, '/rest/v1/arkham_packs?select=code,name,raw&order=code.asc&limit=200');
-    const packs = rows.map((r) => {
-      const raw = r.raw || {};
-      return {
-        code: r.code,
-        name: r.name,
-        cycle_position: raw.cycle_position ?? null,
-        position: raw.position ?? null,
-        chapter: raw.chapter ?? 1,
-        total: raw.total ?? raw.known ?? 0,
-      };
-    }).sort((a, b) => (a.cycle_position ?? 99) - (b.cycle_position ?? 99) || (a.position ?? 99) - (b.position ?? 99));
+    const resp = await fetch('https://arkhamdb.com/api/public/packs/', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!resp.ok) throw new Error(`ArkhamDB returned ${resp.status}`);
+    const raw = await resp.json();
+    const packs = raw
+      .map((p) => ({
+        code: p.code,
+        name: p.name,
+        cycle_position: p.cycle_position ?? null,
+        position: p.position ?? null,
+        chapter: p.chapter ?? 1,
+        total: p.total ?? 0,
+      }))
+      .sort((a, b) => (a.cycle_position ?? 99) - (b.cycle_position ?? 99) || (a.position ?? 99) - (b.position ?? 99));
     return withCors(jsonResponse({ ok: true, packs }), ao);
-  } catch {
-    return withCors(jsonResponse({ error: 'packs_fetch_failed' }, 500), ao);
+  } catch (err) {
+    return withCors(jsonResponse({ error: 'packs_fetch_failed', detail: String(err) }, 500), ao);
   }
 }
 
