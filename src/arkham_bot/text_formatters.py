@@ -383,7 +383,7 @@ def format_card_caption(card, is_interactive=False):
     elif tc == 'scenario':
         encounter_name = card.get('encounter_name', '')
         if encounter_name:
-            lines.append(f"📖 {encounter_name}")
+            lines.append(f"📖 {_e(encounter_name)}")
 
     elif tc == 'key':
         linked = card.get('linked_to_name') or card.get('linked_to_code')
