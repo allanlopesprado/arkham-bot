@@ -71,7 +71,25 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
     return AIDailyCardChoice(code, pre, post, reason)
 
 
+async def _call_openai(prompt: dict) -> dict:
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+        response = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": AI_MODEL,
+                "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
+                "temperature": 0.9,
+                "response_format": {"type": "json_object"},
+            },
+        )
+    response.raise_for_status()
+    data = response.json()
+    return json.loads(data["choices"][0]["message"]["content"])
+
+
 async def choose_daily_card_with_ai(candidates: list[dict], language: str = "pt-BR") -> AIDailyCardChoice | None:
+    """Selects a card from candidates AND generates commentary for it."""
     if not AI_DAILY_CARD_ENABLED or not OPENAI_API_KEY or not candidates:
         return None
 
@@ -106,23 +124,54 @@ async def choose_daily_card_with_ai(candidates: list[dict], language: str = "pt-
     }
 
     try:
-        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": AI_MODEL,
-                    "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
-                    "temperature": 0.9,
-                    "response_format": {"type": "json_object"},
-                },
-            )
-        response.raise_for_status()
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        choice = validate_ai_choice(json.loads(content), candidate_codes)
-        logger.info("ai_tone=%s card=%s", tone, choice.selected_card_code)
+        payload = await _call_openai(prompt)
+        choice = validate_ai_choice(payload, candidate_codes)
+        logger.info("ai_select tone=%s card=%s", tone, choice.selected_card_code)
         return choice
     except Exception as exc:
         logger.warning("ai_daily_card_choice_failed: %s", exc)
+        return None
+
+
+async def generate_card_commentary(card: dict, language: str = "pt-BR") -> AIDailyCardChoice | None:
+    """Generates pre_message and post_question for a specific card (used for manual posts)."""
+    if not AI_DAILY_CARD_ENABLED or not OPENAI_API_KEY or not card:
+        return None
+
+    tone = random.choice(TONES)
+    code = str(card.get("code") or "")
+
+    prompt = {
+        "task": "Write atmospheric Telegram commentary for this Arkham Horror LCG Card of the Day.",
+        "language": language,
+        "tone": tone,
+        "card": _compact(card),
+        "rules": [
+            "Return strict JSON only — no markdown, no extra keys.",
+            f"selected_card_code must be exactly: {code}",
+            "Use the card's traits, text, and flavor as creative inspiration — do not copy them verbatim.",
+            "pre_message sets the atmosphere BEFORE the card image is shown — do not name the card.",
+            "post_question invites group discussion about the card's mechanics, strategy, or lore.",
+            f"Both fields must be written in natural {language}.",
+            "Do not include Markdown, HTML, links, hashtags, or emojis.",
+            "pre_message max 280 chars. post_question max 220 chars.",
+            f"Tone for this post: {tone}. Let the tone influence word choice and rhythm.",
+            "Vary sentence structure — avoid starting both fields with the same word.",
+        ],
+        "schema": {
+            "selected_card_code": f"must be exactly: {code}",
+            "pre_message": "string — atmospheric intro, no card name, max 280 chars",
+            "post_question": "string — discussion prompt about mechanics or lore, max 220 chars",
+            "reason": "string — internal note, max 500 chars",
+        },
+    }
+
+    try:
+        payload = await _call_openai(prompt)
+        candidate_codes = {code}
+        choice = validate_ai_choice(payload, candidate_codes)
+        logger.info("ai_comment tone=%s card=%s", tone, code)
+        return choice
+    except Exception as exc:
+        logger.warning("ai_generate_commentary_failed card=%s: %s", code, exc)
         return None

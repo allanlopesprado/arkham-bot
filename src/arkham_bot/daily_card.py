@@ -15,7 +15,7 @@ from telegram.error import RetryAfter, TelegramError
 
 from .arkhamdb_client import download_image_sync, fetch_all_cards_sync
 from .card_provider import get_card
-from .ai.daily_card_selector import choose_daily_card_with_ai
+from .ai.daily_card_selector import choose_daily_card_with_ai, generate_card_commentary
 from .config import (
     BASE_URL,
     EXTENSIONS_TO_TRY,
@@ -113,6 +113,9 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
         ai_post_question = None
 
         try:
+            ai_language = get_setting('ai_language', 'pt-BR')
+            ai_enabled = get_setting('ai_enabled', True)
+
             if specific_card_code:
                 card, source = get_card(specific_card_code)
                 if not card:
@@ -120,7 +123,17 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 card_code = specific_card_code
                 logger.info(f"Specific Card selected from {source}: {card.get('name')} ({card_code}).")
 
-            if card is None or (specific_card_code and card.get('code') != specific_card_code):
+                # Generate AI commentary for the manually chosen card
+                if ai_enabled:
+                    ai_choice = await generate_card_commentary(card, language=ai_language)
+                    if ai_choice:
+                        ai_pre_message = _telegram_html_text(ai_choice.pre_message)
+                        ai_post_question = _telegram_html_text(ai_choice.post_question)
+                        logger.info(f"AI commentary generated for manual post: {card_code}")
+                    else:
+                        logger.info(f"AI commentary unavailable for manual post: {card_code}")
+
+            if card is None:
                 all_cards = load_card_cache()
 
                 if not all_cards:
@@ -154,9 +167,6 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     if not unposted_cards:
                         raise RuntimeError("No valid cards found after reset.")
 
-                ai_language = get_setting('ai_language', 'pt-BR')
-                ai_enabled = get_setting('ai_enabled', True)
-
                 allowed_types_raw = get_setting('allowed_card_types', None)
                 if isinstance(allowed_types_raw, list) and allowed_types_raw:
                     filtered = [c for c in unposted_cards if c.get('type_code') in allowed_types_raw]
@@ -165,9 +175,10 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     else:
                         logger.warning("No unposted cards match allowed_card_types filter. Ignoring filter.")
 
+                # AI selects card AND generates commentary in one call
                 ai_choice = await choose_daily_card_with_ai(unposted_cards, language=ai_language) if ai_enabled else None
                 if ai_choice:
-                    card = next((candidate for candidate in unposted_cards if candidate.get('code') == ai_choice.selected_card_code), None) or random.choice(unposted_cards)
+                    card = next((c for c in unposted_cards if c.get('code') == ai_choice.selected_card_code), None) or random.choice(unposted_cards)
                     ai_pre_message = _telegram_html_text(ai_choice.pre_message)
                     ai_post_question = _telegram_html_text(ai_choice.post_question)
                     logger.info(f"AI Card Selected: {card.get('name')} ({card.get('code')}). Reason: {ai_choice.reason}")
