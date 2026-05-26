@@ -37,6 +37,7 @@ async def interactive_post_init(application):
         BotCommand("today",      "Card do dia atual"),
         BotCommand("random",     "Card aleatório"),
         BotCommand("search",     "Busca cartas por nome"),
+        BotCommand("sets",       "Navega cartas por set/expansão"),
         BotCommand("card",       "Busca carta por código"),
         BotCommand("status",     "Status do bot"),
         BotCommand("chatid",     "Mostra o ID deste chat"),

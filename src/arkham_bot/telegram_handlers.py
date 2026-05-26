@@ -717,6 +717,43 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
     return await _search_run(update, context, query)
 
 
+async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.BytesIO | None:
+    """Tries all extensions and returns a valid image BytesIO or None."""
+    for ext in EXTENSIONS_TO_TRY:
+        path = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}{ext}"
+        url = urljoin(BASE_URL, path)
+        try:
+            raw = await download_image_async(url)
+            buf = io.BytesIO(raw)
+            Image.open(buf).verify()
+            buf.seek(0)
+            return buf
+        except Exception:
+            continue
+    return None
+
+
+async def _send_card_by_code(update: Update, code: str) -> None:
+    """Fetches and sends a card directly by exact code."""
+    card = await get_card_async(code)
+    if not card:
+        msg = f"Carta <code>{escape(code)}</code> não encontrada."
+        target = update.message or (update.callback_query.message if update.callback_query else None)
+        if target:
+            await target.reply_text(msg, parse_mode=ParseMode.HTML)
+        return
+    caption = format_card_caption(card)
+    image_src = card.get('imagesrc') or card.get('image_src')
+    img = await _fetch_card_image(code, image_src)
+    target = update.message or (update.callback_query.message if update.callback_query else None)
+    if not target:
+        return
+    if img:
+        await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML)
+    else:
+        await target.reply_text(caption, parse_mode=ParseMode.HTML)
+
+
 async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -726,49 +763,25 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         if not card:
             await query.edit_message_text("Carta não encontrada.")
             return ConversationHandler.END
-        from .daily_card import post_daily_card
-        chat_id = str(query.message.chat_id)
-        await query.edit_message_text(f"🃏 Carregando <b>{escape(card.get('name', card_code))}</b>…", parse_mode=ParseMode.HTML)
+        await query.edit_message_text(
+            f"🃏 Carregando <b>{escape(card.get('name', card_code))}</b>…",
+            parse_mode=ParseMode.HTML
+        )
         caption = format_card_caption(card)
-        from .arkhamdb_client import download_image_async as _dl
-        from .config import BASE_URL, EXTENSIONS_TO_TRY
-        image_url = None
-        for ext in EXTENSIONS_TO_TRY:
-            image_url = urljoin(BASE_URL, f"{card_code}.{ext}")
-            break
-        img_bytes = await _dl(image_url) if image_url else None
-        if img_bytes:
-            await query.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
+        image_src = card.get('imagesrc') or card.get('image_src')
+        img = await _fetch_card_image(card_code, image_src)
+        if img:
+            await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML)
         else:
             await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
         await query.delete_message()
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
-        await query.edit_message_text("Erro ao carregar a carta.")
+        try:
+            await query.edit_message_text("Erro ao carregar a carta.")
+        except Exception:
+            pass
     return ConversationHandler.END
-
-
-async def _send_card_by_code(update: Update, code: str) -> None:
-    """Fetches and sends a card directly by exact code."""
-    card = await get_card_async(code)
-    if not card:
-        msg = f"Carta <code>{escape(code)}</code> não encontrada."
-        if update.message:
-            await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
-        return
-    caption = format_card_caption(card)
-    image_url = urljoin(BASE_URL, f"{code}.{EXTENSIONS_TO_TRY[0]}")
-    img_bytes = await download_image_async(image_url)
-    if img_bytes:
-        if update.message:
-            await update.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
-        elif update.callback_query:
-            await update.callback_query.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
-    else:
-        if update.message:
-            await update.message.reply_text(caption, parse_mode=ParseMode.HTML)
-        elif update.callback_query:
-            await update.callback_query.message.reply_text(caption, parse_mode=ParseMode.HTML)
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
@@ -832,6 +845,98 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
         if update.message:
             await update.message.reply_text("Erro ao buscar cartas.")
     return ConversationHandler.END
+
+
+async def sets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lists all available packs as inline buttons. Clicking one lists its cards."""
+    if not await _check_rate_limit(update):
+        return
+    import asyncio
+    from .arkhamdb_client import fetch_all_cards_sync
+    try:
+        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        # Build unique pack list preserving order
+        seen: dict[str, str] = {}
+        for c in cards:
+            code = c.get('pack_code') or ''
+            name = c.get('pack_name') or code
+            if code and code not in seen:
+                seen[code] = name
+        if not seen:
+            await update.message.reply_text("Nenhum set disponível.")
+            return
+        buttons = [
+            [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}")]
+            for code, name in seen.items()
+        ]
+        await update.message.reply_text(
+            "📦 Escolha um set para ver as cartas:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+    except Exception as exc:
+        logger.error(f"sets_command error: {exc}", exc_info=True)
+        await update.message.reply_text("Erro ao carregar sets.")
+
+
+async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Shows cards of the selected pack as inline buttons."""
+    query = update.callback_query
+    await query.answer()
+    pack_code = query.data.replace("SET_BROWSE_", "")
+    import asyncio
+    from .arkhamdb_client import fetch_all_cards_sync
+    try:
+        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        pack_cards = [c for c in cards if c.get('pack_code') == pack_code]
+        if not pack_cards:
+            await query.edit_message_text("Nenhuma carta encontrada neste set.")
+            return
+        pack_name = pack_cards[0].get('pack_name') or pack_code
+        buttons = []
+        for c in pack_cards:
+            code = c.get('code', '')
+            name = c.get('name') or c.get('real_name') or code
+            position = c.get('position', '')
+            label = f"{position:>3}. {name}" if position else name
+            if len(label) > 64:
+                label = label[:61] + "…"
+            buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
+        buttons.append([InlineKeyboardButton("« Voltar aos sets", callback_data="SETS_BACK")])
+        await query.edit_message_text(
+            f"📦 <b>{escape(pack_name)}</b> — {len(pack_cards)} carta(s):",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+    except Exception as exc:
+        logger.error(f"set_browse_callback error: {exc}", exc_info=True)
+        await query.edit_message_text("Erro ao carregar cartas do set.")
+
+
+async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Returns to the pack list."""
+    query = update.callback_query
+    await query.answer()
+    import asyncio
+    from .arkhamdb_client import fetch_all_cards_sync
+    try:
+        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        seen: dict[str, str] = {}
+        for c in cards:
+            code = c.get('pack_code') or ''
+            name = c.get('pack_name') or code
+            if code and code not in seen:
+                seen[code] = name
+        buttons = [
+            [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}")]
+            for code, name in seen.items()
+        ]
+        await query.edit_message_text(
+            "📦 Escolha um set para ver as cartas:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+    except Exception as exc:
+        logger.error(f"sets_back_callback error: {exc}", exc_info=True)
+        await query.edit_message_text("Erro ao carregar sets.")
 
 
 async def pack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1198,6 +1303,9 @@ def register_handlers(application):
     )
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(search_card_selected, pattern=r'^CARD_SELECT_'))
+    application.add_handler(CommandHandler("sets", sets_command))
+    application.add_handler(CallbackQueryHandler(set_browse_callback, pattern=r'^SET_BROWSE_'))
+    application.add_handler(CallbackQueryHandler(sets_back_callback, pattern=r'^SETS_BACK$'))
     application.add_handler(CommandHandler("pack", pack_command))
     application.add_handler(CommandHandler("faction", faction_command))
     application.add_handler(CommandHandler("type", type_command))
