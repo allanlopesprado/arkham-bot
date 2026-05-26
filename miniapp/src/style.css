@@ -193,8 +193,6 @@ input, select { outline: none; }
 .card-result:active { background: color-mix(in srgb, var(--text) 8%, transparent); }
 
 .row-action:disabled,
-.day-btn:disabled,
-.type-btn:disabled,
 .icon-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
@@ -203,9 +201,7 @@ input, select { outline: none; }
 
 .row-action:focus-visible,
 .card-result:focus-visible,
-.icon-btn:focus-visible,
-.day-btn:focus-visible,
-.type-btn:focus-visible {
+.icon-btn:focus-visible {
   outline: 2px solid var(--link);
   outline-offset: -2px;
 }
@@ -330,7 +326,7 @@ input, select { outline: none; }
   border-radius: 8px;
   background: var(--section-bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   caret-color: var(--link);
   transition: border-color 0.15s;
 }
@@ -350,7 +346,7 @@ input, select { outline: none; }
   border-radius: 8px;
   background: var(--section-bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   appearance: auto;
   cursor: pointer;
 }
@@ -364,7 +360,7 @@ input, select { outline: none; }
   border: 0;
   background: transparent;
   color: var(--text);
-  font-size: 15px;
+  font-size: 16px;
   caret-color: var(--link);
   min-width: 0;
 }
@@ -419,61 +415,6 @@ input, select { outline: none; }
   white-space: nowrap;
 }
 
-/* ── Day grid ─────────────────────────────────────────────────────────────── */
-
-.day-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.day-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  border: 1px solid var(--sep);
-  border-radius: 8px;
-  background: var(--section-bg);
-  color: var(--hint);
-  font-size: 11px;
-  font-weight: 500;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-
-.day-btn.active { background: var(--btn); color: var(--btn-text); border-color: var(--btn); }
-
-@media (hover: hover) {
-  .day-btn:not(.active):hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
-}
-
-/* ── Type grid ────────────────────────────────────────────────────────────── */
-
-.type-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.type-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  border: 1px solid var(--sep);
-  border-radius: 8px;
-  background: var(--section-bg);
-  color: var(--hint);
-  font-size: 13px;
-  font-weight: 500;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-
-.type-btn.active { background: var(--btn); color: var(--btn-text); border-color: var(--btn); }
-
-@media (hover: hover) {
-  .type-btn:not(.active):hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
-}
 
 /* ── Badge ────────────────────────────────────────────────────────────────── */
 
@@ -574,10 +515,6 @@ input, select { outline: none; }
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
-
-@media (max-width: 380px) {
-  .day-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
 
 @media (min-width: 600px) {
   .app { max-width: 560px; }

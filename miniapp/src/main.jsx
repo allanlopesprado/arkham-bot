@@ -63,13 +63,13 @@ async function apiFetch(path, options = {}) {
 const LANGUAGE_KEY = 'arkham-bot-lang';
 
 const WEEKDAYS = [
-  { code: 'mon', pt: 'Seg', en: 'Mon' },
-  { code: 'tue', pt: 'Ter', en: 'Tue' },
-  { code: 'wed', pt: 'Qua', en: 'Wed' },
-  { code: 'thu', pt: 'Qui', en: 'Thu' },
-  { code: 'fri', pt: 'Sex', en: 'Fri' },
-  { code: 'sat', pt: 'Sab', en: 'Sat' },
-  { code: 'sun', pt: 'Dom', en: 'Sun' },
+  { code: 'mon', pt: 'Segunda-feira', en: 'Monday' },
+  { code: 'tue', pt: 'Terça-feira',   en: 'Tuesday' },
+  { code: 'wed', pt: 'Quarta-feira',  en: 'Wednesday' },
+  { code: 'thu', pt: 'Quinta-feira',  en: 'Thursday' },
+  { code: 'fri', pt: 'Sexta-feira',   en: 'Friday' },
+  { code: 'sat', pt: 'Sábado',        en: 'Saturday' },
+  { code: 'sun', pt: 'Domingo',       en: 'Sunday' },
 ];
 
 const ALL_CARD_TYPES = [
@@ -86,6 +86,43 @@ const ALL_CARD_TYPES = [
 ];
 
 const DEFAULT_CARD_TYPES = ALL_CARD_TYPES.map((t) => t.code);
+
+const TIMEZONES = [
+  { value: 'America/Sao_Paulo',              label: 'São Paulo (UTC−3)' },
+  { value: 'America/Manaus',                 label: 'Manaus (UTC−4)' },
+  { value: 'America/Belem',                  label: 'Belém (UTC−3)' },
+  { value: 'America/Fortaleza',              label: 'Fortaleza (UTC−3)' },
+  { value: 'America/Recife',                 label: 'Recife (UTC−3)' },
+  { value: 'America/Bahia',                  label: 'Salvador (UTC−3)' },
+  { value: 'America/Noronha',                label: 'Noronha (UTC−2)' },
+  { value: 'America/Rio_Branco',             label: 'Rio Branco (UTC−5)' },
+  { value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (UTC−3)' },
+  { value: 'America/Bogota',                 label: 'Bogotá (UTC−5)' },
+  { value: 'America/Lima',                   label: 'Lima (UTC−5)' },
+  { value: 'America/Santiago',               label: 'Santiago (UTC−4/−3)' },
+  { value: 'America/Caracas',                label: 'Caracas (UTC−4)' },
+  { value: 'America/Mexico_City',            label: 'Cidade do México (UTC−6/−5)' },
+  { value: 'America/New_York',               label: 'Nova York (UTC−5/−4)' },
+  { value: 'America/Chicago',                label: 'Chicago (UTC−6/−5)' },
+  { value: 'America/Denver',                 label: 'Denver (UTC−7/−6)' },
+  { value: 'America/Los_Angeles',            label: 'Los Angeles (UTC−8/−7)' },
+  { value: 'America/Toronto',                label: 'Toronto (UTC−5/−4)' },
+  { value: 'Europe/Lisbon',                  label: 'Lisboa (UTC+0/+1)' },
+  { value: 'Europe/London',                  label: 'Londres (UTC+0/+1)' },
+  { value: 'Europe/Paris',                   label: 'Paris (UTC+1/+2)' },
+  { value: 'Europe/Berlin',                  label: 'Berlim (UTC+1/+2)' },
+  { value: 'Europe/Madrid',                  label: 'Madrid (UTC+1/+2)' },
+  { value: 'Europe/Rome',                    label: 'Roma (UTC+1/+2)' },
+  { value: 'Europe/Moscow',                  label: 'Moscou (UTC+3)' },
+  { value: 'Asia/Dubai',                     label: 'Dubai (UTC+4)' },
+  { value: 'Asia/Kolkata',                   label: 'Mumbai (UTC+5:30)' },
+  { value: 'Asia/Shanghai',                  label: 'Xangai (UTC+8)' },
+  { value: 'Asia/Singapore',                 label: 'Singapura (UTC+8)' },
+  { value: 'Asia/Tokyo',                     label: 'Tóquio (UTC+9)' },
+  { value: 'Australia/Sydney',               label: 'Sydney (UTC+10/+11)' },
+  { value: 'Pacific/Auckland',               label: 'Auckland (UTC+12/+13)' },
+  { value: 'UTC',                            label: 'UTC (UTC+0)' },
+];
 
 const I18N = {
   pt: {
@@ -131,6 +168,10 @@ const I18N = {
     // maintenance
     syncArkhamDB: 'Sincronizar ArkhamDB',
     syncCaption: 'Atualiza cartas e pacotes do banco de dados',
+    lastSyncAt: 'Último sincronismo',
+    neverSynced: 'Nunca sincronizado',
+    syncSuccess: 'bem-sucedido',
+    syncUnknown: 'status desconhecido',
     resetCycle: 'Resetar ciclo de cartas',
     resetCaption: 'Permite repetir cartas já postadas',
     clearQueue: 'Limpar fila de comandos',
@@ -142,26 +183,31 @@ const I18N = {
     cancelCommand: 'Cancelar',
     // health
     summary: 'Resumo',
-    worker: 'Worker',
+    worker: 'Servidor',
     access: 'Acesso',
     cards: 'Cartas',
     packs: 'Pacotes',
-    lastSync: 'Último sync',
+    lastSync: 'Última sincronização',
     account: 'Conta',
-    telegramWebApp: 'Telegram WebApp',
-    initDataLabel: 'initData',
-    admin: 'Admin',
-    recheckAuth: 'Verificar autenticação',
+    telegramWebApp: 'Telegram',
+    initDataLabel: 'Sessão ativa',
+    admin: 'Administrador',
+    recheckAuth: 'Atualizar status',
     system: 'Sistema',
-    diagnostic: 'Diagnóstico',
+    diagnostic: 'Diagnóstico técnico',
     showDetails: 'Mostrar detalhes',
     apiConfigured: 'API configurada',
     apiBase: 'Endpoint',
     userUnsafe: 'Usuário',
-    initDataPresent: 'initData presente',
-    initDataLength: 'initData length',
+    initDataPresent: 'Sessão presente',
+    initDataLength: 'Tamanho da sessão',
     role: 'Papel',
-    adminSource: 'Fonte admin',
+    adminSource: 'Origem da permissão',
+    adminSourcePrefix: 'origem',
+    // language
+    chooseLanguage: 'Idioma do aplicativo',
+    portuguese: 'Português',
+    englishLang: 'English',
     // common
     saveSettings: 'Salvar configurações',
     reloadSettings: 'Recarregar',
@@ -256,6 +302,10 @@ const I18N = {
     aiLanguageEn: 'English (en-US)',
     syncArkhamDB: 'Sync ArkhamDB',
     syncCaption: 'Updates cards and packs from the database',
+    lastSyncAt: 'Last sync',
+    neverSynced: 'Never synced',
+    syncSuccess: 'successful',
+    syncUnknown: 'unknown status',
     resetCycle: 'Reset card cycle',
     resetCaption: 'Allows already-posted cards to repeat',
     clearQueue: 'Clear command queue',
@@ -265,26 +315,31 @@ const I18N = {
     noRecentCommands: 'No recent commands',
     cancelCommand: 'Cancel',
     summary: 'Summary',
-    worker: 'Worker',
+    worker: 'Server',
     access: 'Access',
     cards: 'Cards',
     packs: 'Packs',
     lastSync: 'Last sync',
     account: 'Account',
-    telegramWebApp: 'Telegram WebApp',
-    initDataLabel: 'initData',
-    admin: 'Admin',
-    recheckAuth: 'Check authentication',
+    telegramWebApp: 'Telegram',
+    initDataLabel: 'Active session',
+    admin: 'Administrator',
+    recheckAuth: 'Refresh status',
     system: 'System',
-    diagnostic: 'Diagnostic',
+    diagnostic: 'Technical diagnostic',
     showDetails: 'Show details',
     apiConfigured: 'API configured',
     apiBase: 'Endpoint',
     userUnsafe: 'User',
-    initDataPresent: 'initData present',
-    initDataLength: 'initData length',
+    initDataPresent: 'Session present',
+    initDataLength: 'Session length',
     role: 'Role',
-    adminSource: 'Admin source',
+    adminSource: 'Permission source',
+    adminSourcePrefix: 'source',
+    // language
+    chooseLanguage: 'App language',
+    portuguese: 'Português',
+    englishLang: 'English',
     saveSettings: 'Save settings',
     reloadSettings: 'Reload',
     result: 'Result',
@@ -968,7 +1023,7 @@ function App() {
             <MenuRow icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
             <MenuRow icon="queue"    label={copy.queue}       value={queueValue > 0 ? String(queueValue) : undefined} onClick={() => setActiveTab('queue')} />
             <MenuRow icon="server"   label={copy.health}      value={workerValue} onClick={() => setActiveTab('health')} />
-            <MenuRow icon="language" label={copy.language}    value={copy.langName} onClick={toggleLanguage} />
+            <MenuRow icon="language" label={copy.language}    value={copy.langName} onClick={() => setActiveTab('language')} />
           </Section>
         </>
       )}
@@ -1065,24 +1120,19 @@ function App() {
                     <input className="inline-input" value={timesInput} onChange={(e) => setTimesInput(e.target.value)} placeholder="08:00, 21:30" inputMode="text" />
                   </div>
                 </div>
-                <div className="row form-block">
-                  <div className="row-main">
-                    <span className="row-label">{copy.postDays}</span>
-                    <div className="day-grid">
-                      {WEEKDAYS.map((day) => (
-                        <button key={day.code} type="button" className={`day-btn ${settings.daily_post_days.includes(day.code) ? 'active' : ''}`.trim()} onClick={() => toggleDay(day.code)}>
-                          {day[language]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="row form-block">
-                  <div className="row-main">
-                    <span className="row-label">{copy.timezoneLabel}</span>
-                    <input className="inline-input" value={settings.timezone} onChange={(e) => setSettings((c) => ({ ...c, timezone: e.target.value }))} placeholder="America/Sao_Paulo" inputMode="text" />
-                  </div>
-                </div>
+                {WEEKDAYS.map((day) => (
+                  <ToggleRow
+                    key={day.code}
+                    label={day[language === 'pt' ? 'pt' : 'en']}
+                    checked={settings.daily_post_days.includes(day.code)}
+                    onChange={() => toggleDay(day.code)}
+                  />
+                ))}
+                <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </SelectRow>
               </>
             )}
           </Section>
@@ -1090,21 +1140,17 @@ function App() {
           {/* Card filter */}
           <Section title={copy.cardFilter}>
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
-            <div className="row form-block">
-              <div className="row-main">
-                <span className="row-label">{copy.cardTypes}</span>
-                <div className="type-grid">
-                  {ALL_CARD_TYPES.map((type) => {
-                    const active = settings.allowed_card_types.includes(type.code);
-                    return (
-                      <button key={type.code} type="button" className={`type-btn ${active ? 'active' : ''}`.trim()} onClick={() => toggleCardType(type.code)}>
-                        {type[language]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+          </Section>
+
+          <Section title={copy.cardTypes}>
+            {ALL_CARD_TYPES.map((type) => (
+              <ToggleRow
+                key={type.code}
+                label={type[language === 'pt' ? 'pt' : 'en']}
+                checked={settings.allowed_card_types.includes(type.code)}
+                onChange={() => toggleCardType(type.code)}
+              />
+            ))}
           </Section>
 
           {/* AI */}
@@ -1135,6 +1181,13 @@ function App() {
         <>
           <Section title={copy.maintenance} footer={copy.syncCaption}>
             <MenuRow icon="sync" label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+            {(() => {
+              const syncDate = overview?.last_sync || sysStatus?.last_sync;
+              const label = syncDate
+                ? `${copy.lastSyncAt}: ${new Date(syncDate).toLocaleString(copy.locale)}`
+                : copy.neverSynced;
+              return <Row icon="clock" label={label} />;
+            })()}
           </Section>
 
           <Section footer={copy.resetCaption}>
@@ -1166,6 +1219,22 @@ function App() {
         </>
       )}
 
+      {/* ── LANGUAGE ── */}
+      {activeTab === 'language' && (
+        <Section title={copy.chooseLanguage}>
+          <ToggleRow
+            label={copy.portuguese}
+            checked={language === 'pt'}
+            onChange={(checked) => { if (checked) { setLanguage('pt'); writeLangStorage('pt'); haptic('selection'); } }}
+          />
+          <ToggleRow
+            label={copy.englishLang}
+            checked={language === 'en'}
+            onChange={(checked) => { if (checked) { setLanguage('en'); writeLangStorage('en'); haptic('selection'); } }}
+          />
+        </Section>
+      )}
+
       {/* ── HEALTH ── */}
       {activeTab === 'health' && (
         <>
@@ -1181,7 +1250,7 @@ function App() {
           <Section title={copy.account}>
             <Row icon="plug"   label={copy.telegramWebApp} value={tg() ? copy.yes : copy.no} badgeTone={tg() ? 'ok' : 'err'} />
             <Row icon="key"    label={copy.initDataLabel}  value={initData() ? copy.yes : copy.no} badgeTone={initData() ? 'ok' : 'err'} />
-            <Row icon="shield" label={copy.admin}          value={me?.role || '-'} badgeTone="ok" caption={me?.admin_source ? `source: ${me.admin_source}` : undefined} />
+            <Row icon="shield" label={copy.admin}          value={me?.role || '-'} badgeTone="ok" caption={me?.admin_source ? `${copy.adminSourcePrefix}: ${me.admin_source}` : undefined} />
           </Section>
 
           <Section title={copy.system}>
