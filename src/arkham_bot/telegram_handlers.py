@@ -748,24 +748,66 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 
+async def _send_card_by_code(update: Update, code: str) -> None:
+    """Fetches and sends a card directly by exact code."""
+    card = await get_card_async(code)
+    if not card:
+        msg = f"Carta <code>{escape(code)}</code> não encontrada."
+        if update.message:
+            await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+        return
+    caption = format_card_caption(card)
+    image_url = urljoin(BASE_URL, f"{code}.{EXTENSIONS_TO_TRY[0]}")
+    img_bytes = await download_image_async(image_url)
+    if img_bytes:
+        if update.message:
+            await update.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
+        elif update.callback_query:
+            await update.callback_query.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
+    else:
+        if update.message:
+            await update.message.reply_text(caption, parse_mode=ParseMode.HTML)
+        elif update.callback_query:
+            await update.callback_query.message.reply_text(caption, parse_mode=ParseMode.HTML)
+
+
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
     import asyncio
     from .arkhamdb_client import fetch_all_cards_sync
-    q = query.lower()
+    q = query.strip()
+
+    # Exact code match (5-6 digits) → show card directly
+    if re.fullmatch(r'\d{5,6}', q):
+        await _send_card_by_code(update, q)
+        return ConversationHandler.END
+
+    q_lower = q.lower()
     try:
         cards = await asyncio.to_thread(fetch_all_cards_sync)
+
+        # Check for exact code match within card list
+        exact = next((c for c in cards if (c.get('code') or '').lower() == q_lower), None)
+        if exact:
+            await _send_card_by_code(update, exact['code'])
+            return ConversationHandler.END
+
         results = [
             c for c in cards
-            if q in (c.get('name') or '').lower()
-            or q in (c.get('real_name') or '').lower()
-            or q == (c.get('code') or '').lower()
+            if q_lower in (c.get('name') or '').lower()
+            or q_lower in (c.get('real_name') or '').lower()
         ][:15]
+
         if not results:
             msg = "Nenhuma carta encontrada. Tente outro termo."
             if update.message:
                 await update.message.reply_text(msg)
-            else:
+            elif update.callback_query:
                 await update.callback_query.edit_message_text(msg)
+            return ConversationHandler.END
+
+        # Single result → show card directly
+        if len(results) == 1:
+            await _send_card_by_code(update, results[0]['code'])
             return ConversationHandler.END
 
         buttons = []
@@ -780,16 +822,15 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 
         buttons.append([InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL)])
         markup = InlineKeyboardMarkup(buttons)
-        text = f"🔍 <b>{len(results)} resultado(s)</b> para «{escape(query)}»:"
+        text = f"🔍 <b>{len(results)} resultado(s)</b> para «{escape(q)}»:"
         if update.message:
             await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
         elif update.callback_query:
             await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
     except Exception as exc:
         logger.error(f"search_run error: {exc}", exc_info=True)
-        msg = "Erro ao buscar cartas."
         if update.message:
-            await update.message.reply_text(msg)
+            await update.message.reply_text("Erro ao buscar cartas.")
     return ConversationHandler.END
 
 
