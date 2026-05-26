@@ -809,18 +809,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
         await query.delete_message()
-        # Delete prompt and user query messages if stored
-        for msg_id_key, chat_id_key in [
-            ("search_prompt_msg_id", "search_prompt_chat_id"),
-            ("search_user_msg_id", "search_user_chat_id"),
-        ]:
-            msg_id = context.user_data.pop(msg_id_key, None)
-            chat_id = context.user_data.pop(chat_id_key, None)
-            if msg_id and chat_id:
-                try:
-                    await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-                except Exception:
-                    pass
+        await _delete_search_context_messages(context, update)
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
@@ -881,6 +870,27 @@ async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
+async def _delete_search_context_messages(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
+    """Deletes the search prompt and the user's query message if stored."""
+    for msg_id_key, chat_id_key in [
+        ("search_prompt_msg_id", "search_prompt_chat_id"),
+        ("search_user_msg_id", "search_user_chat_id"),
+    ]:
+        msg_id = context.user_data.pop(msg_id_key, None)
+        chat_id = context.user_data.pop(chat_id_key, None)
+        if msg_id and chat_id:
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except Exception:
+                pass
+    # Also delete the message that triggered _search_run (user's typed query)
+    if update.message:
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
+
+
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
     import asyncio
     from .arkhamdb_client import fetch_all_cards_sync
@@ -895,6 +905,7 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
         # Exact code match → show card directly (from cache list or API fallback)
         exact = next((c for c in cards if (c.get('code') or '') == q), None)
         if exact or (is_numeric and re.fullmatch(r'\d{5,6}', q)):
+            await _delete_search_context_messages(context, update)
             await _send_card_by_code(update, q)
             return ConversationHandler.END
 
@@ -918,6 +929,7 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 
         # Single result → show card directly
         if len(results) == 1:
+            await _delete_search_context_messages(context, update)
             await _send_card_by_code(update, results[0]['code'])
             return ConversationHandler.END
 
