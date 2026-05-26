@@ -568,9 +568,12 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        await query.edit_message_text("Operation canceled. Type /card to start again.")
+        try:
+            await query.delete_message()
+        except Exception:
+            await query.edit_message_text("✖️ Fechado.")
     else:
-        await update.message.reply_text("Operation canceled. Type /card to start again.")
+        await update.message.reply_text("Operação cancelada.")
 
     context.user_data.clear()
     return ConversationHandler.END
@@ -1750,4 +1753,5 @@ def register_handlers(application):
     application.add_handler(CommandHandler("remove_admin", remove_admin_command))
     application.add_handler(card_conv_handler)
     application.add_handler(CommandHandler("cancel", cancel_conversation))
+    application.add_handler(CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"))
     application.add_error_handler(error_handler)
