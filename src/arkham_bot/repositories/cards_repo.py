@@ -1,5 +1,7 @@
 from ..supabase_client import get_supabase_client
 
+_PAGE = 1000
+
 
 def upsert_card(card: dict) -> None:
     client = get_supabase_client()
@@ -34,3 +36,69 @@ def get_card_by_code(code: str) -> dict | None:
         return None
     rows = client.get("arkham_cards", {"code": f"eq.{code}", "limit": "1"})
     return rows[0] if rows else None
+
+
+def get_all_cards(include_encounter: bool = False) -> list[dict]:
+    """Returns all cards from the DB as raw ArkhamDB dicts. Paginates automatically."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    # Encounter-only type codes (no player deck slot)
+    ENCOUNTER_TYPES = {'enemy', 'treachery', 'location', 'act', 'agenda', 'story'}
+    results = []
+    offset = 0
+    while True:
+        rows = client.get("arkham_cards", {
+            "select": "raw,spoiler",
+            "order": "code.asc",
+            "limit": str(_PAGE),
+            "offset": str(offset),
+        })
+        if not rows:
+            break
+        for row in rows:
+            raw = row.get("raw")
+            if not raw:
+                continue
+            if not include_encounter and raw.get("type_code") in ENCOUNTER_TYPES:
+                continue
+            # Carry spoiler flag from DB column (may differ from raw)
+            raw["spoiler"] = row.get("spoiler") or raw.get("spoiler") or False
+            results.append(raw)
+        if len(rows) < _PAGE:
+            break
+        offset += _PAGE
+    return results
+
+
+def search_cards(query: str, include_encounter: bool = True) -> list[dict]:
+    """Search cards by name or code substring. Returns raw dicts."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    q = query.strip().lower()
+    ENCOUNTER_TYPES = {'enemy', 'treachery', 'location', 'act', 'agenda', 'story'}
+    results = []
+    offset = 0
+    while True:
+        rows = client.get("arkham_cards", {
+            "select": "raw,spoiler",
+            "or": f"(name.ilike.*{q}*,real_name.ilike.*{q}*,code.eq.{q})",
+            "order": "code.asc",
+            "limit": str(_PAGE),
+            "offset": str(offset),
+        })
+        if not rows:
+            break
+        for row in rows:
+            raw = row.get("raw")
+            if not raw:
+                continue
+            if not include_encounter and raw.get("type_code") in ENCOUNTER_TYPES:
+                continue
+            raw["spoiler"] = row.get("spoiler") or raw.get("spoiler") or False
+            results.append(raw)
+        if len(rows) < _PAGE:
+            break
+        offset += _PAGE
+    return results

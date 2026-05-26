@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import re
@@ -35,6 +36,81 @@ from .text_formatters import format_card_back_caption, format_card_caption
 
 logger = logging.getLogger(__name__)
 BOT_STARTED_AT = datetime.now(UTC)
+
+
+async def _fetch_all_cards(include_encounter: bool = False) -> list[dict]:
+    """DB-first card list fetch with API fallback."""
+    import asyncio
+    from .repositories.cards_repo import get_all_cards
+    from .arkhamdb_client import fetch_all_cards_sync
+    try:
+        cards = await asyncio.to_thread(get_all_cards, include_encounter)
+        if cards:
+            return cards
+    except Exception as exc:
+        logger.warning(f"DB get_all_cards failed: {exc}")
+    logger.info("Falling back to ArkhamDB API for all cards")
+    return await asyncio.to_thread(fetch_all_cards_sync, include_encounter)
+
+
+async def _fetch_all_taboos() -> list[dict]:
+    """DB-first taboo list fetch with API fallback."""
+    import asyncio
+    from .repositories.taboos_repo import get_all_taboos
+    from .arkhamdb_client import fetch_taboos_sync
+    try:
+        taboos = await asyncio.to_thread(get_all_taboos)
+        if taboos:
+            return taboos
+    except Exception as exc:
+        logger.warning(f"DB get_all_taboos failed: {exc}")
+    logger.info("Falling back to ArkhamDB API for taboos")
+    return await asyncio.to_thread(fetch_taboos_sync)
+
+
+async def _fetch_all_packs() -> list[dict]:
+    """DB-first packs fetch with API fallback."""
+    import asyncio
+    from .repositories.packs_repo import get_all_packs
+    from .arkhamdb_client import fetch_packs_sync
+    try:
+        packs = await asyncio.to_thread(get_all_packs)
+        if packs:
+            return packs
+    except Exception as exc:
+        logger.warning(f"DB get_all_packs failed: {exc}")
+    logger.info("Falling back to ArkhamDB API for packs")
+    return await asyncio.to_thread(fetch_packs_sync)
+
+
+async def _fetch_all_factions() -> list[dict]:
+    """DB-first factions fetch with API fallback."""
+    import asyncio
+    from .repositories.factions_repo import get_all_factions
+    from .arkhamdb_client import fetch_factions_sync
+    try:
+        factions = await asyncio.to_thread(get_all_factions)
+        if factions:
+            return factions
+    except Exception as exc:
+        logger.warning(f"DB get_all_factions failed: {exc}")
+    logger.info("Falling back to ArkhamDB API for factions")
+    return await asyncio.to_thread(fetch_factions_sync)
+
+
+async def _fetch_faq(card_code: str) -> list | None:
+    """DB-first FAQ fetch with API fallback."""
+    import asyncio
+    from .repositories.faq_repo import get_faq_by_code
+    from .arkhamdb_client import fetch_faq_by_card_code_sync
+    try:
+        faq = await asyncio.to_thread(get_faq_by_code, card_code)
+        if faq is not None:
+            return faq
+    except Exception as exc:
+        logger.warning(f"DB get_faq_by_code failed for {card_code}: {exc}")
+    logger.info(f"Falling back to ArkhamDB API for FAQ {card_code}")
+    return await asyncio.to_thread(fetch_faq_by_card_code_sync, card_code)
 
 PACK_ABBREVIATIONS: dict[str, str] = {
     # Core / Revised Core
@@ -677,11 +753,9 @@ async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     import random
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
 
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards()
         valid_cards = [c for c in cards if c.get('type_code') not in ['set', 'campaign', 'scenario'] and c.get('spoiler', False) is False]
         card = random.choice(valid_cards)
         await update.message.reply_text(
@@ -698,12 +772,9 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /faq <card_code>")
         return
-    import asyncio
-    from .arkhamdb_client import fetch_faq_by_card_code_sync
-
     card_code = context.args[0].strip()
     try:
-        faq = await asyncio.to_thread(fetch_faq_by_card_code_sync, card_code)
+        faq = await _fetch_faq(card_code)
         if not faq:
             await update.message.reply_text(f"No FAQ found for {card_code}.")
             return
@@ -807,13 +878,10 @@ def _taboo_detail_text_and_buttons(taboo: dict, cats: dict) -> tuple[str, Inline
 async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync, fetch_taboos_sync
-
     try:
         taboos, all_cards_raw = await asyncio.gather(
-            asyncio.to_thread(fetch_taboos_sync),
-            asyncio.to_thread(fetch_all_cards_sync, True),
+            _fetch_all_taboos(),
+            _fetch_all_cards(include_encounter=True),
         )
         if not taboos:
             await update.message.reply_text("Nenhuma lista de taboo encontrada.")
@@ -1279,15 +1347,12 @@ def _pop_search_prompt(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
     q = query.strip()
-
     q_lower = q.lower()
     is_numeric = re.fullmatch(r'\d+', q) is not None
 
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync, True)  # include encounter cards
+        cards = await _fetch_all_cards(include_encounter=True)
 
         # Exact code match → show card directly (from cache list or API fallback)
         exact = next((c for c in cards if (c.get('code') or '') == q), None)
@@ -1340,10 +1405,8 @@ async def sets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Lists all available packs as inline buttons. Clicking one lists its cards."""
     if not await _check_rate_limit(update):
         return
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards()
         # Build unique pack list preserving order
         seen: dict[str, str] = {}
         for c in cards:
@@ -1372,10 +1435,8 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
     pack_code = query.data.replace("SET_BROWSE_", "")
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards()
         pack_cards = [c for c in cards if c.get('pack_code') == pack_code]
         if not pack_cards:
             await query.edit_message_text("Nenhuma carta encontrada neste set.")
@@ -1405,10 +1466,8 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Returns to the pack list."""
     query = update.callback_query
     await query.answer()
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards()
         seen: dict[str, str] = {}
         for c in cards:
             code = c.get('pack_code') or ''
@@ -1431,17 +1490,15 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def pack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
-    import asyncio
-    from .arkhamdb_client import fetch_cards_by_pack_sync, fetch_packs_sync
-
     try:
         if not context.args:
-            packs = await asyncio.to_thread(fetch_packs_sync)
+            packs = await _fetch_all_packs()
             text = "Packs:\n" + "\n".join(f"{p.get('code')} — {p.get('name')}" for p in packs[:80])
             await _send_long_or_private(update, text)
             return
         pack_code = context.args[0].strip()
-        cards = await asyncio.to_thread(fetch_cards_by_pack_sync, pack_code)
+        all_cards = await _fetch_all_cards(include_encounter=True)
+        cards = [c for c in all_cards if c.get('pack_code') == pack_code]
         text = f"Cards in pack {pack_code}:\n" + "\n".join(_card_line(c) for c in cards[:80])
         await _send_long_or_private(update, text)
     except Exception as exc:
@@ -1452,16 +1509,13 @@ async def pack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def faction_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync, fetch_factions_sync
-
     try:
         if not context.args:
-            factions = await asyncio.to_thread(fetch_factions_sync)
+            factions = await _fetch_all_factions()
             await update.message.reply_text("Factions:\n" + "\n".join(f"{f.get('code')} — {f.get('name')}" for f in factions))
             return
         faction_code = context.args[0].strip().lower()
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards()
         results = [c for c in cards if str(c.get('faction_code') or '').lower() == faction_code][:80]
         text = f"Cards for faction {faction_code}:\n" + "\n".join(_card_line(c) for c in results)
         await _send_long_or_private(update, text)
@@ -1476,12 +1530,9 @@ async def type_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /type <type_code>")
         return
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
-
     type_code = context.args[0].strip().lower()
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards(include_encounter=True)
         results = [c for c in cards if str(c.get('type_code') or '').lower() == type_code][:80]
         text = f"Cards of type {type_code}:\n" + "\n".join(_card_line(c) for c in results)
         await _send_long_or_private(update, text)
@@ -1496,12 +1547,9 @@ async def xp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or not context.args[0].isdigit():
         await update.message.reply_text("Usage: /xp <number>")
         return
-    import asyncio
-    from .arkhamdb_client import fetch_all_cards_sync
-
     xp_value = int(context.args[0])
     try:
-        cards = await asyncio.to_thread(fetch_all_cards_sync)
+        cards = await _fetch_all_cards()
         results = [c for c in cards if c.get('xp') == xp_value][:80]
         text = f"Cards with XP {xp_value}:\n" + "\n".join(_card_line(c) for c in results)
         await _send_long_or_private(update, text)

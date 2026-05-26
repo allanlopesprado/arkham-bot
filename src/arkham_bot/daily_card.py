@@ -15,6 +15,7 @@ from telegram.constants import ParseMode
 from telegram.error import RetryAfter, TelegramError
 
 from .arkhamdb_client import download_image_sync, fetch_all_cards_sync
+from .repositories.cards_repo import get_all_cards as _db_get_all_cards
 from .card_provider import get_card
 from .ai.daily_card_selector import choose_daily_card_with_ai, generate_card_commentary
 from .config import (
@@ -175,9 +176,14 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 all_cards = load_card_cache()
 
                 if not all_cards:
-                    logger.info("Card list cache expired or missing. Fetching from ArkhamDB API...")
-                    all_cards = fetch_all_cards_sync()
-                    save_card_cache(all_cards)
+                    logger.info("Card list cache empty. Fetching from DB...")
+                    try:
+                        all_cards = _db_get_all_cards()
+                    except Exception as exc:
+                        logger.warning(f"DB fetch failed, falling back to API: {exc}")
+                        all_cards = fetch_all_cards_sync()
+                    if all_cards:
+                        save_card_cache(all_cards)
 
                 include_spoilers = get_setting('include_spoilers', False)
                 timezone_str = get_setting('timezone', 'America/Sao_Paulo')
