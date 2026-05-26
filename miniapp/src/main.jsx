@@ -191,6 +191,7 @@ const I18N = {
     aiPreMessageDelay: 'Delay antes da carta',
     aiPostQuestion: 'Pergunta de discussão',
     aiPostQuestionCaption: 'Envia uma pergunta ao grupo após a foto',
+    aiPostQuestionDelay: 'Delay antes da pergunta',
     aiProvider: 'Fornecedor de IA',
     aiModel: 'Modelo',
     aiCreativity: 'Criatividade',
@@ -216,7 +217,9 @@ const I18N = {
     typesSelected: (n) => `${n} tipo${n !== 1 ? 's' : ''}`,
     // home sections
     overviewTitle: 'Visão geral',
-    actionsTitle: 'Painel',
+    actionsTitle: 'Postagem',
+    configTitle: 'Configurações',
+    systemTitle: 'Sistema',
     // history
     historyTab: 'Histórico',
     historyTitle: 'Histórico de postagens',
@@ -405,6 +408,7 @@ const I18N = {
     aiPreMessageDelay: 'Delay before card',
     aiPostQuestion: 'Discussion question',
     aiPostQuestionCaption: 'Sends a question to the group after the image',
+    aiPostQuestionDelay: 'Delay before question',
     aiProvider: 'AI provider',
     aiModel: 'Model',
     aiCreativity: 'Creativity',
@@ -430,7 +434,9 @@ const I18N = {
     typesSelected: (n) => `${n} type${n !== 1 ? 's' : ''}`,
     // home sections
     overviewTitle: 'Overview',
-    actionsTitle: 'Dashboard',
+    actionsTitle: 'Posting',
+    configTitle: 'Settings',
+    systemTitle: 'System',
     // history
     historyTab: 'History',
     historyTitle: 'Posting history',
@@ -673,6 +679,7 @@ const DEFAULT_SETTINGS = {
   ai_pre_message_enabled: true,
   ai_pre_message_delay_seconds: 0,
   ai_post_question_enabled: true,
+  ai_post_question_delay_seconds: 0,
   ai_model: 'gemini-2.5-flash',
   ai_creativity: 'default',
   include_spoilers: false,
@@ -683,7 +690,7 @@ const DEFAULT_SETTINGS = {
 const SETTINGS_PATCH_KEYS = [
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
-  'ai_pre_message_delay_seconds', 'ai_post_question_enabled', 'ai_model', 'ai_creativity',
+  'ai_pre_message_delay_seconds', 'ai_post_question_enabled', 'ai_post_question_delay_seconds', 'ai_model', 'ai_creativity',
   'include_spoilers', 'allowed_card_types', 'day_config',
 ];
 
@@ -709,6 +716,7 @@ function normalizeSettings(s = {}) {
     ai_pre_message_enabled: typeof s.ai_pre_message_enabled === 'boolean' ? s.ai_pre_message_enabled : true,
     ai_pre_message_delay_seconds: (() => { const n = Number(s.ai_pre_message_delay_seconds); return Number.isInteger(n) && n >= 0 && n <= 3600 ? n : 0; })(),
     ai_post_question_enabled: typeof s.ai_post_question_enabled === 'boolean' ? s.ai_post_question_enabled : true,
+    ai_post_question_delay_seconds: (() => { const n = Number(s.ai_post_question_delay_seconds); return Number.isInteger(n) && n >= 0 && n <= 3600 ? n : 0; })(),
     ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gemini-2.5-flash',
     ai_creativity: ['conservative', 'default', 'creative'].includes(s.ai_creativity) ? s.ai_creativity : 'default',
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
@@ -875,9 +883,9 @@ function SelectRow({ label, value, onChange, children }) {
 }
 
 const DELAY_OPTIONS = [
-  0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60,
+  0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 54, 55, 60,
   120, 180, 240, 300, 360, 420, 480, 540, 600,
-  900, 1200, 1500, 1800, 2700, 3600,
+  900, 1200, 1500, 1800, 2100, 2400, 2700, 3000, 3240, 3600,
 ];
 
 function formatDelay(v, lang) {
@@ -1519,13 +1527,19 @@ function App() {
           </Section>
 
           <Section title={copy.actionsTitle}>
-            <Row icon="send"     label={copy.postCard}    onClick={() => setActiveTab('post')} />
-            <Row icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
-            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
+            <Row icon="send"  label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="clock" label={copy.historyTab} onClick={() => setActiveTab('history')} />
+          </Section>
+
+          <Section title={copy.configTitle}>
+            <Row icon="settings" label={copy.settings} onClick={() => setActiveTab('settings')} />
+            <Row icon="ai"       label={copy.aiTab}    onClick={() => setActiveTab('ai')} />
+          </Section>
+
+          <Section title={copy.systemTitle}>
             <Row icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
-            <Row icon="clock"    label={copy.historyTab}  onClick={() => setActiveTab('history')} />
-            <Row icon="queue"    label={copy.queue}       onClick={() => setActiveTab('queue')}    value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} />
-            <Row icon="server"   label={copy.health}      onClick={() => setActiveTab('health')}   value={workerValue} badgeTone={workerTone} />
+            <Row icon="queue"    label={copy.queue}       onClick={() => setActiveTab('queue')}   value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} />
+            <Row icon="server"   label={copy.health}      onClick={() => setActiveTab('health')}  value={workerValue} badgeTone={workerTone} />
             <Row icon="language" label={copy.language}    onClick={() => setActiveTab('language')} value={copy.langName} />
           </Section>
         </>
@@ -1900,7 +1914,14 @@ function App() {
                     </SelectRow>
                   </>}
                   <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
-                  {settings.ai_post_question_enabled && <Row icon="info" label={copy.aiPostQuestionCaption} />}
+                  {settings.ai_post_question_enabled && <>
+                    <Row icon="info" label={copy.aiPostQuestionCaption} />
+                    <SelectRow label={copy.aiPostQuestionDelay} value={String(settings.ai_post_question_delay_seconds)} onChange={(v) => updateSetting('ai_post_question_delay_seconds', Number(v))}>
+                      {DELAY_OPTIONS.map((v) => (
+                        <option key={v} value={v}>{formatDelay(v, lang)}</option>
+                      ))}
+                    </SelectRow>
+                  </>}
                 </Section>
               </>
             )}

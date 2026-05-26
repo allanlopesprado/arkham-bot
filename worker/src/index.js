@@ -19,7 +19,7 @@ const ADMIN_ROLES = new Set(['owner', 'admin']);
 const SETTINGS_KEYS = new Set([
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
-  'ai_post_question_enabled', 'ai_pre_message_delay_seconds', 'ai_model', 'ai_creativity',
+  'ai_post_question_enabled', 'ai_pre_message_delay_seconds', 'ai_post_question_delay_seconds', 'ai_model', 'ai_creativity',
   'include_spoilers', 'allowed_card_types', 'day_config',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
@@ -284,7 +284,7 @@ function validateSettingsPatch(body) {
       if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };
       settings[key] = value;
     }
-    if (key === 'ai_pre_message_delay_seconds') {
+    if (key === 'ai_pre_message_delay_seconds' || key === 'ai_post_question_delay_seconds') {
       const n = Number(value);
       if (!Number.isInteger(n) || n < 0 || n > 3600) return { error: 'invalid_setting_value', key };
       settings[key] = n;
