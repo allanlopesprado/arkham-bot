@@ -227,6 +227,12 @@ const I18N = {
     databaseTitle: 'Banco de dados',
     databaseTab: 'Banco de dados',
     databaseStatus: 'Status',
+    syncSchedule: 'Agendamento do sync',
+    syncScheduleEnabled: 'Sync automático',
+    syncScheduleEnabledCaption: 'Sincroniza o banco de dados automaticamente',
+    syncScheduleDays: 'Dias da semana',
+    syncScheduleTime: 'Horário',
+    syncScheduleSaved: 'Agendamento salvo.',
     appTitle: 'Aplicativo',
     systemTitle: 'Sistema',
     // history
@@ -458,6 +464,12 @@ const I18N = {
     databaseTitle: 'Database',
     databaseTab: 'Database',
     databaseStatus: 'Status',
+    syncSchedule: 'Sync schedule',
+    syncScheduleEnabled: 'Auto sync',
+    syncScheduleEnabledCaption: 'Automatically sync the database',
+    syncScheduleDays: 'Weekdays',
+    syncScheduleTime: 'Time',
+    syncScheduleSaved: 'Schedule saved.',
     appTitle: 'App',
     systemTitle: 'System',
     // history
@@ -714,6 +726,9 @@ const DEFAULT_SETTINGS = {
   include_spoilers: false,
   allowed_card_types: DEFAULT_CARD_TYPES,
   day_config: {},
+  sync_schedule_enabled: false,
+  sync_schedule_days: ['sun'],
+  sync_schedule_time: '03:00',
 };
 
 const SETTINGS_PATCH_KEYS = [
@@ -721,6 +736,7 @@ const SETTINGS_PATCH_KEYS = [
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
   'ai_pre_message_delay_seconds', 'ai_post_question_enabled', 'ai_post_question_delay_seconds', 'ai_model', 'ai_creativity',
   'include_spoilers', 'allowed_card_types', 'day_config', 'telegram_chat_id',
+  'sync_schedule_enabled', 'sync_schedule_days', 'sync_schedule_time',
 ];
 
 function parseJsonArray(v) {
@@ -752,6 +768,9 @@ function normalizeSettings(s = {}) {
     allowed_card_types: types && types.length ? types : DEFAULT_CARD_TYPES,
     day_config: (() => { let dc = s.day_config; if (typeof dc === 'string') { try { dc = JSON.parse(dc); } catch {} } return (dc && typeof dc === 'object' && !Array.isArray(dc)) ? dc : {}; })(),
     telegram_chat_id: typeof s.telegram_chat_id === 'string' ? s.telegram_chat_id : '',
+    sync_schedule_enabled: typeof s.sync_schedule_enabled === 'boolean' ? s.sync_schedule_enabled : false,
+    sync_schedule_days: (() => { const d = parseJsonArray(s.sync_schedule_days); return d && d.length ? d : ['sun']; })(),
+    sync_schedule_time: typeof s.sync_schedule_time === 'string' && /^\d{2}:\d{2}$/.test(s.sync_schedule_time) ? s.sync_schedule_time : '03:00',
   };
 }
 
@@ -1197,7 +1216,7 @@ function App() {
     const btn = app?.MainButton;
     if (!btn) return;
 
-    if ((activeTab === 'settings' || activeTab === 'day_detail' || activeTab === 'ai') && settingsDirty && !savingSettings) {
+    if ((activeTab === 'settings' || activeTab === 'day_detail' || activeTab === 'ai' || activeTab === 'database') && settingsDirty && !savingSettings) {
       btn.setText(copy.saveSettings);
       btn.show?.();
       // Use ref so handler always calls the latest saveSettings regardless of re-renders
@@ -1264,7 +1283,7 @@ function App() {
 
   // ── Auto-load settings when entering settings or ai tab ────────────────────
   useEffect(() => {
-    if ((activeTab === 'settings' || activeTab === 'ai') && !settingsDirty) fetchSettings();
+    if ((activeTab === 'settings' || activeTab === 'ai' || activeTab === 'database') && !settingsDirty) fetchSettings();
     if (activeTab === 'database') { fetchOverview(); fetchStatus(); }
   }, [activeTab]);
 
@@ -1874,32 +1893,78 @@ function App() {
 
       {/* ── MAINTENANCE ── */}
       {/* ── DATABASE ── */}
-      {activeTab === 'database' && (
-        <>
-          <Section title={copy.syncArkhamDB} footer={copy.syncCaption}>
-            <MenuRow icon="sync" label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
-          </Section>
-
-          <Section title={copy.databaseStatus}>
-            {(() => {
-              const syncDate = overview?.last_sync || sysStatus?.last_sync;
-              return (
-                <>
-                  <Row icon="clock" label={copy.lastSyncAt} value={syncDate ? new Date(syncDate).toLocaleString(copy.locale) : copy.neverSynced} mono={!!syncDate} />
-                  <Row icon="cards" label={copy.cards}      value={loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-')} />
-                  <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
-                </>
-              );
-            })()}
-          </Section>
-
-          {result && (
-            <Section>
-              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+      {activeTab === 'database' && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        return (
+          <>
+            <Section title={copy.syncArkhamDB} footer={copy.syncCaption}>
+              <MenuRow icon="sync" label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
             </Section>
-          )}
-        </>
-      )}
+
+            <Section title={copy.databaseStatus}>
+              {(() => {
+                const syncDate = overview?.last_sync || sysStatus?.last_sync;
+                return (
+                  <>
+                    <Row icon="clock" label={copy.lastSyncAt} value={syncDate ? new Date(syncDate).toLocaleString(copy.locale) : copy.neverSynced} mono={!!syncDate} />
+                    <Row icon="cards" label={copy.cards}      value={loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-')} />
+                    <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
+                  </>
+                );
+              })()}
+            </Section>
+
+            <Section title={copy.syncSchedule}>
+              <ToggleRow
+                label={copy.syncScheduleEnabled}
+                checked={settings.sync_schedule_enabled}
+                onChange={(v) => updateSetting('sync_schedule_enabled', v)}
+              />
+              {settings.sync_schedule_enabled && (
+                <>
+                  <p className="section-note">{copy.syncScheduleEnabledCaption}</p>
+                  <div className="section-title" style={{ paddingTop: 8 }}>{copy.syncScheduleDays}</div>
+                  {WEEKDAYS.map((day) => (
+                    <ToggleRow
+                      key={day.code}
+                      label={day[lang]}
+                      checked={settings.sync_schedule_days.includes(day.code)}
+                      onChange={(checked) => {
+                        const next = checked
+                          ? [...new Set([...settings.sync_schedule_days, day.code])]
+                          : settings.sync_schedule_days.filter((d) => d !== day.code);
+                        updateSetting('sync_schedule_days', next.length ? next : [day.code]);
+                      }}
+                    />
+                  ))}
+                  <div className="time-add-row" style={{ paddingTop: 8 }}>
+                    <Icon name="clock" />
+                    <span className="row-label" style={{ marginRight: 8 }}>{copy.syncScheduleTime}</span>
+                    <input
+                      className="time-add-input"
+                      type="time"
+                      value={settings.sync_schedule_time}
+                      onChange={(e) => updateSetting('sync_schedule_time', e.target.value.slice(0, 5))}
+                    />
+                  </div>
+                </>
+              )}
+            </Section>
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+
+            {result && (
+              <Section>
+                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+              </Section>
+            )}
+          </>
+        );
+      })()}
 
       {activeTab === 'maintenance' && (
         <>

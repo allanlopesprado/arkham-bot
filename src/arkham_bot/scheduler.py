@@ -14,6 +14,7 @@ from .config import (
 )
 from .daily_card import post_daily_card
 from .repositories.settings_repo import get_setting
+from .repositories.commands_repo import enqueue_command
 
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,25 @@ def _runtime_config():
     return enabled, post_times, post_days, timezone_name, day_config
 
 
+def _sync_config():
+    enabled = bool(get_setting("sync_schedule_enabled", False))
+    days = _as_list(get_setting("sync_schedule_days", ["sun"]), ["sun"])
+    time_str = str(get_setting("sync_schedule_time", "03:00") or "03:00")
+    return enabled, days, time_str
+
+
+def _is_sync_due(now: datetime, sync_time: str, state: dict) -> bool:
+    try:
+        hour, minute = [int(p) for p in sync_time.split(":", 1)]
+        scheduled = datetime.combine(now.date(), time(hour, minute), tzinfo=now.tzinfo)
+    except ValueError:
+        return False
+    elapsed_minutes = (now - scheduled).total_seconds() / 60
+    if elapsed_minutes < 0 or elapsed_minutes > POST_WINDOW_MINUTES:
+        return False
+    return state.get("last_sync_date") != now.date().isoformat()
+
+
 def _times_for_day(day_code: str, default_times: list[str], day_config) -> list[str]:
     if not isinstance(day_config, dict):
         return default_times
@@ -81,24 +101,25 @@ async def daily_scheduler_loop() -> None:
         try:
             daily_post_enabled, daily_post_times, daily_post_days, timezone_name, day_config = _runtime_config()
             timezone = ZoneInfo(timezone_name)
+            now = datetime.now(timezone)
+            state = _load_state()
+            today = WEEKDAY_CODES[now.weekday()]
+
             if daily_post_enabled:
-                now = datetime.now(timezone)
-                state = _load_state()
-                today = WEEKDAY_CODES[now.weekday()]
                 for post_time in _times_for_day(today, daily_post_times, day_config):
                     if today not in daily_post_days:
                         continue
                     if _is_due(now, post_time, state):
                         logger.info("daily_post_due")
                         result = await post_daily_card(is_scheduled=True)
-                        state = {
+                        state.update({
                             "last_daily_post_date": now.date().isoformat(),
                             "last_daily_post_time": post_time,
                             "last_daily_post_status": "success" if result.success else "failed",
                             "last_daily_post_error": result.error,
                             "last_daily_post_card_code": result.card_code,
                             "last_daily_post_message_id": result.message_id,
-                        }
+                        })
                         _save_state(state)
                         if result.success:
                             logger.info("daily_post_success")
@@ -106,6 +127,21 @@ async def daily_scheduler_loop() -> None:
                             logger.error(f"daily_post_failure: {result.error}")
                     else:
                         logger.debug("daily_post_skipped_not_due")
+
+            # Auto sync
+            sync_enabled, sync_days, sync_time_str = _sync_config()
+            if sync_enabled:
+                today = WEEKDAY_CODES[now.weekday()]
+                if today in sync_days and _is_sync_due(now, sync_time_str, state):
+                    logger.info("auto_sync_due: enqueuing sync_arkhamdb")
+                    try:
+                        enqueue_command("sync_arkhamdb", {"sync_faq": False, "source": "scheduler"})
+                        state["last_sync_date"] = now.date().isoformat()
+                        _save_state(state)
+                        logger.info("auto_sync_enqueued")
+                    except Exception as sync_exc:
+                        logger.error(f"auto_sync_enqueue_failed: {sync_exc}")
+
         except asyncio.CancelledError:
             logger.info("scheduler_stopped")
             raise
