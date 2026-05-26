@@ -1138,6 +1138,7 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
             await old_prompt.delete()
         except Exception:
             pass
+    context.user_data["search_user_msg_id"] = update.message.message_id
     searching_msg = await update.message.reply_text("🔍 Pesquisando…")
     context.user_data["search_prompt_obj"] = searching_msg
     return await _search_run(update, context, query)
@@ -1255,6 +1256,8 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
+    user_msg_id = context.user_data.get("search_user_msg_id")
+    reply_kwargs = {"reply_to_message_id": user_msg_id} if user_msg_id else {}
     try:
         await query.edit_message_text("🔍 Pesquisando…", parse_mode=ParseMode.HTML)
         card, _ = await get_card_async(card_code)
@@ -1265,11 +1268,11 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         image_src = card.get('imagesrc') or card.get('image_src')
         img = await _fetch_card_image(card_code, image_src)
         if is_spoiler:
-            await query.message.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML)
+            await query.message.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **reply_kwargs)
         if img:
-            front_msg = await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
+            front_msg = await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **reply_kwargs)
         else:
-            front_msg = await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
+            front_msg = await query.message.reply_text(caption, parse_mode=ParseMode.HTML, **reply_kwargs)
         # Post back side if double-sided
         if card.get('double_sided') and front_msg:
             back_text_raw = card.get('back_text')

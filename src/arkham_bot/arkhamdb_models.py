@@ -61,13 +61,13 @@ def validate_card_payload(payload: object, context: str = "card") -> dict:
     string_fields = [
         "code", "name", "real_name", "type_code", "type_name", "faction_code",
         "faction_name", "pack_code", "pack_name", "text", "real_text", "traits",
-        "real_traits", "slot", "imagesrc", "backimagesrc", "back_text", "back_name",
+        "real_traits", "slot", "imagesrc", "backimagesrc", "back_text", "back_name", "back_flavor",
     ]
     number_fields = [
         "position", "xp", "cost", "health", "sanity", "skill_willpower",
         "skill_intellect", "skill_combat", "skill_agility", "skill_wild",
     ]
-    bool_fields = ["is_unique", "permanent", "exceptional", "hidden", "spoiler"]
+    bool_fields = ["is_unique", "permanent", "exceptional", "hidden", "spoiler", "double_sided"]
 
     for key in string_fields:
         _validate_optional_string(card, key, context)

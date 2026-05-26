@@ -27,40 +27,6 @@ from arkham_bot.supabase_client import get_supabase_client
 logger = setup_logging()
 
 
-def map_card_to_row(card: dict) -> dict:
-    return {
-        "code": card.get("code"),
-        "name": card.get("name") or card.get("real_name"),
-        "real_name": card.get("real_name"),
-        "type_code": card.get("type_code"),
-        "subtype_code": card.get("subtype_code"),
-        "faction_code": card.get("faction_code"),
-        "faction_name": card.get("faction_name"),
-        "pack_code": card.get("pack_code"),
-        "pack_name": card.get("pack_name"),
-        "position": card.get("position"),
-        "xp": card.get("xp"),
-        "cost": card.get("cost"),
-        "quantity": card.get("quantity"),
-        "is_unique": card.get("is_unique"),
-        "is_exceptional": card.get("is_exceptional") or card.get("exceptional"),
-        "deck_limit": card.get("deck_limit"),
-        "text": card.get("text"),
-        "real_text": card.get("real_text"),
-        "flavor": card.get("flavor"),
-        "traits": card.get("traits"),
-        "skill_willpower": card.get("skill_willpower"),
-        "skill_intellect": card.get("skill_intellect"),
-        "skill_combat": card.get("skill_combat"),
-        "skill_agility": card.get("skill_agility"),
-        "health": card.get("health"),
-        "sanity": card.get("sanity"),
-        "imagesrc": card.get("imagesrc"),
-        "backimagesrc": card.get("backimagesrc"),
-        "spoiler": bool(card.get("spoiler")),
-        "raw": card,
-    }
-
 
 def _taboo_items(payload) -> list[tuple[str, dict]]:
     if isinstance(payload, dict):
@@ -107,7 +73,7 @@ def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: i
     for taboo_id, taboo in taboo_items:
         upsert_taboo(taboo_id, taboo)
     for card in encounter_cards:
-        upsert_card(map_card_to_row(card))
+        upsert_card(card)
 
     if sync_faq:
         faq_cards = encounter_cards[:faq_limit] if faq_limit else encounter_cards
