@@ -75,7 +75,7 @@ def format_factions_display(card):
     if not factions:
         return ""
 
-    return " / ".join(f"{f} {FACTION_ICONS_MAP.get(f, '⚪')}" for f in factions)
+    return " / ".join(f"{FACTION_ICONS_MAP.get(f, '⚪')} {f}" for f in factions)
 
 
 def skill_test_display(card):
@@ -257,12 +257,10 @@ def format_card_caption(card, is_interactive=False):
     lines.append("")
 
     faction_display = format_factions_display(card)
-    if faction_display:
-        lines.append(faction_display)
-
     tags = _unique_exceptional_tags(card)
-    if tags:
-        lines.append(tags)
+    faction_line = ' | '.join(filter(None, [faction_display, tags]))
+    if faction_line:
+        lines.append(faction_line)
 
     # --- Stats per type ---
 
