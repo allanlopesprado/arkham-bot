@@ -863,7 +863,7 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     resp = await client.post(url, json=req_json, headers=headers)
             else:
                 url = (
-                    f"https://generativelanguage.googleapis.com/v1/models/{ai_model_db}"
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{ai_model_db}"
                     f":generateContent?key={GEMINI_API_KEY}"
                 )
                 req_json = {

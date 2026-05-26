@@ -82,7 +82,7 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
 
 async def _call_gemini(prompt: dict, model: str, temperature: float) -> dict:
     url = (
-        f"https://generativelanguage.googleapis.com/v1/models/{model}"
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
         f":generateContent?key={GEMINI_API_KEY}"
     )
     payload = {
