@@ -968,10 +968,6 @@ def _taboo_name(name_map: dict, code: str) -> str:
     v = name_map.get(code, {})
     return v.get('name', code) if isinstance(v, dict) else str(v)
 
-def _taboo_pack(name_map: dict, code: str) -> str:
-    v = name_map.get(code, {})
-    return v.get('pack', '') if isinstance(v, dict) else ''
-
 
 async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dict) -> None:
     """Sends a card image with its taboo restriction info."""
@@ -1222,7 +1218,6 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
             pass
 
     user_msg = update.message
-    logger.info("_send_card_by_code: sending card %s as reply to msg_id=%s", code, user_msg.message_id if user_msg else None)
 
     if is_spoiler:
         await user_msg.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, do_quote=True)
@@ -1298,7 +1293,6 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
                         await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
                 else:
                     await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
-        logger.info("search_card_selected: sent card %s as reply to msg_id=%s", card_code, user_msg_id)
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
