@@ -3,7 +3,12 @@ from datetime import datetime, timedelta, timezone
 from ..supabase_client import get_supabase_client
 
 
-def enqueue_command(command_type: str, payload: dict | None = None, requested_by: int | None = None) -> dict | None:
+def enqueue_command(
+    command_type: str,
+    payload: dict | None = None,
+    requested_by: int | None = None,
+    requested_by_name: str | None = None,
+) -> dict | None:
     client = get_supabase_client()
     if not client:
         return None
@@ -16,6 +21,8 @@ def enqueue_command(command_type: str, payload: dict | None = None, requested_by
     }
     if requested_by is not None:
         row["requested_by_telegram_user_id"] = requested_by
+    if requested_by_name is not None:
+        row["requested_by_name"] = requested_by_name
     rows = client.post("bot_commands", row, prefer="return=representation")
     return rows[0] if rows else None
 

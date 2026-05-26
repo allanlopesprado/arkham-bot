@@ -340,14 +340,14 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 save_posted_card(card_code)
                 log_posting_history(card_code, card.get('name'), "POSTED_FRONT_SUCCESS")
                 try:
-                    create_history_entry({
-                        'card_code': card_code,
-                        'card_name': card.get('name'),
-                        'status': 'POSTED_FRONT_SUCCESS',
-                        'source': 'scheduled' if is_scheduled else 'manual',
-                        'telegram_message_id': message.message_id,
-                        'target_chat_id': chat_id,
-                    })
+                    create_history_entry(
+                        card_code=card_code,
+                        card_name=card.get('name'),
+                        status='POSTED_FRONT_SUCCESS',
+                        source='scheduled' if is_scheduled else 'manual',
+                        telegram_message_id=message.message_id,
+                        target_chat_id=chat_id,
+                    )
                 except Exception as _he:
                     logger.warning(f"history_entry_failed: {_he}")
                 break

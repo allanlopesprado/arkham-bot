@@ -1790,10 +1790,12 @@ async def sync_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not await _require_admin(update):
         return
     from .repositories.commands_repo import enqueue_command
-    user_id = update.effective_user.id if update.effective_user else None
+    user = update.effective_user
+    user_id = user.id if user else None
+    user_name = user.full_name if user else None
     args = context.args or []
     sync_faq = "faq" in args
-    cmd = enqueue_command("sync_arkhamdb", payload={"sync_faq": sync_faq}, requested_by=user_id)
+    cmd = enqueue_command("sync_arkhamdb", payload={"sync_faq": sync_faq}, requested_by=user_id, requested_by_name=user_name)
     if cmd:
         await update.message.reply_text(
             f"✅ Sync enfileirado (ID: <code>{cmd.get('id', '?')}</code>).\n"
