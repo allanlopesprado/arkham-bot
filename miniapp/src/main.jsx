@@ -188,6 +188,7 @@ const I18N = {
     aiTone: 'Tom narrativo',
     aiPreMessage: 'Mensagem introdutória',
     aiPreMessageCaption: 'Envia texto atmosférico antes da foto da carta',
+    aiPreMessageDelay: 'Delay antes da carta',
     aiPostQuestion: 'Pergunta de discussão',
     aiPostQuestionCaption: 'Envia uma pergunta ao grupo após a foto',
     aiProvider: 'Fornecedor de IA',
@@ -401,6 +402,7 @@ const I18N = {
     aiTone: 'Narrative tone',
     aiPreMessage: 'Intro message',
     aiPreMessageCaption: 'Sends atmospheric text before the card image',
+    aiPreMessageDelay: 'Delay before card',
     aiPostQuestion: 'Discussion question',
     aiPostQuestionCaption: 'Sends a question to the group after the image',
     aiProvider: 'AI provider',
@@ -669,6 +671,7 @@ const DEFAULT_SETTINGS = {
   ai_tone: 'random',
   ai_auto_only: true,
   ai_pre_message_enabled: true,
+  ai_pre_message_delay_seconds: 0,
   ai_post_question_enabled: true,
   ai_model: 'gemini-2.5-flash',
   ai_creativity: 'default',
@@ -680,7 +683,7 @@ const DEFAULT_SETTINGS = {
 const SETTINGS_PATCH_KEYS = [
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
-  'ai_post_question_enabled', 'ai_model', 'ai_creativity',
+  'ai_pre_message_delay_seconds', 'ai_post_question_enabled', 'ai_model', 'ai_creativity',
   'include_spoilers', 'allowed_card_types', 'day_config',
 ];
 
@@ -704,6 +707,7 @@ function normalizeSettings(s = {}) {
     ai_tone: AI_TONES.some((t) => t.value === s.ai_tone) ? s.ai_tone : 'random',
     ai_auto_only: typeof s.ai_auto_only === 'boolean' ? s.ai_auto_only : true,
     ai_pre_message_enabled: typeof s.ai_pre_message_enabled === 'boolean' ? s.ai_pre_message_enabled : true,
+    ai_pre_message_delay_seconds: (() => { const n = Number(s.ai_pre_message_delay_seconds); return Number.isInteger(n) && n >= 0 && n <= 300 ? n : 0; })(),
     ai_post_question_enabled: typeof s.ai_post_question_enabled === 'boolean' ? s.ai_post_question_enabled : true,
     ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gemini-2.5-flash',
     ai_creativity: ['conservative', 'default', 'creative'].includes(s.ai_creativity) ? s.ai_creativity : 'default',
@@ -1874,7 +1878,17 @@ function App() {
 
                 <Section title={copy.postCard}>
                   <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
-                  {settings.ai_pre_message_enabled && <Row icon="info" label={copy.aiPreMessageCaption} />}
+                  {settings.ai_pre_message_enabled && <>
+                    <Row icon="info" label={copy.aiPreMessageCaption} />
+                    <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
+                      <option value="0">{lang === 'pt' ? 'Sem delay' : 'No delay'}</option>
+                      <option value="15">15 {lang === 'pt' ? 'segundos' : 'seconds'}</option>
+                      <option value="30">30 {lang === 'pt' ? 'segundos' : 'seconds'}</option>
+                      <option value="60">1 {lang === 'pt' ? 'minuto' : 'minute'}</option>
+                      <option value="120">2 {lang === 'pt' ? 'minutos' : 'minutes'}</option>
+                      <option value="300">5 {lang === 'pt' ? 'minutos' : 'minutes'}</option>
+                    </SelectRow>
+                  </>}
                   <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
                   {settings.ai_post_question_enabled && <Row icon="info" label={copy.aiPostQuestionCaption} />}
                 </Section>

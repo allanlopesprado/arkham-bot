@@ -126,6 +126,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
             ai_language = get_setting('ai_language', 'pt-BR')
             ai_enabled = get_setting('ai_enabled', True)
             ai_auto_only = get_setting('ai_auto_only', True)
+            ai_pre_message_delay = int(get_setting('ai_pre_message_delay_seconds', 0) or 0)
             ai_tone = get_setting('ai_tone', None) or None
             ai_pre_message_enabled = get_setting('ai_pre_message_enabled', True)
             ai_post_question_enabled = get_setting('ai_post_question_enabled', True)
@@ -317,6 +318,9 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         parse_mode=ParseMode.HTML,
                     )
                     pre_message_sent = True
+                    if ai_pre_message_delay > 0:
+                        logger.info(f"Waiting {ai_pre_message_delay}s before posting card (ai_pre_message_delay)")
+                        await asyncio.sleep(ai_pre_message_delay)
 
                 message = await bot.send_photo(
                     chat_id=chat_id,
