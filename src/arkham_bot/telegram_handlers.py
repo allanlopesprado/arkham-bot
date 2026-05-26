@@ -717,8 +717,17 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
     if not query:
         await update.message.reply_text("Digite algo para buscar.")
         return SEARCH_WAITING_QUERY
-    context.user_data["search_user_msg_id"] = update.message.message_id
-    context.user_data["search_user_chat_id"] = update.message.chat_id
+    # Delete the original prompt and send a "Pesquisando…" message in its place
+    old_prompt = context.user_data.pop("search_prompt_obj", None)
+    context.user_data.pop("search_prompt_msg_id", None)
+    context.user_data.pop("search_prompt_chat_id", None)
+    if old_prompt:
+        try:
+            await old_prompt.delete()
+        except Exception:
+            pass
+    searching_msg = await update.message.reply_text("🔍 Pesquisando…")
+    context.user_data["search_prompt_obj"] = searching_msg
     return await _search_run(update, context, query)
 
 
@@ -766,13 +775,7 @@ def _spoiler_caption(card: dict) -> tuple[str, bool]:
 
 async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> None:
     """Fetches and sends a card (front + back if double-sided) as reply to user's message.
-    prompt_message: the bot's search prompt message to edit/delete around the operation."""
-    if prompt_message:
-        try:
-            await prompt_message.edit_text("🔍 Pesquisando…")
-        except Exception:
-            pass
-
+    prompt_message: the bot's 'Pesquisando…' message — deleted after card is sent."""
     card, _ = await get_card_async(code)
     target = update.message or (update.callback_query.message if update.callback_query else None)
 

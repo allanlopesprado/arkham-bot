@@ -258,7 +258,7 @@ def format_card_back_caption(card, back_text_raw, is_interactive=False):
     lines = []
 
     prefix = "" if is_interactive else "[COTD] "
-    lines.append(f"<b>{prefix}Card Back: {back_name}</b>")
+    lines.append(f"<b>{prefix}Card: {back_name} - Back</b>")
     lines.append("")
 
     if back_text_formatted:
