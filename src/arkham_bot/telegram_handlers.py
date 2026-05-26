@@ -698,12 +698,14 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # If query was passed inline (e.g. /search shrivelling), run immediately
     if context.args:
         return await _search_run(update, context, " ".join(context.args).strip())
-    await update.message.reply_text(
+    prompt = await update.message.reply_text(
         "🔍 Digite o nome ou código da carta:",
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL)
+            InlineKeyboardButton("❌ Cancelar", callback_data=CALLBACK_CANCEL)
         ]])
     )
+    context.user_data["search_prompt_msg_id"] = prompt.message_id
+    context.user_data["search_prompt_chat_id"] = prompt.chat_id
     return SEARCH_WAITING_QUERY
 
 
@@ -714,6 +716,8 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
     if not query:
         await update.message.reply_text("Digite algo para buscar.")
         return SEARCH_WAITING_QUERY
+    context.user_data["search_user_msg_id"] = update.message.message_id
+    context.user_data["search_user_chat_id"] = update.message.chat_id
     return await _search_run(update, context, query)
 
 
@@ -805,6 +809,18 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
         await query.delete_message()
+        # Delete prompt and user query messages if stored
+        for msg_id_key, chat_id_key in [
+            ("search_prompt_msg_id", "search_prompt_chat_id"),
+            ("search_user_msg_id", "search_user_chat_id"),
+        ]:
+            msg_id = context.user_data.pop(msg_id_key, None)
+            chat_id = context.user_data.pop(chat_id_key, None)
+            if msg_id and chat_id:
+                try:
+                    await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                except Exception:
+                    pass
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
