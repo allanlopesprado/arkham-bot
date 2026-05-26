@@ -706,6 +706,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
     context.user_data["search_prompt_msg_id"] = prompt.message_id
     context.user_data["search_prompt_chat_id"] = prompt.chat_id
+    context.user_data["search_prompt_obj"] = prompt
     return SEARCH_WAITING_QUERY
 
 
@@ -763,29 +764,73 @@ def _spoiler_caption(card: dict) -> tuple[str, bool]:
     return caption, True
 
 
-async def _send_card_by_code(update: Update, code: str) -> None:
-    """Fetches and sends a card directly by exact code."""
+async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> None:
+    """Fetches and sends a card (front + back if double-sided) as reply to user's message.
+    prompt_message: the bot's search prompt message to edit/delete around the operation."""
+    if prompt_message:
+        try:
+            await prompt_message.edit_text("🔍 Pesquisando…")
+        except Exception:
+            pass
+
     card, _ = await get_card_async(code)
+    target = update.message or (update.callback_query.message if update.callback_query else None)
+
     if not card:
-        msg = f"Carta <code>{escape(code)}</code> não encontrada."
-        target = update.message or (update.callback_query.message if update.callback_query else None)
+        if prompt_message:
+            try:
+                await prompt_message.delete()
+            except Exception:
+                pass
         if target:
-            await target.reply_text(msg, parse_mode=ParseMode.HTML)
+            reply_to = update.message.message_id if update.message else None
+            await target.reply_text(
+                f"Carta <code>{escape(code)}</code> não encontrada.",
+                parse_mode=ParseMode.HTML,
+                **({"reply_to_message_id": reply_to} if reply_to else {})
+            )
         return
+
     caption, is_spoiler = _spoiler_caption(card)
     image_src = card.get('imagesrc') or card.get('image_src')
     img = await _fetch_card_image(code, image_src)
-    target = update.message or (update.callback_query.message if update.callback_query else None)
+
     if not target:
         return
+
     reply_to = update.message.message_id if update.message else None
     kwargs = {"reply_to_message_id": reply_to} if reply_to else {}
+
     if is_spoiler:
         await target.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **kwargs)
+
     if img:
-        await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **kwargs)
+        front_msg = await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **kwargs)
     else:
-        await target.reply_text(caption, parse_mode=ParseMode.HTML, **kwargs)
+        front_msg = await target.reply_text(caption, parse_mode=ParseMode.HTML, **kwargs)
+
+    # Post back side if double-sided
+    if card.get('double_sided') and front_msg:
+        back_image_src = card.get('backimagesrc')
+        back_text_raw = card.get('back_text')
+        back_flavor_raw = card.get('back_flavor')
+        if back_text_raw or back_flavor_raw:
+            back_caption = format_card_back_caption(card, back_text_raw, is_interactive=True)
+            back_img = await _fetch_card_image(f"{code}b", back_image_src)
+            back_kwargs = {"reply_to_message_id": front_msg.message_id}
+            if back_img:
+                try:
+                    await target.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                except Exception:
+                    await target.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+            else:
+                await target.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+
+    if prompt_message:
+        try:
+            await prompt_message.delete()
+        except Exception:
+            pass
 
 
 async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -793,25 +838,37 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
     try:
+        await query.edit_message_text("🔍 Pesquisando…", parse_mode=ParseMode.HTML)
         card, _ = await get_card_async(card_code)
         if not card:
             await query.edit_message_text("Carta não encontrada.")
             return ConversationHandler.END
-        await query.edit_message_text(
-            f"🃏 Carregando <b>{escape(card.get('name', card_code))}</b>…",
-            parse_mode=ParseMode.HTML
-        )
         caption, is_spoiler = _spoiler_caption(card)
         image_src = card.get('imagesrc') or card.get('image_src')
         img = await _fetch_card_image(card_code, image_src)
         if is_spoiler:
             await query.message.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML)
         if img:
-            await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
+            front_msg = await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
         else:
-            await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
+            front_msg = await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
+        # Post back side if double-sided
+        if card.get('double_sided') and front_msg:
+            back_text_raw = card.get('back_text')
+            back_flavor_raw = card.get('back_flavor')
+            if back_text_raw or back_flavor_raw:
+                back_caption = format_card_back_caption(card, back_text_raw, is_interactive=True)
+                back_img = await _fetch_card_image(f"{card_code}b", card.get('backimagesrc'))
+                back_kwargs = {"reply_to_message_id": front_msg.message_id}
+                if back_img:
+                    try:
+                        await query.message.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                    except Exception:
+                        await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                else:
+                    await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
         await query.delete_message()
-        await _delete_search_context_messages(context, update)
+        _pop_search_prompt(context)
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
@@ -872,18 +929,14 @@ async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
-async def _delete_search_context_messages(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
-    """Deletes only the bot's search prompt message."""
-    msg_id = context.user_data.pop("search_prompt_msg_id", None)
-    chat_id = context.user_data.pop("search_prompt_chat_id", None)
-    # Clear stored user msg refs without deleting them
+def _pop_search_prompt(context: ContextTypes.DEFAULT_TYPE):
+    """Returns the stored prompt message object and clears all search context keys."""
+    prompt = context.user_data.pop("search_prompt_obj", None)
+    context.user_data.pop("search_prompt_msg_id", None)
+    context.user_data.pop("search_prompt_chat_id", None)
     context.user_data.pop("search_user_msg_id", None)
     context.user_data.pop("search_user_chat_id", None)
-    if msg_id and chat_id:
-        try:
-            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-        except Exception:
-            pass
+    return prompt
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
@@ -900,8 +953,8 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
         # Exact code match → show card directly (from cache list or API fallback)
         exact = next((c for c in cards if (c.get('code') or '') == q), None)
         if exact or (is_numeric and re.fullmatch(r'\d{5,6}', q)):
-            await _delete_search_context_messages(context, update)
-            await _send_card_by_code(update, q)
+            prompt = _pop_search_prompt(context)
+            await _send_card_by_code(update, q, prompt_message=prompt)
             return ConversationHandler.END
 
         if is_numeric:
@@ -924,8 +977,8 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 
         # Single result → show card directly
         if len(results) == 1:
-            await _delete_search_context_messages(context, update)
-            await _send_card_by_code(update, results[0]['code'])
+            prompt = _pop_search_prompt(context)
+            await _send_card_by_code(update, results[0]['code'], prompt_message=prompt)
             return ConversationHandler.END
 
         # Store full result list for pagination
