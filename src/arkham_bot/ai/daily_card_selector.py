@@ -183,7 +183,7 @@ async def choose_daily_card_with_ai(
         "Prefer cards with rich text or flavor for a more engaging post.",
     ]
     if pre_message_enabled:
-        rules.append("pre_message sets the atmosphere BEFORE the card image is shown — it must stand alone without naming the card. Max 280 chars.")
+        rules.append("pre_message sets the atmosphere BEFORE the card image is shown — it must stand alone without naming the card. Always end with a short, varied call-to-action inviting the group to see the Card of the Day (e.g. 'Prontos para o card do dia?', 'O card de hoje aguarda...', 'Será que estão preparados?', 'Descubram o card de hoje.' — never repeat the same phrase twice). Max 280 chars total.")
     else:
         rules.append("pre_message must be an empty string.")
     if post_question_enabled:
