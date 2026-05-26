@@ -897,7 +897,7 @@ function SelectRow({ label, value, onChange, children }) {
 }
 
 const DELAY_OPTIONS = [
-  0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 54, 55, 60,
+  0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60,
   120, 180, 240, 300, 360, 420, 480, 540, 600,
   900, 1200, 1500, 1800, 2100, 2400, 2700, 3000, 3300, 3600,
 ];
@@ -1071,6 +1071,9 @@ function App() {
   const isAdmin = me?.admin === true;
   const actionsDisabled = !isAdmin || !apiConfigured || loadingCmd !== null;
   const settingsDirty = !settingsEqual(settings, savedSettings);
+  // Ref always holds the latest settingsDirty — safe to read inside stale async closures
+  const settingsDirtyRef = useRef(false);
+  settingsDirtyRef.current = settingsDirty;
 
   // ── Telegram setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1210,7 +1213,7 @@ function App() {
     setLoadingOverview(true);
     try {
       const { ok, status, json } = await apiFetch('/overview');
-      if (ok) { setOverview(json); if (json.settings && !settingsDirty) applySettings(json.settings); }
+      if (ok) { setOverview(json); if (json.settings && !settingsDirtyRef.current) applySettings(json.settings); }
       else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setLoadingOverview(false); }
@@ -1233,7 +1236,7 @@ function App() {
     setSettingsResult(null);
     try {
       const { ok, status, json } = await apiFetch('/settings');
-      if (ok) { applySettings(json.settings); }
+      if (ok) { if (!settingsDirtyRef.current) applySettings(json.settings); }
       else setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setLoadingSettings(false); }
@@ -1949,8 +1952,8 @@ function App() {
             {settings.ai_enabled && (
               <>
                 <Section title={copy.aiLanguage}>
-                  <ToggleRow label={copy.aiLanguagePt} checked={settings.ai_language === 'pt-BR'} onChange={(v) => { if (v) updateSetting('ai_language', 'pt-BR'); }} />
-                  <ToggleRow label={copy.aiLanguageEn} checked={settings.ai_language === 'en-US'} onChange={(v) => { if (v) updateSetting('ai_language', 'en-US'); }} />
+                  <ToggleRow label={copy.aiLanguagePt} checked={settings.ai_language === 'pt-BR'} onChange={() => updateSetting('ai_language', 'pt-BR')} />
+                  <ToggleRow label={copy.aiLanguageEn} checked={settings.ai_language === 'en-US'} onChange={() => updateSetting('ai_language', 'en-US')} />
                 </Section>
 
                 <Section title={copy.aiTone}>
@@ -2029,12 +2032,12 @@ function App() {
           <ToggleRow
             label={copy.portuguese}
             checked={language === 'pt'}
-            onChange={(checked) => { if (checked) { setLanguage('pt'); writeLangStorage('pt'); haptic('selection'); } }}
+            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); haptic('selection'); }}
           />
           <ToggleRow
             label={copy.englishLang}
             checked={language === 'en'}
-            onChange={(checked) => { if (checked) { setLanguage('en'); writeLangStorage('en'); haptic('selection'); } }}
+            onChange={() => { setLanguage('en'); writeLangStorage('en'); haptic('selection'); }}
           />
         </Section>
       )}
