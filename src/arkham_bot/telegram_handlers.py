@@ -745,6 +745,20 @@ async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.
     return None
 
 
+def _spoiler_caption(card: dict) -> tuple[str, bool]:
+    """Returns (caption, is_spoiler). If spoiler, wraps body in <tg-spoiler>."""
+    is_spoiler = bool(card.get('spoiler'))
+    full_caption = format_card_caption(card)
+    if not is_spoiler:
+        return full_caption, False
+    name = escape(card.get('name') or card.get('real_name') or card.get('code', ''))
+    # Keep name visible, wrap everything else in spoiler tag
+    lines = full_caption.split('\n', 1)
+    body = lines[1] if len(lines) > 1 else ''
+    caption = f"{lines[0]}\n<tg-spoiler>{body}</tg-spoiler>" if body else lines[0]
+    return caption, True
+
+
 async def _send_card_by_code(update: Update, code: str) -> None:
     """Fetches and sends a card directly by exact code."""
     card = await get_card_async(code)
@@ -754,14 +768,16 @@ async def _send_card_by_code(update: Update, code: str) -> None:
         if target:
             await target.reply_text(msg, parse_mode=ParseMode.HTML)
         return
-    caption = format_card_caption(card)
+    caption, is_spoiler = _spoiler_caption(card)
     image_src = card.get('imagesrc') or card.get('image_src')
     img = await _fetch_card_image(code, image_src)
     target = update.message or (update.callback_query.message if update.callback_query else None)
     if not target:
         return
+    if is_spoiler:
+        await target.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML)
     if img:
-        await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML)
+        await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
     else:
         await target.reply_text(caption, parse_mode=ParseMode.HTML)
 
@@ -779,11 +795,13 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
             f"🃏 Carregando <b>{escape(card.get('name', card_code))}</b>…",
             parse_mode=ParseMode.HTML
         )
-        caption = format_card_caption(card)
+        caption, is_spoiler = _spoiler_caption(card)
         image_src = card.get('imagesrc') or card.get('image_src')
         img = await _fetch_card_image(card_code, image_src)
+        if is_spoiler:
+            await query.message.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML)
         if img:
-            await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML)
+            await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
         else:
             await query.message.reply_text(caption, parse_mode=ParseMode.HTML)
         await query.delete_message()
