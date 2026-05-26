@@ -748,7 +748,7 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Nenhuma lista de taboo encontrada.")
             return
 
-        name_map = {c['code']: (c.get('name') or c.get('real_name') or c['code']) for c in all_cards_raw if c.get('code')}
+        name_map = {c['code']: {'name': c.get('name') or c.get('real_name') or c['code'], 'pack': c.get('pack_name') or ''} for c in all_cards_raw if c.get('code')}
         sorted_lists = sorted(taboos, key=lambda t: t.get('date_start', ''), reverse=True)
         context.bot_data['taboo_all_lists'] = sorted_lists
         context.bot_data['taboo_name_map'] = name_map
@@ -758,7 +758,7 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             q = " ".join(context.args).strip().lower()
             by_code = _parse_taboo_cards(sorted_lists[0])
             matches = {code: entry for code, entry in by_code.items()
-                       if q in name_map.get(code, '').lower() or q == code.lower()}
+                       if q in _taboo_name(name_map, code).lower() or q == code.lower()}
             if not matches:
                 await update.message.reply_text(f"Nenhuma restrição taboo encontrada para «{escape(q)}».", parse_mode=ParseMode.HTML)
                 return
@@ -768,7 +768,7 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             lines = [f"<b>Resultados taboo para «{escape(q)}»:</b>"]
             for code, entry in list(matches.items())[:20]:
-                lines.append(f"• <b>{escape(name_map.get(code, code))}</b> ({code}) — {escape(_taboo_restriction_label(entry))}")
+                lines.append(f"• <b>{escape(_taboo_name(name_map, code))}</b> ({code}) — {escape(_taboo_restriction_label(entry))}")
             await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
             return
 
@@ -816,10 +816,19 @@ async def taboo_lists_back_callback(update: Update, context: ContextTypes.DEFAUL
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
+def _taboo_name(name_map: dict, code: str) -> str:
+    v = name_map.get(code, {})
+    return v.get('name', code) if isinstance(v, dict) else str(v)
+
+def _taboo_pack(name_map: dict, code: str) -> str:
+    v = name_map.get(code, {})
+    return v.get('pack', '') if isinstance(v, dict) else ''
+
+
 async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dict) -> None:
     """Sends a card image with its taboo restriction info."""
     card, _ = await get_card_async(code)
-    name = name_map.get(code) or (card.get('name') if card else code)
+    name = _taboo_name(name_map, code) or (card.get('name') if card else code)
     restriction = _taboo_restriction_label(entry)
     text_note = entry.get('text') or entry.get('replacement_text') or ''
 
@@ -866,9 +875,11 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
 
     buttons = []
     for code, entry in chunk:
-        name = name_map.get(code, code)
+        name = _taboo_name(name_map, code)
+        pack = _taboo_pack(name_map, code)
         restriction = _taboo_restriction_label(entry)
-        btn_label = f"{name} — {restriction}"
+        parts = [p for p in [pack, name, code, restriction] if p]
+        btn_label = " — ".join(parts)
         if len(btn_label) > 64:
             btn_label = btn_label[:61] + "…"
         buttons.append([InlineKeyboardButton(btn_label, callback_data=f"TABOO_CARD_{code}")])
