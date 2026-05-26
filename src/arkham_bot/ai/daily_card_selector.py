@@ -71,15 +71,19 @@ def validate_ai_choice(payload: dict, candidate_codes: set[str]) -> AIDailyCardC
     return AIDailyCardChoice(code, pre, post, reason)
 
 
-async def _call_openai(prompt: dict) -> dict:
+VALID_MODELS = {"gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-4o-mini"}
+TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.2}
+
+
+async def _call_openai(prompt: dict, model: str = AI_MODEL, temperature: float = 0.9) -> dict:
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": AI_MODEL,
+                "model": model,
                 "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
-                "temperature": 0.9,
+                "temperature": temperature,
                 "response_format": {"type": "json_object"},
             },
         )
@@ -88,7 +92,15 @@ async def _call_openai(prompt: dict) -> dict:
     return json.loads(data["choices"][0]["message"]["content"])
 
 
-async def choose_daily_card_with_ai(candidates: list[dict], language: str = "pt-BR") -> AIDailyCardChoice | None:
+async def choose_daily_card_with_ai(
+    candidates: list[dict],
+    language: str = "pt-BR",
+    tone: str | None = None,
+    pre_message_enabled: bool = True,
+    post_question_enabled: bool = True,
+    model: str | None = None,
+    creativity: str = "default",
+) -> AIDailyCardChoice | None:
     """Selects a card from candidates AND generates commentary for it."""
     if not AI_DAILY_CARD_ENABLED:
         logger.debug("choose_daily_card_with_ai: skipped — AI_DAILY_CARD_ENABLED=false")
@@ -99,47 +111,65 @@ async def choose_daily_card_with_ai(candidates: list[dict], language: str = "pt-
     if not candidates:
         return None
 
-    tone = random.choice(TONES)
+    effective_tone = tone if tone and tone in TONES else random.choice(TONES)
+    effective_model = model if model and model in VALID_MODELS else AI_MODEL
+    temperature = TEMPERATURE_MAP.get(creativity, 0.9)
+
     candidate_codes = {str(card.get("code")) for card in candidates if card.get("code")}
     compact_cards = [_compact(card) for card in candidates[:50]]
+
+    rules = [
+        "Return strict JSON only — no markdown, no extra keys.",
+        "selected_card_code must be exactly one of the candidate codes.",
+        "Use the card's traits, text, and flavor as creative inspiration — do not copy them verbatim.",
+        f"Both pre_message and post_question must be written in natural {language}.",
+        "Do not include Markdown, HTML, links, hashtags, or emojis.",
+        f"Tone for this post: {effective_tone}. Let the tone influence word choice and rhythm.",
+        "Vary sentence structure — avoid starting both fields with the same word.",
+        "Prefer cards with rich text or flavor for a more engaging post.",
+    ]
+    if pre_message_enabled:
+        rules.append("pre_message sets the atmosphere BEFORE the card image is shown — it must stand alone without naming the card. Max 280 chars.")
+    else:
+        rules.append("pre_message must be an empty string.")
+    if post_question_enabled:
+        rules.append("post_question invites group discussion about the card's mechanics, strategy, or lore. Max 220 chars.")
+    else:
+        rules.append("post_question must be an empty string.")
 
     prompt = {
         "task": "Choose one Arkham Horror LCG card as the Card of the Day and write atmospheric commentary for Telegram.",
         "language": language,
-        "tone": tone,
-        "rules": [
-            "Return strict JSON only — no markdown, no extra keys.",
-            "selected_card_code must be exactly one of the candidate codes.",
-            "Use the card's traits, text, and flavor as creative inspiration — do not copy them verbatim.",
-            "pre_message sets the atmosphere BEFORE the card image is shown — it must stand alone without naming the card.",
-            "post_question invites group discussion about the card's mechanics, strategy, or lore.",
-            f"Both pre_message and post_question must be written in natural {language}.",
-            "Do not include Markdown, HTML, links, hashtags, or emojis.",
-            "pre_message max 280 chars. post_question max 220 chars.",
-            f"Tone for this post: {tone}. Let the tone influence word choice and rhythm.",
-            "Vary sentence structure — avoid starting both fields with the same word.",
-            "Prefer cards with rich text or flavor for a more engaging post.",
-        ],
+        "tone": effective_tone,
+        "rules": rules,
         "candidates": compact_cards,
         "schema": {
             "selected_card_code": "string",
-            "pre_message": "string — atmospheric intro, no card name, max 280 chars",
-            "post_question": "string — discussion prompt about mechanics or lore, max 220 chars",
+            "pre_message": "string — atmospheric intro, no card name, max 280 chars (empty string if disabled)",
+            "post_question": "string — discussion prompt about mechanics or lore, max 220 chars (empty string if disabled)",
             "reason": "string — internal reasoning for card selection, not shown to users, max 500 chars",
         },
     }
 
     try:
-        payload = await _call_openai(prompt)
+        payload = await _call_openai(prompt, model=effective_model, temperature=temperature)
         choice = validate_ai_choice(payload, candidate_codes)
-        logger.info("ai_select tone=%s card=%s", tone, choice.selected_card_code)
+        logger.info("ai_select tone=%s model=%s card=%s", effective_tone, effective_model, choice.selected_card_code)
         return choice
     except Exception as exc:
         logger.warning("ai_daily_card_choice_failed: %s", exc)
         return None
 
 
-async def generate_card_commentary(card: dict, language: str = "pt-BR") -> AIDailyCardChoice | None:
+async def generate_card_commentary(
+    card: dict,
+    language: str = "pt-BR",
+    tone: str | None = None,
+    pre_message_enabled: bool = True,
+    post_question_enabled: bool = True,
+    model: str | None = None,
+    creativity: str = "default",
+) -> AIDailyCardChoice | None:
     """Generates pre_message and post_question for a specific card (used for manual posts)."""
     if not AI_DAILY_CARD_ENABLED:
         logger.debug("generate_card_commentary: skipped — AI_DAILY_CARD_ENABLED=false")
@@ -150,26 +180,35 @@ async def generate_card_commentary(card: dict, language: str = "pt-BR") -> AIDai
     if not card:
         return None
 
-    tone = random.choice(TONES)
+    effective_tone = tone if tone and tone in TONES else random.choice(TONES)
+    effective_model = model if model and model in VALID_MODELS else AI_MODEL
+    temperature = TEMPERATURE_MAP.get(creativity, 0.9)
     code = str(card.get("code") or "")
+
+    rules = [
+        "Return strict JSON only — no markdown, no extra keys.",
+        f"selected_card_code must be exactly: {code}",
+        "Use the card's traits, text, and flavor as creative inspiration — do not copy them verbatim.",
+        f"Both fields must be written in natural {language}.",
+        "Do not include Markdown, HTML, links, hashtags, or emojis.",
+        f"Tone for this post: {effective_tone}. Let the tone influence word choice and rhythm.",
+        "Vary sentence structure — avoid starting both fields with the same word.",
+    ]
+    if pre_message_enabled:
+        rules.append("pre_message sets the atmosphere BEFORE the card image is shown — do not name the card. Max 280 chars.")
+    else:
+        rules.append("pre_message must be an empty string.")
+    if post_question_enabled:
+        rules.append("post_question invites group discussion about the card's mechanics, strategy, or lore. Max 220 chars.")
+    else:
+        rules.append("post_question must be an empty string.")
 
     prompt = {
         "task": "Write atmospheric Telegram commentary for this Arkham Horror LCG Card of the Day.",
         "language": language,
-        "tone": tone,
+        "tone": effective_tone,
         "card": _compact(card),
-        "rules": [
-            "Return strict JSON only — no markdown, no extra keys.",
-            f"selected_card_code must be exactly: {code}",
-            "Use the card's traits, text, and flavor as creative inspiration — do not copy them verbatim.",
-            "pre_message sets the atmosphere BEFORE the card image is shown — do not name the card.",
-            "post_question invites group discussion about the card's mechanics, strategy, or lore.",
-            f"Both fields must be written in natural {language}.",
-            "Do not include Markdown, HTML, links, hashtags, or emojis.",
-            "pre_message max 280 chars. post_question max 220 chars.",
-            f"Tone for this post: {tone}. Let the tone influence word choice and rhythm.",
-            "Vary sentence structure — avoid starting both fields with the same word.",
-        ],
+        "rules": rules,
         "schema": {
             "selected_card_code": f"must be exactly: {code}",
             "pre_message": "string — atmospheric intro, no card name, max 280 chars",
@@ -179,10 +218,10 @@ async def generate_card_commentary(card: dict, language: str = "pt-BR") -> AIDai
     }
 
     try:
-        payload = await _call_openai(prompt)
+        payload = await _call_openai(prompt, model=effective_model, temperature=temperature)
         candidate_codes = {code}
         choice = validate_ai_choice(payload, candidate_codes)
-        logger.info("ai_comment tone=%s card=%s", tone, code)
+        logger.info("ai_comment tone=%s model=%s card=%s", effective_tone, effective_model, code)
         return choice
     except Exception as exc:
         logger.warning("ai_generate_commentary_failed card=%s: %s", code, exc)

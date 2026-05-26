@@ -17,17 +17,15 @@ const COMMAND_ALIASES = {
 
 const ADMIN_ROLES = new Set(['owner', 'admin']);
 const SETTINGS_KEYS = new Set([
-  'daily_post_enabled',
-  'daily_post_times',
-  'daily_post_days',
-  'timezone',
-  'ai_enabled',
-  'ai_language',
-  'include_spoilers',
-  'allowed_card_types',
-  'day_config',
+  'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
+  'ai_enabled', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
+  'ai_post_question_enabled', 'ai_model', 'ai_creativity',
+  'include_spoilers', 'allowed_card_types', 'day_config',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
+const AI_TONES = new Set(['random','misterioso','tenso','épico','sombrio','reflexivo','esperançoso','perturbador','melancólico']);
+const AI_MODELS = new Set(['gpt-4.1-mini','gpt-4.1','gpt-4o','gpt-4o-mini']);
+const AI_CREATIVITY_VALUES = new Set(['conservative','default','creative']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'all']);
 const VALID_CARD_TYPES = new Set([
   'investigator', 'asset', 'event', 'skill',
@@ -271,6 +269,22 @@ function validateSettingsPatch(body) {
     }
     if (key === 'ai_language') {
       if (!AI_LANGUAGE_VALUES.has(value)) return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'ai_tone') {
+      if (!AI_TONES.has(value)) return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'ai_pre_message_enabled' || key === 'ai_post_question_enabled') {
+      if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'ai_model') {
+      if (!AI_MODELS.has(value)) return { error: 'invalid_setting_value', key };
+      settings[key] = value;
+    }
+    if (key === 'ai_creativity') {
+      if (!AI_CREATIVITY_VALUES.has(value)) return { error: 'invalid_setting_value', key };
       settings[key] = value;
     }
     if (key === 'include_spoilers') {

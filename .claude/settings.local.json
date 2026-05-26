@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:arkhamdb.com)",
+      "Bash(curl -s \"https://arkhamdb.com/api/doc\")",
+      "Bash(python -c \"import sys; content = sys.stdin.read\\(\\); import re; paths = re.findall\\(r'/api/[^\\\\s\\\\\"<>]+', content\\); [print\\(p\\) for p in sorted\\(set\\(paths\\)\\)]\")",
+      "Bash(python -c \"from src.arkham_bot.arkhamdb_client import fetch_deck_sync, fetch_decklists_by_date_sync; print\\('OK'\\)\")",
+      "WebFetch(domain:core.telegram.org)",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(python -c ' *)",
+      "Bash(gh run *)",
+      "Bash(git commit *)",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\src\\\\arkham_bot\" -Filter \"*.py\")",
+      "Bash(Select-Object Name)"
+    ]
+  }
+}

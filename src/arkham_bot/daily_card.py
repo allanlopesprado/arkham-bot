@@ -125,6 +125,11 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
         try:
             ai_language = get_setting('ai_language', 'pt-BR')
             ai_enabled = get_setting('ai_enabled', True)
+            ai_tone = get_setting('ai_tone', None) or None
+            ai_pre_message_enabled = get_setting('ai_pre_message_enabled', True)
+            ai_post_question_enabled = get_setting('ai_post_question_enabled', True)
+            ai_model = get_setting('ai_model', None) or None
+            ai_creativity = get_setting('ai_creativity', 'default')
 
             if specific_card_code:
                 card, source = get_card(specific_card_code)
@@ -135,7 +140,12 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
 
                 # Generate AI commentary for the manually chosen card
                 if ai_enabled:
-                    ai_choice = await generate_card_commentary(card, language=ai_language)
+                    ai_choice = await generate_card_commentary(
+                        card, language=ai_language, tone=ai_tone,
+                        pre_message_enabled=ai_pre_message_enabled,
+                        post_question_enabled=ai_post_question_enabled,
+                        model=ai_model, creativity=ai_creativity,
+                    )
                     if ai_choice:
                         ai_pre_message = _telegram_html_text(ai_choice.pre_message)
                         ai_post_question = _telegram_html_text(ai_choice.post_question)
@@ -217,7 +227,12 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         logger.warning(f"No unposted cards match type filter for {today}: {types_to_apply}. Ignoring.")
 
                 # AI selects card AND generates commentary in one call
-                ai_choice = await choose_daily_card_with_ai(unposted_cards, language=ai_language) if ai_enabled else None
+                ai_choice = await choose_daily_card_with_ai(
+                    unposted_cards, language=ai_language, tone=ai_tone,
+                    pre_message_enabled=ai_pre_message_enabled,
+                    post_question_enabled=ai_post_question_enabled,
+                    model=ai_model, creativity=ai_creativity,
+                ) if ai_enabled else None
                 if ai_choice:
                     card = next((c for c in unposted_cards if c.get('code') == ai_choice.selected_card_code), None) or random.choice(unposted_cards)
                     ai_pre_message = _telegram_html_text(ai_choice.pre_message)

@@ -183,6 +183,16 @@ const I18N = {
     aiLanguageEn: 'English (en-US)',
     aiTab: 'Inteligência Artificial',
     aiTabCaption: 'A IA seleciona cartas com critério narrativo e gera comentários atmosféricos antes e após cada postagem.',
+    aiTone: 'Tom narrativo',
+    aiPreMessage: 'Mensagem introdutória',
+    aiPreMessageCaption: 'Envia texto atmosférico antes da foto da carta',
+    aiPostQuestion: 'Pergunta de discussão',
+    aiPostQuestionCaption: 'Envia uma pergunta ao grupo após a foto',
+    aiModel: 'Modelo de IA',
+    aiCreativity: 'Criatividade',
+    aiCreativityConservative: 'Conservador',
+    aiCreativityDefault: 'Padrão',
+    aiCreativityCreative: 'Criativo',
     // weekly schedule
     weeklySchedule: 'Programação semanal',
     weeklyScheduleCaption: 'Configure ciclos e tipos de carta por dia da semana',
@@ -385,6 +395,16 @@ const I18N = {
     aiLanguageEn: 'English (en-US)',
     aiTab: 'Artificial Intelligence',
     aiTabCaption: 'The AI selects cards with narrative criteria and generates atmospheric commentary before and after each post.',
+    aiTone: 'Narrative tone',
+    aiPreMessage: 'Intro message',
+    aiPreMessageCaption: 'Sends atmospheric text before the card image',
+    aiPostQuestion: 'Discussion question',
+    aiPostQuestionCaption: 'Sends a question to the group after the image',
+    aiModel: 'AI model',
+    aiCreativity: 'Creativity',
+    aiCreativityConservative: 'Conservative',
+    aiCreativityDefault: 'Default',
+    aiCreativityCreative: 'Creative',
     // weekly schedule
     weeklySchedule: 'Weekly schedule',
     weeklyScheduleCaption: 'Configure cycles and card types per day of the week',
@@ -573,6 +593,25 @@ function getInitialLanguage() {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
+const AI_TONES = [
+  { value: 'random',       pt: 'Aleatório',    en: 'Random' },
+  { value: 'misterioso',   pt: 'Misterioso',   en: 'Mysterious' },
+  { value: 'tenso',        pt: 'Tenso',         en: 'Tense' },
+  { value: 'épico',        pt: 'Épico',         en: 'Epic' },
+  { value: 'sombrio',      pt: 'Sombrio',       en: 'Dark' },
+  { value: 'reflexivo',    pt: 'Reflexivo',     en: 'Reflective' },
+  { value: 'esperançoso',  pt: 'Esperançoso',   en: 'Hopeful' },
+  { value: 'perturbador',  pt: 'Perturbador',   en: 'Disturbing' },
+  { value: 'melancólico',  pt: 'Melancólico',   en: 'Melancholic' },
+];
+
+const AI_MODELS = [
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini — rápido e econômico' },
+  { value: 'gpt-4.1',      label: 'GPT-4.1 — melhor qualidade' },
+  { value: 'gpt-4o',       label: 'GPT-4o — raciocínio avançado' },
+  { value: 'gpt-4o-mini',  label: 'GPT-4o Mini — equilibrado' },
+];
+
 const DEFAULT_SETTINGS = {
   daily_post_enabled: true,
   daily_post_times: ['08:00'],
@@ -580,23 +619,21 @@ const DEFAULT_SETTINGS = {
   timezone: 'America/Sao_Paulo',
   ai_enabled: true,
   ai_language: 'pt-BR',
+  ai_tone: 'random',
+  ai_pre_message_enabled: true,
+  ai_post_question_enabled: true,
+  ai_model: 'gpt-4.1-mini',
+  ai_creativity: 'default',
   include_spoilers: false,
   allowed_card_types: DEFAULT_CARD_TYPES,
-  // day_config: per-day cycle+type config { mon: { packs: [], types: [] }, ... }
-  // empty packs = all packs; empty types = all types
   day_config: {},
 };
 
 const SETTINGS_PATCH_KEYS = [
-  'daily_post_enabled',
-  'daily_post_times',
-  'daily_post_days',
-  'timezone',
-  'ai_enabled',
-  'ai_language',
-  'include_spoilers',
-  'allowed_card_types',
-  'day_config',
+  'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
+  'ai_enabled', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
+  'ai_post_question_enabled', 'ai_model', 'ai_creativity',
+  'include_spoilers', 'allowed_card_types', 'day_config',
 ];
 
 function normalizeSettings(s = {}) {
@@ -607,6 +644,11 @@ function normalizeSettings(s = {}) {
     timezone: typeof s.timezone === 'string' && s.timezone.trim() ? s.timezone : DEFAULT_SETTINGS.timezone,
     ai_enabled: typeof s.ai_enabled === 'boolean' ? s.ai_enabled : DEFAULT_SETTINGS.ai_enabled,
     ai_language: s.ai_language === 'en-US' ? 'en-US' : 'pt-BR',
+    ai_tone: AI_TONES.some((t) => t.value === s.ai_tone) ? s.ai_tone : 'random',
+    ai_pre_message_enabled: typeof s.ai_pre_message_enabled === 'boolean' ? s.ai_pre_message_enabled : true,
+    ai_post_question_enabled: typeof s.ai_post_question_enabled === 'boolean' ? s.ai_post_question_enabled : true,
+    ai_model: AI_MODELS.some((m) => m.value === s.ai_model) ? s.ai_model : 'gpt-4.1-mini',
+    ai_creativity: ['conservative', 'default', 'creative'].includes(s.ai_creativity) ? s.ai_creativity : 'default',
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
     allowed_card_types: Array.isArray(s.allowed_card_types) && s.allowed_card_types.length ? s.allowed_card_types : DEFAULT_CARD_TYPES,
     day_config: (s.day_config && typeof s.day_config === 'object' && !Array.isArray(s.day_config)) ? s.day_config : {},
@@ -685,11 +727,11 @@ function Notice({ tone = 'warn', children }) {
   return <div className={`notice ${tone}`}>{children}</div>;
 }
 
-function Section({ title, footer, danger, children }) {
+function Section({ title, footer, danger, bare, children }) {
   return (
     <section className="section">
       {title && <div className={`section-title${danger ? ' danger' : ''}`}>{title}</div>}
-      <div className="card">{children}</div>
+      {bare ? children : <div className="card">{children}</div>}
       {footer && <div className="section-footer">{footer}</div>}
     </section>
   );
@@ -1024,9 +1066,9 @@ function App() {
     }).catch(() => setAuthState('ready'));
   }, []);
 
-  // ── Auto-load settings when entering settings tab ───────────────────────────
+  // ── Auto-load settings when entering settings or ai tab ────────────────────
   useEffect(() => {
-    if (activeTab === 'settings') fetchSettings();
+    if (activeTab === 'settings' || activeTab === 'ai') fetchSettings();
   }, [activeTab]);
 
   // ── API calls ───────────────────────────────────────────────────────────────
@@ -1382,14 +1424,25 @@ function App() {
             <Row icon="queue" label={copy.queue} value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
           </Section>
 
-          <Section title={copy.actionsTitle}>
-            <MenuRow icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
-            <MenuRow icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
-            <MenuRow icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
-            <MenuRow icon="clock"    label={copy.historyTab}  onClick={() => setActiveTab('history')} />
-            <MenuRow icon="queue"    label={copy.queue}       value={queueValue > 0 ? String(queueValue) : undefined} onClick={() => setActiveTab('queue')} />
-            <MenuRow icon="server"   label={copy.health}      value={workerValue} onClick={() => setActiveTab('health')} />
-            <MenuRow icon="language" label={copy.language}    value={copy.langName} onClick={() => setActiveTab('language')} />
+          <Section title={copy.actionsTitle} bare>
+            <div className="action-grid">
+              {[
+                { icon: 'send',     label: copy.postCard,    tab: 'post' },
+                { icon: 'settings', label: copy.settings,    tab: 'settings' },
+                { icon: 'ai',       label: copy.aiTab,       tab: 'ai' },
+                { icon: 'wrench',   label: copy.maintenance, tab: 'maintenance' },
+                { icon: 'clock',    label: copy.historyTab,  tab: 'history' },
+                { icon: 'queue',    label: copy.queue,       tab: 'queue',    badge: queueValue > 0 ? String(queueValue) : null },
+                { icon: 'server',   label: copy.health,      tab: 'health',   badge: workerValue, badgeTone: workerTone },
+                { icon: 'language', label: copy.language,    tab: 'language', badge: copy.langName },
+              ].map(({ icon, label, tab, badge, badgeTone }) => (
+                <button key={tab} className="action-tile" type="button" onClick={() => setActiveTab(tab)}>
+                  <Icon name={icon} className="action-tile-icon" />
+                  <span className="action-tile-label">{label}</span>
+                  {badge && <Badge tone={badgeTone || ''}>{badge}</Badge>}
+                </button>
+              ))}
+            </div>
           </Section>
         </>
       )}
@@ -1692,26 +1745,64 @@ function App() {
       )}
 
       {/* ── AI ── */}
-      {activeTab === 'ai' && (
-        <>
-          <Section title={copy.aiSection} footer={copy.aiTabCaption}>
-            <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
-          </Section>
-          {settings.ai_enabled && (
-            <Section>
-              <SelectRow label={copy.aiLanguage} value={settings.ai_language} onChange={(v) => updateSetting('ai_language', v)}>
-                <option value="pt-BR">{copy.aiLanguagePt}</option>
-                <option value="en-US">{copy.aiLanguageEn}</option>
-              </SelectRow>
+      {activeTab === 'ai' && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        return (
+          <>
+            <Section title={copy.aiSection} footer={copy.aiTabCaption}>
+              <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
             </Section>
-          )}
-          {settingsResult && (
-            <Section>
-              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
-            </Section>
-          )}
-        </>
-      )}
+
+            {settings.ai_enabled && (
+              <>
+                <Section title={copy.aiLanguage}>
+                  <SelectRow label={copy.aiLanguage} value={settings.ai_language} onChange={(v) => updateSetting('ai_language', v)}>
+                    <option value="pt-BR">{copy.aiLanguagePt}</option>
+                    <option value="en-US">{copy.aiLanguageEn}</option>
+                  </SelectRow>
+                </Section>
+
+                <Section title={copy.aiTone}>
+                  <SelectRow label={copy.aiTone} value={settings.ai_tone} onChange={(v) => updateSetting('ai_tone', v)}>
+                    {AI_TONES.map((t) => (
+                      <option key={t.value} value={t.value}>{t[lang]}</option>
+                    ))}
+                  </SelectRow>
+                </Section>
+
+                <Section title={copy.aiCreativity}>
+                  <SelectRow label={copy.aiCreativity} value={settings.ai_creativity} onChange={(v) => updateSetting('ai_creativity', v)}>
+                    <option value="conservative">{copy.aiCreativityConservative}</option>
+                    <option value="default">{copy.aiCreativityDefault}</option>
+                    <option value="creative">{copy.aiCreativityCreative}</option>
+                  </SelectRow>
+                </Section>
+
+                <Section title={copy.aiModel}>
+                  <SelectRow label={copy.aiModel} value={settings.ai_model} onChange={(v) => updateSetting('ai_model', v)}>
+                    {AI_MODELS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </SelectRow>
+                </Section>
+
+                <Section title={copy.postCard}>
+                  <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
+                  {settings.ai_pre_message_enabled && <Row icon="info" label={copy.aiPreMessageCaption} />}
+                  <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
+                  {settings.ai_post_question_enabled && <Row icon="info" label={copy.aiPostQuestionCaption} />}
+                </Section>
+              </>
+            )}
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── LANGUAGE ── */}
       {activeTab === 'language' && (
