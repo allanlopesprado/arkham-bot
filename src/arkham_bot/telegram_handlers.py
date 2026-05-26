@@ -1220,16 +1220,18 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
         except Exception:
             pass
 
+    bot = target.get_bot()
+    chat_id = target.chat_id
     reply_to = update.message.message_id if update.message else None
-    kwargs = {"reply_parameters": ReplyParameters(message_id=reply_to)} if reply_to else {}
+    rp = ReplyParameters(message_id=reply_to) if reply_to else None
 
     if is_spoiler:
-        await target.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **kwargs)
+        await bot.send_message(chat_id=chat_id, text="⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, reply_parameters=rp)
 
     if img:
-        front_msg = await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **kwargs)
+        front_msg = await bot.send_photo(chat_id=chat_id, photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=rp)
     else:
-        front_msg = await target.reply_text(caption, parse_mode=ParseMode.HTML, **kwargs)
+        front_msg = await bot.send_message(chat_id=chat_id, text=caption, parse_mode=ParseMode.HTML, reply_parameters=rp)
 
     # Post back side if double-sided
     if card.get('double_sided') and front_msg:
@@ -1242,14 +1244,14 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
                 lines = back_caption.split('\n', 1)
                 back_caption = f"{lines[0]}\n<tg-spoiler>{lines[1]}</tg-spoiler>" if len(lines) > 1 else lines[0]
             back_img = await _fetch_card_image(f"{code}b", back_image_src)
-            back_kwargs = {"reply_parameters": ReplyParameters(message_id=front_msg.message_id)}
+            back_rp = ReplyParameters(message_id=front_msg.message_id)
             if back_img:
                 try:
-                    await target.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **back_kwargs)
+                    await bot.send_photo(chat_id=chat_id, photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=back_rp)
                 except Exception:
-                    await target.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                    await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
             else:
-                await target.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
 
 
 async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -1257,7 +1259,6 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
     user_msg_id = context.user_data.get("search_user_msg_id")
-    reply_kwargs = {"reply_parameters": ReplyParameters(message_id=user_msg_id)} if user_msg_id else {}
     try:
         card, _ = await get_card_async(card_code)
         if not card:
@@ -1271,12 +1272,15 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
         _pop_search_prompt(context)
+        bot = query.message.get_bot()
+        chat_id = query.message.chat_id
+        rp = ReplyParameters(message_id=user_msg_id) if user_msg_id else None
         if is_spoiler:
-            await query.message.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **reply_kwargs)
+            await bot.send_message(chat_id=chat_id, text="⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, reply_parameters=rp)
         if img:
-            front_msg = await query.message.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **reply_kwargs)
+            front_msg = await bot.send_photo(chat_id=chat_id, photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=rp)
         else:
-            front_msg = await query.message.reply_text(caption, parse_mode=ParseMode.HTML, **reply_kwargs)
+            front_msg = await bot.send_message(chat_id=chat_id, text=caption, parse_mode=ParseMode.HTML, reply_parameters=rp)
         # Post back side if double-sided
         if card.get('double_sided') and front_msg:
             back_text_raw = card.get('back_text')
@@ -1287,14 +1291,14 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
                     lines = back_caption.split('\n', 1)
                     back_caption = f"{lines[0]}\n<tg-spoiler>{lines[1]}</tg-spoiler>" if len(lines) > 1 else lines[0]
                 back_img = await _fetch_card_image(f"{card_code}b", card.get('backimagesrc'))
-                back_kwargs = {"reply_parameters": ReplyParameters(message_id=front_msg.message_id)}
+                back_rp = ReplyParameters(message_id=front_msg.message_id)
                 if back_img:
                     try:
-                        await query.message.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **back_kwargs)
+                        await bot.send_photo(chat_id=chat_id, photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=back_rp)
                     except Exception:
-                        await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                        await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
                 else:
-                    await query.message.reply_text(back_caption, parse_mode=ParseMode.HTML, **back_kwargs)
+                    await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
