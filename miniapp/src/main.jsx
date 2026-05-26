@@ -162,6 +162,9 @@ const I18N = {
     destination: 'Destino',
     defaultChat: 'Chat padrão',
     // settings sections
+    telegramChatIdLabel: 'Chat ID de destino',
+    telegramChatIdCaption: '',
+    telegramChatIdPlaceholder: 'ex: -100123456789',
     dailyPost: 'Postagem diária',
     automaticPosting: 'Postagem automática',
     postTimes: 'Horários (24h, separados por vírgula)',
@@ -186,12 +189,13 @@ const I18N = {
     aiTab: 'Inteligência Artificial',
     aiTabCaption: 'A IA seleciona cartas com critério narrativo e gera comentários atmosféricos antes e após cada postagem.',
     aiTone: 'Tom narrativo',
-    aiPreMessage: 'Mensagem introdutória',
-    aiPreMessageCaption: 'Envia texto atmosférico antes da foto da carta',
-    aiPreMessageDelay: 'Delay antes da carta',
-    aiPostQuestion: 'Pergunta de discussão',
-    aiPostQuestionCaption: 'Envia uma pergunta ao grupo após a foto',
-    aiPostQuestionDelay: 'Delay antes da pergunta',
+    aiMessagesSection: 'Mensagens automáticas',
+    aiPreMessage: 'Introdução antes da carta',
+    aiPreMessageCaption: 'Texto atmosférico enviado antes da carta',
+    aiPreMessageDelay: 'Intervalo antes da carta',
+    aiPostQuestion: 'Pergunta após a carta',
+    aiPostQuestionCaption: 'Pergunta enviada ao grupo após a carta',
+    aiPostQuestionDelay: 'Intervalo antes da pergunta',
     aiProvider: 'Fornecedor de IA',
     aiModel: 'Modelo',
     aiCreativity: 'Criatividade',
@@ -220,6 +224,10 @@ const I18N = {
     overviewTitle: 'Visão geral',
     actionsTitle: 'Postagem',
     configTitle: 'Configurações',
+    databaseTitle: 'Banco de dados',
+    databaseTab: 'Banco de dados',
+    databaseStatus: 'Status',
+    appTitle: 'Aplicativo',
     systemTitle: 'Sistema',
     // history
     historyTab: 'Histórico',
@@ -385,6 +393,9 @@ const I18N = {
     informCardCode: 'Enter a card code to repost or skip',
     destination: 'Destination',
     defaultChat: 'Default chat',
+    telegramChatIdLabel: 'Destination Chat ID',
+    telegramChatIdCaption: '',
+    telegramChatIdPlaceholder: 'e.g. -100123456789',
     dailyPost: 'Daily post',
     automaticPosting: 'Automatic posting',
     postTimes: 'Times (24h, comma-separated)',
@@ -409,12 +420,13 @@ const I18N = {
     aiTab: 'Artificial Intelligence',
     aiTabCaption: 'The AI selects cards with narrative criteria and generates atmospheric commentary before and after each post.',
     aiTone: 'Narrative tone',
-    aiPreMessage: 'Intro message',
-    aiPreMessageCaption: 'Sends atmospheric text before the card image',
-    aiPreMessageDelay: 'Delay before card',
-    aiPostQuestion: 'Discussion question',
-    aiPostQuestionCaption: 'Sends a question to the group after the image',
-    aiPostQuestionDelay: 'Delay before question',
+    aiMessagesSection: 'Automatic messages',
+    aiPreMessage: 'Intro before card',
+    aiPreMessageCaption: 'Atmospheric text sent before the card',
+    aiPreMessageDelay: 'Interval before card',
+    aiPostQuestion: 'Question after card',
+    aiPostQuestionCaption: 'Discussion question sent after the card',
+    aiPostQuestionDelay: 'Interval before question',
     aiProvider: 'AI provider',
     aiModel: 'Model',
     aiCreativity: 'Creativity',
@@ -443,6 +455,10 @@ const I18N = {
     overviewTitle: 'Overview',
     actionsTitle: 'Posting',
     configTitle: 'Settings',
+    databaseTitle: 'Database',
+    databaseTab: 'Database',
+    databaseStatus: 'Status',
+    appTitle: 'App',
     systemTitle: 'System',
     // history
     historyTab: 'History',
@@ -684,6 +700,7 @@ const DEFAULT_SETTINGS = {
   daily_post_times: ['08:00'],
   daily_post_days: WEEKDAYS.map((d) => d.code),
   timezone: 'America/Sao_Paulo',
+  telegram_chat_id: '',
   ai_enabled: true,
   ai_language: 'pt-BR',
   ai_tone: 'random',
@@ -703,7 +720,7 @@ const SETTINGS_PATCH_KEYS = [
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
   'ai_pre_message_delay_seconds', 'ai_post_question_enabled', 'ai_post_question_delay_seconds', 'ai_model', 'ai_creativity',
-  'include_spoilers', 'allowed_card_types', 'day_config',
+  'include_spoilers', 'allowed_card_types', 'day_config', 'telegram_chat_id',
 ];
 
 function parseJsonArray(v) {
@@ -734,6 +751,7 @@ function normalizeSettings(s = {}) {
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
     allowed_card_types: types && types.length ? types : DEFAULT_CARD_TYPES,
     day_config: (() => { let dc = s.day_config; if (typeof dc === 'string') { try { dc = JSON.parse(dc); } catch {} } return (dc && typeof dc === 'object' && !Array.isArray(dc)) ? dc : {}; })(),
+    telegram_chat_id: typeof s.telegram_chat_id === 'string' ? s.telegram_chat_id : '',
   };
 }
 
@@ -783,6 +801,7 @@ const ICON_PATHS = {
   send: <><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></>,
   skip: <><path d="m5 4 8 8-8 8Z" /><path d="M19 5v14" /></>,
   sync: <><path d="M17 2v5h5" /><path d="M7 22v-5H2" /><path d="M20 11a8 8 0 0 0-13.5-5.8L2 9" /><path d="M4 13a8 8 0 0 0 13.5 5.8L22 15" /></>,
+  database: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3" /></>,
   result: <path d="M20 6 9 17l-5-5" />,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" /></>,
   language: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a13.5 13.5 0 0 1 0 18" /><path d="M12 3a13.5 13.5 0 0 0 0 18" /></>,
@@ -885,6 +904,51 @@ function InputRow({ label, value, onChange, placeholder, hint }) {
   );
 }
 
+function StackedInputRow({ label, value, onChange, placeholder, hint }) {
+  return (
+    <div className="stacked-input-row">
+      {label && <span className="row-label">{label}</span>}
+      {hint && <span className="row-caption">{hint}</span>}
+      <input
+        className="block-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        inputMode="text"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+      />
+    </div>
+  );
+}
+
+function ChatIdInputRow({ value, onChange, placeholder }) {
+  function handleChange(e) {
+    const digits = e.target.value.replace(/[^0-9]/g, '');
+    onChange(digits ? `-${digits}` : '');
+  }
+  // show only the digits portion in the input so the user edits just numbers
+  const displayValue = value.startsWith('-') ? value.slice(1) : value;
+  return (
+    <div className="stacked-input-row">
+      <div className="chat-id-input-wrap">
+        <span className="chat-id-prefix">-</span>
+        <input
+          className="block-input chat-id-input"
+          value={displayValue}
+          onChange={handleChange}
+          placeholder="100123456789"
+          inputMode="numeric"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 function SelectRow({ label, value, onChange, children }) {
   return (
     <label className="row select-row">
@@ -915,32 +979,32 @@ function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, 
   return (
     <>
       {times.length === 0 && (
-        <div className="row"><Icon name="clock" /><span className="row-label hint-text">{copy.noTimesConfigured}</span></div>
+        <div className="time-empty"><Icon name="clock" /><span>{copy.noTimesConfigured}</span></div>
       )}
-      {times.map((time) => (
-        <div className="row" key={time}>
-          <Icon name="clock" />
-          <span className="row-label mono">{time}</span>
-          <button className="icon-btn icon-btn-danger" type="button" onClick={() => onRemove(time)} aria-label={copy.removeTime}>
-            <Icon name="x" />
-          </button>
+      {times.length > 0 && (
+        <div className="time-chips">
+          {times.map((time) => (
+            <div className="time-chip" key={time}>
+              <span className="time-chip-value">{time}</span>
+              <button className="time-chip-remove" type="button" onClick={() => onRemove(time)} aria-label={copy.removeTime}>
+                <Icon name="x" />
+              </button>
+            </div>
+          ))}
         </div>
-      ))}
-      <label className="row select-row">
+      )}
+      <div className="time-add-row">
         <Icon name="clock" />
-        <span className="row-label">{copy.postTime}</span>
         <input
-          className="inline-select"
+          className="time-add-input"
           type="time"
           value={pendingTime}
           onChange={(e) => onPendingTimeChange(e.target.value.slice(0, 5))}
         />
-      </label>
-      <button className="row row-action" type="button" onClick={onAdd} style={{ color: 'var(--link)' }}>
-        <Icon name="clock" />
-        <span className="row-label">{copy.addTime}</span>
-        <Icon name="chevron" className="chevron" />
-      </button>
+        <button className="time-add-btn" type="button" onClick={onAdd}>
+          {copy.addTime}
+        </button>
+      </div>
     </>
   );
 }
@@ -1063,7 +1127,7 @@ function App() {
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoadingState, setHistoryLoadingState] = useState(false);
   const [historyError, setHistoryError] = useState(null);
-  const [historyDate, setHistoryDate] = useState('');
+  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [historyHasMore, setHistoryHasMore] = useState(false);
   // Explicit "all days" mode — never derived from daily_post_days length
   const [allDaysMode, setAllDaysMode] = useState(false);
@@ -1116,6 +1180,17 @@ function App() {
     };
   }, []);
 
+  // ── Refresh on visibility change (user returns to app) ─────────────────────
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchOverview();
+      fetchCommands();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   // ── MainButton: shows "Save" when settings are dirty ───────────────────────
   useEffect(() => {
     const app = tg();
@@ -1135,7 +1210,7 @@ function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', language: 'home', ai: 'settings' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', language: 'home', database: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -1190,6 +1265,7 @@ function App() {
   // ── Auto-load settings when entering settings or ai tab ────────────────────
   useEffect(() => {
     if ((activeTab === 'settings' || activeTab === 'ai') && !settingsDirty) fetchSettings();
+    if (activeTab === 'database') { fetchOverview(); fetchStatus(); }
   }, [activeTab]);
 
   // ── Auto-load history when entering history tab ─────────────────────────────
@@ -1589,20 +1665,24 @@ function App() {
           </Section>
 
           <Section title={copy.actionsTitle}>
-            <Row icon="send"  label={copy.postCard}   onClick={() => setActiveTab('post')} />
-            <Row icon="clock" label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="send"     label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="clock"    label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="settings" label={copy.settings}   onClick={() => setActiveTab('settings')} />
+            <Row icon="ai"       label={copy.aiTab}      onClick={() => setActiveTab('ai')} />
           </Section>
 
-          <Section title={copy.configTitle}>
-            <Row icon="settings" label={copy.settings} onClick={() => setActiveTab('settings')} />
-            <Row icon="ai"       label={copy.aiTab}    onClick={() => setActiveTab('ai')} />
+          <Section title={copy.databaseTitle}>
+            <Row icon="database" label={copy.databaseTab} onClick={() => setActiveTab('database')} />
+          </Section>
+
+          <Section title={copy.appTitle}>
+            <Row icon="language" label={copy.chooseLanguage} onClick={() => setActiveTab('language')} value={copy.langName} />
           </Section>
 
           <Section title={copy.systemTitle}>
             <Row icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
             <Row icon="queue"    label={copy.queue}       onClick={() => setActiveTab('queue')}   value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} />
             <Row icon="server"   label={copy.health}      onClick={() => setActiveTab('health')}  value={workerValue} badgeTone={workerTone} />
-            <Row icon="language" label={copy.language}    onClick={() => setActiveTab('language')} value={copy.langName} />
           </Section>
         </>
       )}
@@ -1700,6 +1780,15 @@ function App() {
             )}
           </Section>
 
+          {/* Chat ID */}
+          <Section title={copy.telegramChatIdLabel}>
+            <ChatIdInputRow
+              value={settings.telegram_chat_id}
+              onChange={(v) => updateSetting('telegram_chat_id', v)}
+              placeholder={copy.telegramChatIdPlaceholder}
+            />
+          </Section>
+
           {/* Card filter */}
           <Section title={copy.cardFilter}>
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
@@ -1748,6 +1837,29 @@ function App() {
             );
           })()}
 
+          {/* AI automatic messages */}
+          {settings.ai_enabled && (() => {
+            const lang = language === 'pt' ? 'pt' : 'en';
+            return (
+              <Section title={copy.aiMessagesSection}>
+                <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
+                {settings.ai_pre_message_enabled && <>
+                  <p className="section-note">{copy.aiPreMessageCaption}</p>
+                  <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
+                    {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
+                  </SelectRow>
+                </>}
+                <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
+                {settings.ai_post_question_enabled && <>
+                  <p className="section-note">{copy.aiPostQuestionCaption}</p>
+                  <SelectRow label={copy.aiPostQuestionDelay} value={String(settings.ai_post_question_delay_seconds)} onChange={(v) => updateSetting('ai_post_question_delay_seconds', Number(v))}>
+                    {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
+                  </SelectRow>
+                </>}
+              </Section>
+            );
+          })()}
+
           {settingsResult && (
             <Section>
               <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
@@ -1761,19 +1873,36 @@ function App() {
       )}
 
       {/* ── MAINTENANCE ── */}
-      {activeTab === 'maintenance' && (
+      {/* ── DATABASE ── */}
+      {activeTab === 'database' && (
         <>
-          <Section title={copy.maintenance} footer={copy.syncCaption}>
+          <Section title={copy.syncArkhamDB} footer={copy.syncCaption}>
             <MenuRow icon="sync" label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+          </Section>
+
+          <Section title={copy.databaseStatus}>
             {(() => {
               const syncDate = overview?.last_sync || sysStatus?.last_sync;
-              const label = syncDate
-                ? `${copy.lastSyncAt}: ${new Date(syncDate).toLocaleString(copy.locale)}`
-                : copy.neverSynced;
-              return <Row icon="clock" label={label} />;
+              return (
+                <>
+                  <Row icon="clock" label={copy.lastSyncAt} value={syncDate ? new Date(syncDate).toLocaleString(copy.locale) : copy.neverSynced} mono={!!syncDate} />
+                  <Row icon="cards" label={copy.cards}      value={loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-')} />
+                  <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
+                </>
+              );
             })()}
           </Section>
 
+          {result && (
+            <Section>
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+            </Section>
+          )}
+        </>
+      )}
+
+      {activeTab === 'maintenance' && (
+        <>
           <Section title={copy.resetCycle} footer={copy.resetCaption}>
             <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
           </Section>
@@ -1877,35 +2006,27 @@ function App() {
       {activeTab === 'history' && (
         <>
           <Section title={copy.historyTitle}>
-            <label className="row select-row">
-              <span className="row-label">{copy.historyDateFilter}</span>
-              <input
-                className="inline-select"
-                type="date"
-                value={historyDate}
-                onChange={(e) => {
-                  setHistoryDate(e.target.value);
-                  fetchHistoryItems(e.target.value, 0);
-                }}
-              />
+            <div className="history-filter-row">
+              <label className="history-date-label">
+                <Icon name="clock" />
+                <input
+                  className="history-date-input"
+                  type="date"
+                  value={historyDate}
+                  onChange={(e) => { setHistoryDate(e.target.value); fetchHistoryItems(e.target.value, 0); }}
+                />
+              </label>
+              {historyDate && (
+                <button className="history-clear-btn" type="button" onClick={() => { setHistoryDate(''); fetchHistoryItems('', 0); }} aria-label={copy.clearFilter}>
+                  <Icon name="x" />
+                </button>
+              )}
               {historyLoadingState && <Spinner />}
-            </label>
-            {historyDate && (
-              <button className="row row-action" type="button" style={{ color: 'var(--link)' }} onClick={() => {
-                setHistoryDate('');
-                fetchHistoryItems('', 0);
-              }}>
-                <Icon name="x" />
-                <span className="row-label">{copy.clearFilter}</span>
-                <Icon name="chevron" className="chevron" />
-              </button>
-            )}
+            </div>
           </Section>
 
           <Section footer={`${copy.postedCardsCount}: ${overview?.counts?.posted_cards ?? '—'}`}>
-            {historyError && (
-              <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />
-            )}
+            {historyError && <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />}
             {!historyLoadingState && !historyError && historyItems.length === 0 && (
               <Row icon="cards" label={copy.noHistory} />
             )}
@@ -1915,22 +2036,23 @@ function App() {
               const srcTone = post.source === 'scheduled' ? 'ok' : 'warn';
               const srcLabel = post.source === 'scheduled' ? copy.scheduledPost : post.source === 'manual' ? copy.manualPost : null;
               const arkhamUrl = post.card_code ? `https://arkhamdb.com/card/${post.card_code}` : null;
+              const timeStr = post.created_at ? new Date(post.created_at).toLocaleTimeString(copy.locale, { hour: '2-digit', minute: '2-digit' }) : null;
               return (
-                <div key={post.id} className="row">
-                  <div className="row-main">
+                <div key={post.id} className="history-item">
+                  <div className="history-item-main">
                     {arkhamUrl ? (
-                      <a className="row-label row-link" href={arkhamUrl} target="_blank" rel="noopener noreferrer">
+                      <a className="history-item-name row-link" href={arkhamUrl} target="_blank" rel="noopener noreferrer">
                         {post.card_name || post.card_code}
                       </a>
                     ) : (
-                      <span className="row-label">{post.card_name || post.card_code}</span>
+                      <span className="history-item-name">{post.card_name || post.card_code}</span>
                     )}
-                    <span className="row-caption">
-                      {[post.card_code, post.created_at ? new Date(post.created_at).toLocaleString(copy.locale) : null].filter(Boolean).join(' · ')}
-                    </span>
+                    <span className="history-item-meta">{[post.card_code, timeStr].filter(Boolean).join(' · ')}</span>
                   </div>
-                  {srcLabel && <Badge tone={srcTone}>{srcLabel}</Badge>}
-                  <Badge tone={tone}>{friendlyStatus}</Badge>
+                  <div className="history-item-badges">
+                    {srcLabel && <Badge tone={srcTone}>{srcLabel}</Badge>}
+                    <Badge tone={tone}>{friendlyStatus}</Badge>
+                  </div>
                 </div>
               );
             })}
@@ -1951,7 +2073,7 @@ function App() {
               <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
               {settings.ai_enabled && <>
                 <ToggleRow label={copy.aiAutoOnly} checked={settings.ai_auto_only} onChange={(v) => updateSetting('ai_auto_only', v)} />
-                {settings.ai_auto_only && <Row icon="info" label={copy.aiAutoOnlyCaption} />}
+                {settings.ai_auto_only && <p className="section-note">{copy.aiAutoOnlyCaption}</p>}
               </>}
             </Section>
 
@@ -2000,26 +2122,6 @@ function App() {
                   })()}
                 </Section>
 
-                <Section title={copy.postCard}>
-                  <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
-                  {settings.ai_pre_message_enabled && <>
-                    <Row icon="info" label={copy.aiPreMessageCaption} />
-                    <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
-                      {DELAY_OPTIONS.map((v) => (
-                        <option key={v} value={v}>{formatDelay(v, lang)}</option>
-                      ))}
-                    </SelectRow>
-                  </>}
-                  <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
-                  {settings.ai_post_question_enabled && <>
-                    <Row icon="info" label={copy.aiPostQuestionCaption} />
-                    <SelectRow label={copy.aiPostQuestionDelay} value={String(settings.ai_post_question_delay_seconds)} onChange={(v) => updateSetting('ai_post_question_delay_seconds', Number(v))}>
-                      {DELAY_OPTIONS.map((v) => (
-                        <option key={v} value={v}>{formatDelay(v, lang)}</option>
-                      ))}
-                    </SelectRow>
-                  </>}
-                </Section>
               </>
             )}
 
