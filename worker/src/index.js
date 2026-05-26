@@ -168,6 +168,17 @@ function supabaseBase(env) {
   return env.SUPABASE_URL.replace(/\/$/, '');
 }
 
+async function supabaseErrorDetail(resp) {
+  const text = await resp.text().catch(() => '');
+  if (!text) return `HTTP ${resp.status}`;
+  try {
+    const json = JSON.parse(text);
+    return json.message || json.details || json.hint || text.slice(0, 300);
+  } catch {
+    return text.slice(0, 300);
+  }
+}
+
 function boundedLimit(raw, fallback = 20, max = 50) {
   const value = Number(raw || fallback);
   if (!Number.isFinite(value)) return fallback;
@@ -562,27 +573,7 @@ async function handleCardsSearch(request, env, ao) {
   }
 }
 
-async function handleGetSettings(request, env, user, ao) {
-  const access = await getAdminAccess(env, user.id);
-  safeLog({
-    path: '/settings',
-    method: 'GET',
-    initData_present: true,
-    initData_length: null,
-    telegram_user_id_present: true,
-    admin: access.admin,
-    admin_source: access.source,
-    status: access.admin ? 200 : 403,
-  });
-
-  if (!access.admin) {
-    return withCors(jsonResponse({
-      error: 'unauthorized',
-      role: access.role,
-      admin_source: access.source,
-    }, 403), ao);
-  }
-
+async function handleGetSettings(env, ao) {
   try {
     const rows = await fetchSettingsRows(env);
     return withCors(jsonResponse({ ok: true, settings: rowsToSettings(rows), rows }), ao);
@@ -592,24 +583,11 @@ async function handleGetSettings(request, env, user, ao) {
 }
 
 async function handlePatchSettings(request, env, user, ao) {
-  const access = await getAdminAccess(env, user.id);
-  safeLog({
-    path: '/settings',
-    method: 'PATCH',
-    initData_present: true,
-    initData_length: null,
-    telegram_user_id_present: true,
-    admin: access.admin,
-    admin_source: access.source,
-    status: access.admin ? 200 : 403,
-  });
-
-  if (!access.admin) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return withCors(jsonResponse({
-      error: 'unauthorized',
-      role: access.role,
-      admin_source: access.source,
-    }, 403), ao);
+      error: 'backend_not_configured',
+      detail: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing in the Worker.',
+    }, 500), ao);
   }
 
   let body;
@@ -641,12 +619,28 @@ async function handlePatchSettings(request, env, user, ao) {
       body: JSON.stringify(rows),
     });
     if (!resp.ok) {
-      return withCors(jsonResponse({ error: 'settings_upsert_failed' }, 500), ao);
+      const detail = await supabaseErrorDetail(resp);
+      console.log(JSON.stringify({
+        path: '/settings',
+        method: 'PATCH',
+        status: resp.status,
+        error: 'settings_upsert_failed',
+        detail,
+      }));
+      return withCors(jsonResponse({ error: 'settings_upsert_failed', detail, upstream_status: resp.status }, 500), ao);
     }
     const currentRows = await fetchSettingsRows(env);
     return withCors(jsonResponse({ ok: true, settings: rowsToSettings(currentRows), rows: currentRows }), ao);
-  } catch {
-    return withCors(jsonResponse({ error: 'settings_upsert_failed' }, 500), ao);
+  } catch (err) {
+    const detail = err?.message || String(err);
+    console.log(JSON.stringify({
+      path: '/settings',
+      method: 'PATCH',
+      status: 500,
+      error: 'settings_upsert_failed',
+      detail,
+    }));
+    return withCors(jsonResponse({ error: 'settings_upsert_failed', detail }, 500), ao);
   }
 }
 
@@ -768,20 +762,10 @@ export default {
     }
 
     if (pathname === '/settings' && (request.method === 'GET' || request.method === 'PATCH')) {
-      const initData = request.headers.get('x-telegram-init-data') || '';
-      safeLog({
-        path: '/settings',
-        method: request.method,
-        initData_present: Boolean(initData),
-        initData_length: initData.length,
-        telegram_user_id_present: null,
-        admin: null,
-        status: null,
-      });
-      const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
-      if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
-      if (request.method === 'GET') return handleGetSettings(request, env, user, ao);
-      return handlePatchSettings(request, env, user, ao);
+      const auth = await requireAdmin(request, env, ao, '/settings');
+      if (auth.response) return auth.response;
+      if (request.method === 'GET') return handleGetSettings(env, ao);
+      return handlePatchSettings(request, env, auth.user, ao);
     }
 
     if (pathname === '/commands' && request.method === 'GET') {

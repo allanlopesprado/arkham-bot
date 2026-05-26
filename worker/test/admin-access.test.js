@@ -1,18 +1,36 @@
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import test from 'node:test';
 
 import worker, { getAdminAccess } from '../src/index.js';
 
 const ORIGIN = 'https://arkham-bot-miniapp.pages.dev';
+const BOT_TOKEN = 'test-token';
 
 function env(overrides = {}) {
   return {
     SUPABASE_URL: 'https://example.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: 'service-role',
-    TELEGRAM_BOT_TOKEN: 'test-token',
+    TELEGRAM_BOT_TOKEN: BOT_TOKEN,
     ALLOWED_ORIGINS: ORIGIN,
     ...overrides,
   };
+}
+
+function signedInitData(user = { id: 123, first_name: 'Admin' }) {
+  const authDate = Math.floor(Date.now() / 1000);
+  const params = new URLSearchParams({
+    auth_date: String(authDate),
+    user: JSON.stringify(user),
+  });
+  const dataCheckString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n');
+  const secret = createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+  const hash = createHmac('sha256', secret).update(dataCheckString).digest('hex');
+  params.set('hash', hash);
+  return params.toString();
 }
 
 test('getAdminAccess blocks users not present in bot_admins', async (t) => {
@@ -84,4 +102,35 @@ test('bot-command rejects invalid initData before Supabase insert', async (t) =>
 
   assert.equal(response.status, 401);
   assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('settings save exposes Supabase upsert details', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const path = String(url);
+    if (path.includes('/bot_admins')) {
+      return Response.json([{ role: 'admin' }]);
+    }
+    if (path.includes('/bot_settings?on_conflict=key')) {
+      return Response.json({ message: 'there is no unique constraint matching the ON CONFLICT specification' }, { status: 409 });
+    }
+    throw new Error(`unexpected fetch ${path}`);
+  });
+
+  const request = new Request('https://worker.example/settings', {
+    method: 'PATCH',
+    headers: {
+      origin: ORIGIN,
+      'content-type': 'application/json',
+      'x-telegram-init-data': signedInitData(),
+    },
+    body: JSON.stringify({ daily_post_enabled: true }),
+  });
+
+  const response = await worker.fetch(request, env());
+  const json = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(json.error, 'settings_upsert_failed');
+  assert.equal(json.upstream_status, 409);
+  assert.match(json.detail, /unique constraint/);
 });

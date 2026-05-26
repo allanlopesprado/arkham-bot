@@ -521,10 +521,11 @@ const I18N = {
   },
 };
 
-function resolveError(code, fallback, copy) {
+function resolveError(code, fallback, copy, payload = {}) {
   const loc = copy.errors[code];
-  if (loc) return { friendly: loc[0], detail: loc[1] };
-  return { friendly: fallback || copy.unknownError, detail: code || '' };
+  const detail = payload.detail || payload.message || '';
+  if (loc) return { friendly: loc[0], detail: detail || loc[1] };
+  return { friendly: fallback || copy.unknownError, detail: detail || code || '' };
 }
 
 // ─── Language persistence ─────────────────────────────────────────────────────
@@ -975,7 +976,7 @@ function App() {
     try {
       const { ok, status, json } = await apiFetch('/overview');
       if (ok) { setOverview(json); if (json.settings) applySettings(json.settings); }
-      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setLoadingOverview(false); }
   }
@@ -986,7 +987,7 @@ function App() {
     try {
       const { ok, status, json } = await apiFetch('/commands');
       if (ok) setCommands(json.commands || []);
-      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setLoadingCommands(false); }
   }
@@ -998,7 +999,7 @@ function App() {
     try {
       const { ok, status, json } = await apiFetch('/settings');
       if (ok) { applySettings(json.settings); }
-      else setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+      else setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setLoadingSettings(false); }
   }
@@ -1020,7 +1021,7 @@ function App() {
       });
       if (!ok) {
         haptic('notification', 'error');
-        setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+        setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
       } else {
         haptic('notification', 'success');
         applySettings(json.settings);
@@ -1053,7 +1054,7 @@ function App() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ status: 'cancelled' }),
       });
-      if (!ok) { haptic('notification', 'error'); setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) }); }
+      if (!ok) { haptic('notification', 'error'); setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) }); }
       else { haptic('notification', 'success'); setResult({ ok: true, friendly: copy.commandCancelled, detail: '' }); fetchCommands(); fetchOverview(); }
     } catch { haptic('notification', 'error'); setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setCancellingCommand(null); }
@@ -1071,7 +1072,7 @@ function App() {
       });
       if (!ok) {
         haptic('notification', 'error');
-        setResult({ ok: false, command_type, ...resolveError(json.error, `HTTP ${status}`, copy) });
+        setResult({ ok: false, command_type, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
       } else {
         haptic('notification', 'success');
         setResult({ ok: true, command_type: json.command?.command_type || command_type, friendly: copy.commandQueued, detail: json.command?.id ? `ID: ${json.command.id}` : '' });
@@ -1214,7 +1215,7 @@ function App() {
     try {
       const { ok, status, json } = await apiFetch(`/cards?q=${encodeURIComponent(query)}`);
       if (ok) setCardResults(json.cards || []);
-      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy) });
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
     } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
     finally { setSearchingCards(false); }
   }
