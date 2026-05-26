@@ -817,16 +817,19 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from .config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY
     from .repositories.settings_repo import get_setting
 
+    from .ai.daily_card_selector import VALID_MODELS
     ai_enabled_db = get_setting('ai_enabled', True)
-    ai_model_db = get_setting('ai_model', None) or AI_MODEL
+    _model_raw = get_setting('ai_model', None)
+    ai_model_db = _model_raw if _model_raw and _model_raw in VALID_MODELS else AI_MODEL
     ai_language = get_setting('ai_language', 'pt-BR')
 
+    model_note = f" (DB tinha '{_model_raw}', ignorado)" if _model_raw and _model_raw not in VALID_MODELS else ""
     lines = [
         "<b>AI Diagnostic (Gemini)</b>",
         f"AI_DAILY_CARD_ENABLED (env): <b>{AI_DAILY_CARD_ENABLED}</b>",
         f"GEMINI_API_KEY set: <b>{bool(GEMINI_API_KEY)}</b>",
         f"ai_enabled (DB): <b>{ai_enabled_db}</b>",
-        f"Model: <b>{ai_model_db}</b>",
+        f"Model: <b>{ai_model_db}</b>{model_note}",
         f"Language: <b>{ai_language}</b>",
         "",
     ]
