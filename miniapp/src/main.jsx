@@ -1067,6 +1067,8 @@ function App() {
   const [historyDate, setHistoryDate] = useState('');
   const [historyQuery, setHistoryQuery] = useState('');
   const [historyHasMore, setHistoryHasMore] = useState(false);
+  // Explicit "all days" mode — never derived from daily_post_days length
+  const [allDaysMode, setAllDaysMode] = useState(false);
 
   const apiConfigured = Boolean(getApiBase());
   const isAdmin = me?.admin === true;
@@ -1419,7 +1421,8 @@ function App() {
 
   function setAllWeekdays(enabled) {
     haptic('selection');
-    setSettings((cur) => ({ ...cur, daily_post_days: enabled ? WEEKDAYS.map((d) => d.code) : [] }));
+    setAllDaysMode(enabled);
+    setSettings((cur) => ({ ...cur, daily_post_days: enabled ? WEEKDAYS.map((d) => d.code) : cur.daily_post_days }));
   }
 
   function areAllCyclesSelectedForDay(dayCode) {
@@ -1706,7 +1709,7 @@ function App() {
           {/* Weekly schedule */}
           {(() => {
             const lang = language === 'pt' ? 'pt' : 'en';
-            const allEnabled = settings.daily_post_days.length === WEEKDAYS.length;
+            const allEnabled = allDaysMode;
             return (
               <>
                 <Section title={copy.weeklySchedule}>
