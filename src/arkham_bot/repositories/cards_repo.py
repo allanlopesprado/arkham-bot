@@ -1,3 +1,5 @@
+import re
+
 from ..supabase_client import get_supabase_client
 
 _PAGE = 1000
@@ -71,23 +73,36 @@ def get_all_cards(include_encounter: bool = False) -> list[dict]:
     return results
 
 
-def search_cards(query: str, include_encounter: bool = True) -> list[dict]:
-    """Search cards by name or code substring. Returns raw dicts."""
+def search_cards(query: str, include_encounter: bool = True, code_prefix: bool = False) -> list[dict]:
+    """Search cards by name/real_name ilike or code prefix. Returns raw dicts."""
     client = get_supabase_client()
     if not client:
         return []
-    q = query.strip().lower()
+    q = query.strip()
     ENCOUNTER_TYPES = {'enemy', 'treachery', 'location', 'act', 'agenda', 'story'}
+    # Sanitize: keep only safe characters for Supabase REST filter values
+    safe_q = re.sub(r'[^\w\s\-]', '', q)
     results = []
     offset = 0
     while True:
-        rows = client.get("arkham_cards", {
-            "select": "raw,spoiler",
-            "or": f"(name.ilike.*{q}*,real_name.ilike.*{q}*,code.eq.{q})",
-            "order": "code.asc",
-            "limit": str(_PAGE),
-            "offset": str(offset),
-        })
+        if code_prefix:
+            params = {
+                "select": "raw,spoiler",
+                "code": f"like.{safe_q}%",
+                "order": "code.asc",
+                "limit": str(_PAGE),
+                "offset": str(offset),
+            }
+        else:
+            q_lower = safe_q.lower()
+            params = {
+                "select": "raw,spoiler",
+                "or": f"(name.ilike.*{q_lower}*,real_name.ilike.*{q_lower}*)",
+                "order": "code.asc",
+                "limit": str(_PAGE),
+                "offset": str(offset),
+            }
+        rows = client.get("arkham_cards", params)
         if not rows:
             break
         for row in rows:

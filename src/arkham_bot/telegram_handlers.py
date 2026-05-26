@@ -40,7 +40,6 @@ BOT_STARTED_AT = datetime.now(UTC)
 
 async def _fetch_all_cards(include_encounter: bool = False) -> list[dict]:
     """DB-first card list fetch with API fallback."""
-    import asyncio
     from .repositories.cards_repo import get_all_cards
     from .arkhamdb_client import fetch_all_cards_sync
     try:
@@ -55,7 +54,6 @@ async def _fetch_all_cards(include_encounter: bool = False) -> list[dict]:
 
 async def _fetch_all_taboos() -> list[dict]:
     """DB-first taboo list fetch with API fallback."""
-    import asyncio
     from .repositories.taboos_repo import get_all_taboos
     from .arkhamdb_client import fetch_taboos_sync
     try:
@@ -70,7 +68,6 @@ async def _fetch_all_taboos() -> list[dict]:
 
 async def _fetch_all_packs() -> list[dict]:
     """DB-first packs fetch with API fallback."""
-    import asyncio
     from .repositories.packs_repo import get_all_packs
     from .arkhamdb_client import fetch_packs_sync
     try:
@@ -85,7 +82,6 @@ async def _fetch_all_packs() -> list[dict]:
 
 async def _fetch_all_factions() -> list[dict]:
     """DB-first factions fetch with API fallback."""
-    import asyncio
     from .repositories.factions_repo import get_all_factions
     from .arkhamdb_client import fetch_factions_sync
     try:
@@ -100,7 +96,6 @@ async def _fetch_all_factions() -> list[dict]:
 
 async def _fetch_faq(card_code: str) -> list | None:
     """DB-first FAQ fetch with API fallback."""
-    import asyncio
     from .repositories.faq_repo import get_faq_by_code
     from .arkhamdb_client import fetch_faq_by_card_code_sync
     try:
@@ -777,10 +772,23 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         faq = await _fetch_faq(card_code)
         if not faq:
-            await update.message.reply_text(f"No FAQ found for {card_code}.")
+            await update.message.reply_text(f"Nenhum FAQ encontrado para <code>{escape(card_code)}</code>.", parse_mode=ParseMode.HTML)
             return
-        text = str(faq)
-        await update.message.reply_text(text[:3900])
+        entries = faq if isinstance(faq, list) else [faq]
+        lines = [f"📖 <b>FAQ — {escape(card_code)}</b>"]
+        for entry in entries:
+            if isinstance(entry, dict):
+                q = entry.get('question') or entry.get('title') or ''
+                a = entry.get('answer') or entry.get('text') or ''
+                if q:
+                    lines.append(f"\n<b>{escape(str(q))}</b>")
+                if a:
+                    lines.append(escape(str(a)))
+            else:
+                lines.append(escape(str(entry)))
+        text = "\n".join(lines)
+        for chunk in _chunks(text, 3900):
+            await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
     except Exception as exc:
         logger.error(f"faq_command_failed: {exc}", exc_info=True)
         await update.message.reply_text("Could not fetch FAQ right now.")
@@ -1024,13 +1032,18 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
 
     has_prev = page > 0
     has_next = page < total_pages - 1
-    left = InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}") if has_prev else InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK")
-    right = InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}") if has_next else InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK")
-    mid = InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)
+    btn_prev = InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}")
+    btn_next = InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}")
+    btn_back = InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK")
+    btn_close = InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)
     if has_prev and has_next:
-        buttons.append([left, mid, right])
+        buttons.append([btn_prev, btn_close, btn_next])
+    elif has_prev:
+        buttons.append([btn_prev, btn_back, btn_close])
+    elif has_next:
+        buttons.append([btn_close, btn_next])
     else:
-        buttons.append([left, mid] if not has_next else [mid, right])
+        buttons.append([btn_back, btn_close])
 
     text = f"{icon} <b>{label}</b> — {total} carta(s) — página {page+1}/{total_pages}:"
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
@@ -1348,29 +1361,44 @@ def _pop_search_prompt(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
+    from .repositories.cards_repo import search_cards
+
     q = query.strip()
-    q_lower = q.lower()
     is_numeric = re.fullmatch(r'\d+', q) is not None
 
     try:
-        cards = await _fetch_all_cards(include_encounter=True)
-
-        # Exact code match → show card directly (from cache list or API fallback)
-        exact = next((c for c in cards if (c.get('code') or '') == q), None)
-        if exact or (is_numeric and re.fullmatch(r'\d{5,6}', q)):
+        # Exact 5-6 digit code → show directly without searching
+        if is_numeric and re.fullmatch(r'\d{5,6}', q):
             prompt = _pop_search_prompt(context)
             await _send_card_by_code(update, q, prompt_message=prompt)
             return ConversationHandler.END
 
-        if is_numeric:
-            matched = [c for c in cards if (c.get('code') or '').startswith(q)]
-        else:
-            matched = [
-                c for c in cards
-                if q_lower in (c.get('name') or '').lower()
-                or q_lower in (c.get('real_name') or '').lower()
-            ]
-        results = matched
+        # DB search (falls back to in-memory on DB failure)
+        try:
+            results = await asyncio.to_thread(
+                search_cards, q, True, is_numeric
+            )
+        except Exception as exc:
+            logger.warning(f"DB search_cards failed, falling back to all-cards: {exc}")
+            cards = await _fetch_all_cards(include_encounter=True)
+            q_lower = q.lower()
+            if is_numeric:
+                results = [c for c in cards if (c.get('code') or '').startswith(q)]
+            else:
+                results = [
+                    c for c in cards
+                    if q_lower in (c.get('name') or '').lower()
+                    or q_lower in (c.get('real_name') or '').lower()
+                ]
+
+        # Exact single-code match → show directly
+        if len(results) == 1 or (results and results[0].get('code') == q):
+            exact = next((c for c in results if (c.get('code') or '') == q), None)
+            if exact or len(results) == 1:
+                code = (exact or results[0]).get('code', q)
+                prompt = _pop_search_prompt(context)
+                await _send_card_by_code(update, code, prompt_message=prompt)
+                return ConversationHandler.END
 
         if not results:
             msg = "Nenhuma carta encontrada. Tente outro termo."
@@ -1378,12 +1406,6 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
                 await update.message.reply_text(msg)
             elif update.callback_query:
                 await update.callback_query.edit_message_text(msg)
-            return ConversationHandler.END
-
-        # Single result → show card directly
-        if len(results) == 1:
-            prompt = _pop_search_prompt(context)
-            await _send_card_by_code(update, results[0]['code'], prompt_message=prompt)
             return ConversationHandler.END
 
         # Store full result list for pagination
