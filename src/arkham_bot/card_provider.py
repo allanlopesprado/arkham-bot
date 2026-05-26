@@ -15,7 +15,10 @@ def get_card(card_code: str, allow_cache: bool = True) -> tuple[dict | None, str
             if cached:
                 raw = cached.get("raw") or cached
                 raw["spoiler"] = cached.get("spoiler") or raw.get("spoiler") or False
-                return raw, "db"
+                if raw.get("double_sided") and not raw.get("back_text") and not raw.get("back_flavor"):
+                    logger.debug(f"DB card {card_code} is double_sided but missing back data, fetching from API")
+                else:
+                    return raw, "db"
         except Exception as exc:
             logger.warning(f"DB card fetch failed for {card_code}: {exc}")
     # API fallback
@@ -34,7 +37,11 @@ async def get_card_async(card_code: str, allow_cache: bool = True) -> tuple[dict
             if cached:
                 raw = cached.get("raw") or cached
                 raw["spoiler"] = cached.get("spoiler") or raw.get("spoiler") or False
-                return raw, "db"
+                # Double-sided cards synced from list endpoint may lack back_text — fall through to API
+                if raw.get("double_sided") and not raw.get("back_text") and not raw.get("back_flavor"):
+                    logger.debug(f"DB card {card_code} is double_sided but missing back data, fetching from API")
+                else:
+                    return raw, "db"
         except Exception as exc:
             logger.warning(f"DB card fetch failed for {card_code}: {exc}")
     # API fallback
