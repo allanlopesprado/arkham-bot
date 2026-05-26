@@ -952,11 +952,12 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
         buttons.append([InlineKeyboardButton(btn_label, callback_data=f"TABOO_CARD_{code}")])
 
     nav = [
-        InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}") if page > 0 else InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK"),
-        InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL),
-        InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}") if page < total_pages - 1 else InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK"),
+        InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}") if page > 0 else InlineKeyboardButton("·", callback_data="NOOP"),
+        InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK"),
+        InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}") if page < total_pages - 1 else InlineKeyboardButton("·", callback_data="NOOP"),
     ]
     buttons.append(nav)
+    buttons.append([InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)])
 
     text = f"{icon} <b>{label}</b> — {total} carta(s) — página {page+1}/{total_pages}:"
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
