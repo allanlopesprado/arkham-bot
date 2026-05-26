@@ -778,12 +778,14 @@ async def _send_card_by_code(update: Update, code: str) -> None:
     target = update.message or (update.callback_query.message if update.callback_query else None)
     if not target:
         return
+    reply_to = update.message.message_id if update.message else None
+    kwargs = {"reply_to_message_id": reply_to} if reply_to else {}
     if is_spoiler:
-        await target.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML)
+        await target.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, **kwargs)
     if img:
-        await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
+        await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, **kwargs)
     else:
-        await target.reply_text(caption, parse_mode=ParseMode.HTML)
+        await target.reply_text(caption, parse_mode=ParseMode.HTML, **kwargs)
 
 
 async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -883,12 +885,6 @@ async def _delete_search_context_messages(context: ContextTypes.DEFAULT_TYPE, up
                 await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
             except Exception:
                 pass
-    # Also delete the message that triggered _search_run (user's typed query)
-    if update.message:
-        try:
-            await update.message.delete()
-        except Exception:
-            pass
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
