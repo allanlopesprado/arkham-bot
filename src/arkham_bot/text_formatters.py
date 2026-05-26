@@ -84,12 +84,21 @@ def skill_test_display(card):
         count = card.get(skill_key) or 0
         if count > 0:
             test_icons.extend([icon] * count)
-    return f"Skill Test: {' '.join(test_icons)}" if test_icons else ""
+    return ' '.join(test_icons)
 
 
 def _fmt_stat(value, fallback: str = '-') -> str:
     """Returns value as string, or fallback if None."""
     return str(value) if value is not None else fallback
+
+
+def _fmt_cost(card: dict) -> str:
+    cost = card.get('cost')
+    if cost == -2:
+        return 'X'
+    if cost is None:
+        return 'Permanent' if card.get('permanent') else '-'
+    return str(cost)
 
 
 def _slot_display(slot_raw: str) -> str:
@@ -264,29 +273,19 @@ def format_card_caption(card, is_interactive=False):
         )
         if not is_mini:
             lines.append(
-                f"Stats: 👤 {_fmt_stat(card.get('skill_willpower'))} | "
+                f"👤 {_fmt_stat(card.get('skill_willpower'))} | "
                 f"📖 {_fmt_stat(card.get('skill_intellect'))} | "
                 f"✊🏻 {_fmt_stat(card.get('skill_combat'))} | "
                 f"🦶🏻 {_fmt_stat(card.get('skill_agility'))}"
             )
             lines.append(f"❤️ {_fmt_stat(card.get('health'))} | 🧠 {_fmt_stat(card.get('sanity'))}")
-        xp = card.get('xp')
-        deck_limit = card.get('deck_limit')
-        meta = []
         if xp:
-            meta.append(f"⭐️ XP: {xp}")
-        dl = _deck_limit_display(deck_limit)
-        if dl:
-            meta.append(dl)
-        if meta:
-            lines.append(" | ".join(meta))
+            lines.append(f"⭐️ XP: {xp}")
 
     elif tc == 'asset':
-        cost = card.get('cost')
         xp = card.get('xp')
         slot_raw = card.get('slot', '')
-        parts = []
-        parts.append(f"💰 {_fmt_stat(cost, '0')}")
+        parts = [f"💰 {_fmt_cost(card)}"]
         if xp:
             parts.append(f"⭐️ XP: {xp}")
         slot_disp = _slot_display(slot_raw)
@@ -307,9 +306,8 @@ def format_card_caption(card, is_interactive=False):
             lines.append(dl)
 
     elif tc == 'event':
-        cost = card.get('cost')
         xp = card.get('xp')
-        parts = [f"💰 {_fmt_stat(cost, '0')}"]
+        parts = [f"💰 {_fmt_cost(card)}"]
         if xp:
             parts.append(f"⭐️ XP: {xp}")
         skill = skill_test_display(card)
@@ -347,21 +345,21 @@ def format_card_caption(card, is_interactive=False):
         if tc == 'enemy_location':
             shroud = card.get('shroud')
             clues = card.get('clues')
-            lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 📖 Clues: {_fmt_stat(clues)}")
+            lines.append(f"🌑 {_fmt_stat(shroud)} | 🔍 {_fmt_stat(clues)}")
 
     elif tc == 'location':
         shroud = card.get('shroud')
         clues = card.get('clues')
-        lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 📖 Clues: {_fmt_stat(clues)}")
+        lines.append(f"🌑 {_fmt_stat(shroud)} | 🔍 {_fmt_stat(clues)}")
 
     elif tc == 'act':
         stage = card.get('stage')
         clues = card.get('clues')
         parts = []
         if stage is not None:
-            parts.append(f"Act {stage}")
+            parts.append(f"Stage {stage}")
         if clues is not None:
-            parts.append(f"📖 Clues: {clues}")
+            parts.append(f"🔍 {clues}")
         if parts:
             lines.append(" | ".join(parts))
 
@@ -370,17 +368,16 @@ def format_card_caption(card, is_interactive=False):
         doom = card.get('doom')
         parts = []
         if stage is not None:
-            parts.append(f"Agenda {stage}")
+            parts.append(f"Stage {stage}")
         if doom is not None:
-            parts.append(f"💀 Doom: {doom}")
+            parts.append(f"💀 {doom}")
         if parts:
             lines.append(" | ".join(parts))
 
     elif tc == 'treachery':
-        # Treacheries have no numeric stats — just text
         pass
 
-    elif tc == 'scenario':
+    elif tc in ('scenario', 'story'):
         encounter_name = card.get('encounter_name', '')
         if encounter_name:
             lines.append(f"📖 {_e(encounter_name)}")
@@ -389,9 +386,6 @@ def format_card_caption(card, is_interactive=False):
         linked = card.get('linked_to_name') or card.get('linked_to_code')
         if linked:
             lines.append(f"🔑 Linked to: {_e(linked)}")
-
-    elif tc == 'story':
-        pass
 
     # --- Text, flavor, footer ---
     _append_text_flavor(lines, card)
@@ -414,7 +408,7 @@ def format_card_back_caption(card, back_text_raw, is_interactive=False):
     if tc == 'act':
         clues = card.get('clues')
         if clues is not None:
-            lines.append(f"📖 Clues: {clues}")
+            lines.append(f"🔍 {clues}")
     elif tc == 'agenda':
         doom = card.get('doom')
         if doom is not None:
