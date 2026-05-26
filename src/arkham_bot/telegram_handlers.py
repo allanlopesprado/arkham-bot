@@ -810,6 +810,20 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await admin_status_command(update, context)
 
 
+async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await _require_admin(update):
+        return
+    from .config import TELEGRAM_CHAT_ID
+    chat = update.effective_chat
+    await update.message.reply_text(
+        f"<b>Chat ID info</b>\n"
+        f"Este chat: <code>{chat.id}</code>\n"
+        f"TELEGRAM_CHAT_ID (.env): <code>{TELEGRAM_CHAT_ID}</code>\n"
+        f"Match: <b>{'✅ SIM' if str(chat.id) == str(TELEGRAM_CHAT_ID) else '❌ NÃO — corrija o .env'}</b>",
+        parse_mode=ParseMode.HTML,
+    )
+
+
 async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Tests AI connectivity and reports configuration status."""
     if not await _require_admin(update):
@@ -1054,6 +1068,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("admin_status", admin_status_command))
     application.add_handler(CommandHandler("ai_test", ai_test_command))
+    application.add_handler(CommandHandler("chatid", chatid_command))
     application.add_handler(CommandHandler("post", post_admin_command))
     application.add_handler(CommandHandler("repost", repost_admin_command))
     application.add_handler(CommandHandler("skip", skip_admin_command))
