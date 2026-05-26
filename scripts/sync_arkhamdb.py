@@ -118,6 +118,20 @@ def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: i
             if i % 50 == 0:
                 logger.info("  FAQ: %d/%d cartas processadas", i, len(faq_cards))
 
+    # Verify count in DB matches what we received from ArkhamDB
+    client = get_supabase_client()
+    db_count = client.count("arkham_cards") if client else None
+    api_count = len(encounter_cards)
+    if db_count is not None and db_count != api_count:
+        logger.warning(
+            "DIVERGÊNCIA: ArkhamDB retornou %d cartas mas DB tem %d. "
+            "Pode haver cartas duplicadas ou falha em algum batch.",
+            api_count, db_count,
+        )
+    else:
+        logger.info("Verificação OK: %d cartas no DB == %d cartas da API", db_count, api_count)
+
+    result["db_cards_count"] = db_count
     create_audit_log("sync_arkhamdb_success", "manual_script", result=result)
     logger.info("Sync concluído: %s", result)
     return result

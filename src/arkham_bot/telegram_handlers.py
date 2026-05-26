@@ -443,8 +443,8 @@ def _collect_status_payload(update: Update) -> dict:
 
             client = get_supabase_client()
             if client:
-                cards_count = str(len(client.get("arkham_cards", {"select": "code"})))
-                packs_count = str(len(client.get("arkham_packs", {"select": "code"})))
+                cards_count = str(client.count("arkham_cards"))
+                packs_count = str(client.count("arkham_packs"))
         except Exception as exc:
             logger.warning("status_catalog_lookup_failed: %s", exc)
             cards_count = "erro"

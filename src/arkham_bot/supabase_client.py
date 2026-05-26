@@ -21,6 +21,24 @@ class SupabaseRestClient:
         response.raise_for_status()
         return response.json()
 
+    def count(self, table: str, params: dict | None = None) -> int:
+        """Returns exact row count using PostgREST count=exact header."""
+        headers = dict(self.headers)
+        headers["Prefer"] = "count=exact"
+        all_params = {"select": "code", "limit": "1"}
+        if params:
+            all_params.update(params)
+        response = httpx.get(self.table_url(table), headers=headers, params=all_params, timeout=REQUEST_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        content_range = response.headers.get("content-range", "")
+        # PostgREST returns Content-Range: 0-0/TOTAL
+        if "/" in content_range:
+            try:
+                return int(content_range.split("/")[1])
+            except (ValueError, IndexError):
+                pass
+        return len(response.json())
+
     def post(self, table: str, payload: dict | list[dict], prefer: str | None = None, params: dict | None = None) -> list[dict]:
         headers = dict(self.headers)
         if prefer:
