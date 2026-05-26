@@ -1220,18 +1220,16 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
         except Exception:
             pass
 
-    bot = target.get_bot()
-    chat_id = target.chat_id
-    reply_to = update.message.message_id if update.message else None
-    rp = ReplyParameters(message_id=reply_to) if reply_to else None
+    user_msg = update.message
+    logger.info("_send_card_by_code: sending card %s as reply to msg_id=%s", code, user_msg.message_id if user_msg else None)
 
     if is_spoiler:
-        await bot.send_message(chat_id=chat_id, text="⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, reply_parameters=rp)
+        await user_msg.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, do_quote=True)
 
     if img:
-        front_msg = await bot.send_photo(chat_id=chat_id, photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=rp)
+        front_msg = await user_msg.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, do_quote=True)
     else:
-        front_msg = await bot.send_message(chat_id=chat_id, text=caption, parse_mode=ParseMode.HTML, reply_parameters=rp)
+        front_msg = await user_msg.reply_text(caption, parse_mode=ParseMode.HTML, do_quote=True)
 
     # Post back side if double-sided
     if card.get('double_sided') and front_msg:
@@ -1247,11 +1245,11 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
             back_rp = ReplyParameters(message_id=front_msg.message_id)
             if back_img:
                 try:
-                    await bot.send_photo(chat_id=chat_id, photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=back_rp)
+                    await front_msg.reply_photo(photo=back_img, caption=back_caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, do_quote=True)
                 except Exception:
-                    await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
+                    await front_msg.reply_text(back_caption, parse_mode=ParseMode.HTML, do_quote=True)
             else:
-                await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
+                await front_msg.reply_text(back_caption, parse_mode=ParseMode.HTML, do_quote=True)
 
 
 async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -1299,6 +1297,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
                         await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
                 else:
                     await bot.send_message(chat_id=chat_id, text=back_caption, parse_mode=ParseMode.HTML, reply_parameters=back_rp)
+        logger.info("search_card_selected: sent card %s as reply to msg_id=%s", card_code, user_msg_id)
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
