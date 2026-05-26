@@ -795,8 +795,10 @@ def _taboo_detail_text_and_buttons(taboo: dict, cats: dict) -> tuple[str, Inline
         count = len(cats.get(cat_key, []))
         if count:
             buttons.append([InlineKeyboardButton(f"{icon} {label} ({count})", callback_data=f"TABOO_CAT_{cat_key}_0")])
-    buttons.append([InlineKeyboardButton("↩️ Listas", callback_data="TABOO_LISTS")])
-    buttons.append([InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)])
+    buttons.append([
+        InlineKeyboardButton("↩️ Listas", callback_data="TABOO_LISTS"),
+        InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL),
+    ])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
