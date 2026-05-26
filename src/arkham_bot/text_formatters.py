@@ -338,8 +338,9 @@ def format_card_caption(card, is_interactive=False):
         evade = card.get('enemy_evade')
         damage = card.get('enemy_damage')
         horror = card.get('enemy_horror')
+        health_suffix = ' 👥' if card.get('health_per_investigator') else ''
         lines.append(
-            f"✊🏻 {_fmt_stat(fight)} | ❤️ {_fmt_stat(health)} | 🦶🏻 {_fmt_stat(evade)}"
+            f"✊🏻 {_fmt_stat(fight)} | ❤️ {_fmt_stat(health)}{health_suffix} | 🦶🏻 {_fmt_stat(evade)}"
         )
         lines.append(f"💢 {_fmt_stat(damage)} | 😨 {_fmt_stat(horror)}")
         if tc == 'enemy_location':
@@ -387,6 +388,33 @@ def format_card_caption(card, is_interactive=False):
         if linked:
             lines.append(f"🔑 Linked to: {_e(linked)}")
 
+    # --- Shared card attributes ---
+    meta = []
+    if card.get('myriad'):
+        meta.append('✖️3 Myriad')
+    if card.get('exile'):
+        meta.append('🔥 Exile')
+    if card.get('bonded_to'):
+        meta.append(f"🔗 Bonded: {_e(card['bonded_to'])}")
+    if card.get('victory') is not None:
+        meta.append(f"🏆 {card['victory']} VP")
+    if card.get('vengeance') is not None:
+        meta.append(f"⚔️ {card['vengeance']} Vengeance")
+    if meta:
+        lines.append(' | '.join(meta))
+
+    # --- Customization options ---
+    cust_opts = card.get('customization_options')
+    if cust_opts:
+        cust_lines = []
+        for opt in cust_opts:
+            xp = opt.get('xp', 0)
+            text = clean_and_format_text(opt.get('text', ''))
+            if text:
+                cust_lines.append(f"{'⭐️' * xp} {text}" if xp else text)
+        if cust_lines:
+            lines.append('\n<b>Customizations:</b>\n' + '\n'.join(cust_lines))
+
     # --- Text, flavor, footer ---
     _append_text_flavor(lines, card)
     _append_footer(lines, card, code)
@@ -412,7 +440,7 @@ def format_card_back_caption(card, back_text_raw, is_interactive=False):
     elif tc == 'agenda':
         doom = card.get('doom')
         if doom is not None:
-            lines.append(f"💀 Doom: {doom}")
+            lines.append(f"💀 {doom}")
 
     back_text_formatted = clean_and_format_text(back_text_raw)
     back_flavor_formatted = clean_and_format_text(back_flavor, is_flavor=True)
