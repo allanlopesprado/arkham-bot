@@ -891,11 +891,13 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
     try:
         cards = await asyncio.to_thread(fetch_all_cards_sync)
 
-        # Exact code match → show card directly
+        # Exact code match → show card directly (from cache list or API fallback)
         exact = next((c for c in cards if (c.get('code') or '') == q), None)
-        if exact:
-            await _send_card_by_code(update, exact['code'])
-            return ConversationHandler.END
+        if exact or (is_numeric and len(q) >= 5):
+            # Try direct fetch by code if exact found in list OR it looks like a full code
+            if exact or re.fullmatch(r'\d{5,6}', q):
+                await _send_card_by_code(update, q)
+                return ConversationHandler.END
 
         if is_numeric:
             # Partial numeric → match codes that start with the digits typed
