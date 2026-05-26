@@ -293,11 +293,14 @@ function validateSettingsPatch(body) {
         if (!WEEKDAY_CODES.has(day)) return { error: 'invalid_setting_value', key };
         if (cfg !== null && cfg !== undefined) {
           if (typeof cfg !== 'object' || Array.isArray(cfg)) return { error: 'invalid_setting_value', key };
-          const { packs: p, types: t } = cfg;
+          const { packs: p, types: t, times } = cfg;
           if (p !== undefined && (!Array.isArray(p) || !p.every((x) => typeof x === 'string' && x.length > 0))) {
             return { error: 'invalid_setting_value', key };
           }
           if (t !== undefined && (!Array.isArray(t) || !t.every((x) => x === NONE_SELECTED || VALID_CARD_TYPES.has(x)))) {
+            return { error: 'invalid_setting_value', key };
+          }
+          if (times !== undefined && (!Array.isArray(times) || !times.every(isValidTime))) {
             return { error: 'invalid_setting_value', key };
           }
         }

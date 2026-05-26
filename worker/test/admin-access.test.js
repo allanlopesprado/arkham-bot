@@ -161,7 +161,7 @@ test('settings save accepts empty weekdays and disabled day filters', async (t) 
     },
     body: JSON.stringify({
       daily_post_days: [],
-      day_config: { mon: { packs: ['__none__'], types: ['__none__'] } },
+      day_config: { mon: { packs: ['__none__'], types: ['__none__'], times: ['10:30'] } },
     }),
   });
 
@@ -170,4 +170,5 @@ test('settings save accepts empty weekdays and disabled day filters', async (t) 
   assert.equal(response.status, 200);
   assert.deepEqual(upsertBodies[0].find((row) => row.key === 'daily_post_days').value, []);
   assert.deepEqual(upsertBodies[0].find((row) => row.key === 'day_config').value.mon.types, ['__none__']);
+  assert.deepEqual(upsertBodies[0].find((row) => row.key === 'day_config').value.mon.times, ['10:30']);
 });

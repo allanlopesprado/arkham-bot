@@ -335,6 +335,25 @@ input, select { outline: none; }
 .inline-input:focus { border-color: color-mix(in srgb, var(--link) 50%, transparent); }
 .inline-input::placeholder { color: var(--hint); }
 
+.time-editor-row { min-height: 64px; }
+
+.time-input {
+  width: 136px;
+  padding: 8px 10px;
+  border: 1px solid var(--sep);
+  border-radius: 8px;
+  background: var(--section-bg);
+  color: var(--text);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.time-input:focus {
+  border-color: color-mix(in srgb, var(--link) 50%, transparent);
+  outline: none;
+}
+
 /* ── Select row ───────────────────────────────────────────────────────────── */
 
 .select-row { cursor: pointer; }

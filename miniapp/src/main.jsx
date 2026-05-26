@@ -166,6 +166,10 @@ const I18N = {
     dailyPost: 'Postagem diária',
     automaticPosting: 'Postagem automática',
     postTimes: 'Horários (24h, separados por vírgula)',
+    postTime: 'Horario',
+    addTime: 'Adicionar horario',
+    removeTime: 'Remover horario',
+    noTimesConfigured: 'Nenhum horario configurado',
     postDays: 'Dias da semana',
     timezoneLabel: 'Fuso horário',
     cardFilter: 'Filtro de cartas',
@@ -182,6 +186,7 @@ const I18N = {
     weeklySchedule: 'Programação semanal',
     weeklyScheduleCaption: 'Configure ciclos e tipos de carta por dia da semana',
     allWeekdays: 'Todos os dias',
+    configureAllWeekdays: 'Configurar todos os dias',
     configureDay: 'Configurar',
     dayDetail: 'Configuração do dia',
     cyclesToday: 'Ciclos permitidos',
@@ -361,6 +366,10 @@ const I18N = {
     dailyPost: 'Daily post',
     automaticPosting: 'Automatic posting',
     postTimes: 'Times (24h, comma-separated)',
+    postTime: 'Time',
+    addTime: 'Add time',
+    removeTime: 'Remove time',
+    noTimesConfigured: 'No times configured',
     postDays: 'Weekdays',
     timezoneLabel: 'Timezone',
     cardFilter: 'Card filter',
@@ -377,6 +386,7 @@ const I18N = {
     weeklySchedule: 'Weekly schedule',
     weeklyScheduleCaption: 'Configure cycles and card types per day of the week',
     allWeekdays: 'All days',
+    configureAllWeekdays: 'Configure all days',
     configureDay: 'Configure',
     dayDetail: 'Day configuration',
     cyclesToday: 'Allowed cycles',
@@ -609,13 +619,13 @@ function settingsPatchPayload(settings, times) {
   return Object.fromEntries(SETTINGS_PATCH_KEYS.map((key) => [key, normalized[key]]));
 }
 
-function parseTimesInput(v) { return v.split(',').map((t) => t.trim()).filter(Boolean); }
+function isValidTimeValue(t) {
+  if (!/^\d{2}:\d{2}$/.test(t)) return false;
+  const [h, m] = t.split(':').map(Number);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+}
 function validateTimes(times) {
-  return times.length > 0 && times.every((t) => {
-    if (!/^\d{2}:\d{2}$/.test(t)) return false;
-    const [h, m] = t.split(':').map(Number);
-    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
-  });
+  return times.length > 0 && times.every(isValidTimeValue);
 }
 
 function settingsEqual(a, b) {
@@ -755,6 +765,32 @@ function SelectRow({ label, value, onChange, children }) {
   );
 }
 
+function TimeEditor({ label, times, pendingTime, onPendingTimeChange, onAdd, onRemove, copy }) {
+  return (
+    <>
+      <div className="row time-editor-row">
+        <div className="row-main">
+          <span className="row-label">{label}</span>
+          <input className="time-input" type="time" value={pendingTime} onChange={(e) => onPendingTimeChange(e.target.value)} />
+        </div>
+        <button className="icon-btn" type="button" onClick={onAdd} aria-label={copy.addTime}>
+          <Icon name="send" />
+        </button>
+      </div>
+      {times.length === 0 && <Row icon="clock" label={copy.noTimesConfigured} />}
+      {times.map((time) => (
+        <div className="row" key={time}>
+          <Icon name="clock" />
+          <span className="row-label">{time}</span>
+          <button className="icon-btn" type="button" onClick={() => onRemove(time)} aria-label={copy.removeTime}>
+            <Icon name="trash" />
+          </button>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure }) {
   return (
     <div className="row">
@@ -845,7 +881,7 @@ function App() {
   // Settings state: current (edited) and saved (last confirmed from server)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [savedSettings, setSavedSettings] = useState(DEFAULT_SETTINGS);
-  const [timesInput, setTimesInput] = useState(DEFAULT_SETTINGS.daily_post_times.join(', '));
+  const [pendingTime, setPendingTime] = useState(DEFAULT_SETTINGS.daily_post_times[0]);
 
   const [result, setResult] = useState(null);
   const [settingsResult, setSettingsResult] = useState(null);
@@ -1031,7 +1067,7 @@ function App() {
   }
 
   async function saveSettings() {
-    const times = parseTimesInput(timesInput);
+    const times = settings.daily_post_times;
     if (!validateTimes(times)) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.invalidTime, detail: '' }); return; }
     if (!settings.timezone.trim()) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.timezoneRequired, detail: '' }); return; }
 
@@ -1122,7 +1158,6 @@ function App() {
     const n = normalizeSettings(next);
     setSettings(n);
     setSavedSettings(n);
-    setTimesInput(n.daily_post_times.join(', '));
   }
 
   function updateSetting(key, value) {
@@ -1136,7 +1171,74 @@ function App() {
     return settings.day_config[dayCode] || { packs: [], types: [] };
   }
 
+  function getTimesForDay(dayCode) {
+    if (dayCode === 'all') return settings.daily_post_times;
+    const cfg = getDayConfig(dayCode);
+    return Array.isArray(cfg.times) ? cfg.times : settings.daily_post_times;
+  }
+
+  function updateDayConfig(dayCode, updater) {
+    const baseConfig = (cfg) => ({ packs: [], types: [], ...(cfg || {}) });
+    setSettings((cur) => {
+      const apply = (code, nextConfig) => ({
+        ...cur.day_config,
+        [code]: updater(baseConfig(nextConfig)),
+      });
+      if (dayCode === 'all') {
+        const nextDayConfig = WEEKDAYS.reduce(
+          (acc, day) => ({ ...acc, [day.code]: updater(baseConfig(cur.day_config[day.code])) }),
+          { ...cur.day_config },
+        );
+        return { ...cur, day_config: nextDayConfig };
+      }
+      return { ...cur, day_config: apply(dayCode, cur.day_config[dayCode]) };
+    });
+  }
+
+  function addTimeForDay(dayCode) {
+    if (!isValidTimeValue(pendingTime)) return;
+    haptic('selection');
+    if (dayCode === 'all') {
+      setSettings((cur) => ({
+        ...cur,
+        daily_post_times: [...new Set([...cur.daily_post_times, pendingTime])].sort(),
+        day_config: WEEKDAYS.reduce((acc, day) => {
+          const cfg = cur.day_config[day.code] || { packs: [], types: [] };
+          const times = Array.isArray(cfg.times) ? cfg.times : cur.daily_post_times;
+          return { ...acc, [day.code]: { ...cfg, times: [...new Set([...times, pendingTime])].sort() } };
+        }, { ...cur.day_config }),
+      }));
+      return;
+    }
+    updateDayConfig(dayCode, (cfg) => {
+      const times = Array.isArray(cfg.times) ? cfg.times : settings.daily_post_times;
+      return { ...cfg, times: [...new Set([...times, pendingTime])].sort() };
+    });
+  }
+
+  function removeTimeForDay(dayCode, time) {
+    haptic('selection');
+    const withoutTime = (times) => times.filter((t) => t !== time);
+    if (dayCode === 'all') {
+      setSettings((cur) => ({
+        ...cur,
+        daily_post_times: withoutTime(cur.daily_post_times).length ? withoutTime(cur.daily_post_times) : cur.daily_post_times,
+        day_config: WEEKDAYS.reduce((acc, day) => {
+          const cfg = cur.day_config[day.code] || { packs: [], types: [] };
+          const times = Array.isArray(cfg.times) ? cfg.times : cur.daily_post_times;
+          return { ...acc, [day.code]: { ...cfg, times: withoutTime(times) } };
+        }, { ...cur.day_config }),
+      }));
+      return;
+    }
+    updateDayConfig(dayCode, (cfg) => {
+      const times = Array.isArray(cfg.times) ? cfg.times : settings.daily_post_times;
+      return { ...cfg, times: withoutTime(times) };
+    });
+  }
+
   function isCycleSelectedForDay(dayCode, cyclePos) {
+    if (dayCode === 'all') return WEEKDAYS.every((day) => isCycleSelectedForDay(day.code, cyclePos));
     const { packs: dp } = getDayConfig(dayCode);
     if (dp.includes(NONE_SELECTED)) return false;
     const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
@@ -1145,6 +1247,7 @@ function App() {
   }
 
   function isTypeSelectedForDay(dayCode, typeCode) {
+    if (dayCode === 'all') return WEEKDAYS.every((day) => isTypeSelectedForDay(day.code, typeCode));
     const { types: dt } = getDayConfig(dayCode);
     if (dt.includes(NONE_SELECTED)) return false;
     return dt.length === 0 || dt.includes(typeCode);
@@ -1156,36 +1259,31 @@ function App() {
   }
 
   function areAllCyclesSelectedForDay(dayCode) {
+    if (dayCode === 'all') return WEEKDAYS.every((day) => areAllCyclesSelectedForDay(day.code));
     const { packs: dp } = getDayConfig(dayCode);
     return packs.length > 0 && !dp.includes(NONE_SELECTED) && (dp.length === 0 || packs.every((p) => dp.includes(p.code)));
   }
 
   function areAllTypesSelectedForDay(dayCode) {
+    if (dayCode === 'all') return WEEKDAYS.every((day) => areAllTypesSelectedForDay(day.code));
     const { types: dt } = getDayConfig(dayCode);
     return !dt.includes(NONE_SELECTED) && (dt.length === 0 || ALL_CARD_TYPES.every((t) => dt.includes(t.code)));
   }
 
   function setAllCyclesForDay(dayCode, enabled) {
     haptic('selection');
-    setSettings((cur) => {
-      const cfg = cur.day_config[dayCode] || { packs: [], types: [] };
-      return { ...cur, day_config: { ...cur.day_config, [dayCode]: { ...cfg, packs: enabled ? [] : [NONE_SELECTED] } } };
-    });
+    updateDayConfig(dayCode, (cfg) => ({ ...cfg, packs: enabled ? [] : [NONE_SELECTED] }));
   }
 
   function setAllTypesForDay(dayCode, enabled) {
     haptic('selection');
-    setSettings((cur) => {
-      const cfg = cur.day_config[dayCode] || { packs: [], types: [] };
-      return { ...cur, day_config: { ...cur.day_config, [dayCode]: { ...cfg, types: enabled ? [] : [NONE_SELECTED] } } };
-    });
+    updateDayConfig(dayCode, (cfg) => ({ ...cfg, types: enabled ? [] : [NONE_SELECTED] }));
   }
 
   function toggleCycleForDay(dayCode, cyclePos) {
     haptic('selection');
     const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
-    setSettings((cur) => {
-      const cfg = cur.day_config[dayCode] || { packs: [], types: [] };
+    updateDayConfig(dayCode, (cfg) => {
       const noneSelected = cfg.packs.includes(NONE_SELECTED);
       const dp = noneSelected ? [] : cfg.packs;
       const allSelected = dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
@@ -1200,14 +1298,13 @@ function App() {
         nextPacks = [...new Set([...base, ...cyclePacks])];
         if (nextPacks.length === packs.length) nextPacks = [];
       }
-      return { ...cur, day_config: { ...cur.day_config, [dayCode]: { ...cfg, packs: nextPacks } } };
+      return { ...cfg, packs: nextPacks };
     });
   }
 
   function toggleTypeForDay(dayCode, typeCode) {
     haptic('selection');
-    setSettings((cur) => {
-      const cfg = cur.day_config[dayCode] || { packs: [], types: [] };
+    updateDayConfig(dayCode, (cfg) => {
       const noneSelected = cfg.types.includes(NONE_SELECTED);
       const dt = noneSelected ? [] : cfg.types;
       let nextTypes;
@@ -1223,7 +1320,7 @@ function App() {
         nextTypes = [...dt, typeCode];
         if (nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
       }
-      return { ...cur, day_config: { ...cur.day_config, [dayCode]: { ...cfg, types: nextTypes } } };
+      return { ...cfg, types: nextTypes };
     });
   }
 
@@ -1407,13 +1504,6 @@ function App() {
             <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
             {settings.daily_post_enabled && (
               <>
-                <div className="row form-block">
-                  <div className="row-main">
-                    <span className="row-label">{copy.postTimes}</span>
-                    <input className="inline-input" value={timesInput} onChange={(e) => setTimesInput(e.target.value)} placeholder="08:00, 21:30" inputMode="text" />
-                  </div>
-                </div>
-                {/* days are now configured in the weekly schedule section below */}
                 <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
                   {TIMEZONES.map((tz) => (
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
@@ -1434,6 +1524,11 @@ function App() {
               label={copy.allWeekdays}
               checked={settings.daily_post_days.length === WEEKDAYS.length}
               onChange={setAllWeekdays}
+            />
+            <MenuRow
+              icon="settings"
+              label={copy.configureAllWeekdays}
+              onClick={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
             />
             {WEEKDAYS.map((day) => {
               const lang = language === 'pt' ? 'pt' : 'en';
@@ -1528,11 +1623,25 @@ function App() {
       {/* ── DAY DETAIL ── */}
       {activeTab === 'day_detail' && activeDayCode && (() => {
         const lang = language === 'pt' ? 'pt' : 'en';
-        const dayLabel = WEEKDAYS.find((d) => d.code === activeDayCode)?.[lang] || activeDayCode;
+        const dayLabel = activeDayCode === 'all'
+          ? copy.configureAllWeekdays
+          : WEEKDAYS.find((d) => d.code === activeDayCode)?.[lang] || activeDayCode;
         const cycles = deriveCycles(packs);
         return (
           <>
             <header className="section-header-standalone">{dayLabel}</header>
+
+            <Section title={copy.postTimes}>
+              <TimeEditor
+                label={copy.postTime}
+                times={getTimesForDay(activeDayCode)}
+                pendingTime={pendingTime}
+                onPendingTimeChange={setPendingTime}
+                onAdd={() => addTimeForDay(activeDayCode)}
+                onRemove={(time) => removeTimeForDay(activeDayCode, time)}
+                copy={copy}
+              />
+            </Section>
 
             {/* Cycles */}
             <Section title={copy.cyclesToday}>

@@ -61,21 +61,32 @@ def _runtime_config():
     enabled = bool(get_setting("daily_post_enabled", DAILY_POST_ENABLED))
     post_times = _as_list(get_setting("daily_post_times", DAILY_POST_TIMES), DAILY_POST_TIMES)
     post_days = _as_list(get_setting("daily_post_days", DAILY_POST_DAYS), DAILY_POST_DAYS)
+    day_config = get_setting("day_config", {})
     timezone_name = str(get_setting("timezone", TIMEZONE) or TIMEZONE)
-    return enabled, post_times, post_days, timezone_name
+    return enabled, post_times, post_days, timezone_name, day_config
+
+
+def _times_for_day(day_code: str, default_times: list[str], day_config) -> list[str]:
+    if not isinstance(day_config, dict):
+        return default_times
+    cfg = day_config.get(day_code)
+    if not isinstance(cfg, dict) or "times" not in cfg:
+        return default_times
+    return _as_list(cfg.get("times"), [])
 
 
 async def daily_scheduler_loop() -> None:
     logger.info("scheduler_started")
     while True:
         try:
-            daily_post_enabled, daily_post_times, daily_post_days, timezone_name = _runtime_config()
+            daily_post_enabled, daily_post_times, daily_post_days, timezone_name, day_config = _runtime_config()
             timezone = ZoneInfo(timezone_name)
             if daily_post_enabled:
                 now = datetime.now(timezone)
                 state = _load_state()
-                for post_time in daily_post_times:
-                    if WEEKDAY_CODES[now.weekday()] not in daily_post_days:
+                today = WEEKDAY_CODES[now.weekday()]
+                for post_time in _times_for_day(today, daily_post_times, day_config):
+                    if today not in daily_post_days:
                         continue
                     if _is_due(now, post_time, state):
                         logger.info("daily_post_due")
