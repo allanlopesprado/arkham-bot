@@ -1360,11 +1360,11 @@ async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 def _pop_search_prompt(context: ContextTypes.DEFAULT_TYPE):
-    """Returns the stored prompt message object and clears all search context keys."""
+    """Returns the stored prompt message object and clears search prompt keys.
+    Does NOT clear search_user_msg_id — that is kept until the card is sent."""
     prompt = context.user_data.pop("search_prompt_obj", None)
     context.user_data.pop("search_prompt_msg_id", None)
     context.user_data.pop("search_prompt_chat_id", None)
-    context.user_data.pop("search_user_msg_id", None)
     context.user_data.pop("search_user_chat_id", None)
     return prompt
 
