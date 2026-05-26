@@ -719,13 +719,25 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.BytesIO | None:
     """Tries all extensions and returns a valid image BytesIO or None."""
+    import httpx
+    urls = []
+    if image_src:
+        urls.append(urljoin(BASE_URL, image_src))
     for ext in EXTENSIONS_TO_TRY:
-        path = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}{ext}"
-        url = urljoin(BASE_URL, path)
+        url = urljoin(BASE_URL, f"/bundles/cards/{card_code}{ext}")
+        if url not in urls:
+            urls.append(url)
+    for url in urls:
         try:
-            raw = await download_image_async(url)
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(url)
+            if resp.status_code != 200:
+                continue
+            raw = resp.content
+            # Validate it's a real image by opening (don't call verify — it corrupts the buffer)
             buf = io.BytesIO(raw)
-            Image.open(buf).verify()
+            img = Image.open(buf)
+            img.load()
             buf.seek(0)
             return buf
         except Exception:
@@ -784,6 +796,56 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 
+PAGE_SIZE = 10
+
+
+def _search_page(results: list, page: int, query: str) -> tuple[InlineKeyboardMarkup, str]:
+    total = len(results)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE_SIZE
+    chunk = results[start:start + PAGE_SIZE]
+
+    buttons = []
+    for c in chunk:
+        code = c.get('code', '')
+        name = c.get('name') or c.get('real_name') or code
+        pack = c.get('pack_name') or ''
+        label = f"{code} — {name} — {pack}"
+        if len(label) > 64:
+            label = label[:61] + "…"
+        buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("« Anterior", callback_data=f"SEARCH_PAGE_{page - 1}"))
+    nav.append(InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("Próximo »", callback_data=f"SEARCH_PAGE_{page + 1}"))
+    buttons.append(nav)
+
+    text = f"🔍 <b>{total} resultado(s)</b> para «{escape(query)}» — página {page + 1}/{total_pages}:"
+    return InlineKeyboardMarkup(buttons), text
+
+
+async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    page = int(query.data.replace("SEARCH_PAGE_", ""))
+    user_id = update.effective_user.id
+    results = context.bot_data.get(f"search_{user_id}")
+    if not results:
+        await query.edit_message_text("Sessão expirada. Use /search novamente.")
+        return
+    # Recover original query from current message text
+    msg_text = query.message.text or ""
+    raw_query = ""
+    if "«" in msg_text and "»" in msg_text:
+        raw_query = msg_text.split("«")[1].split("»")[0]
+    markup, text = _search_page(results, page=page, query=raw_query)
+    await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+
+
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
     import asyncio
     from .arkhamdb_client import fetch_all_cards_sync
@@ -825,21 +887,11 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
             await _send_card_by_code(update, results[0]['code'])
             return ConversationHandler.END
 
-        buttons = []
-        for c in results:
-            code = c.get('code', '')
-            name = c.get('name') or c.get('real_name') or code
-            pack = c.get('pack_name') or ''
-            label = f"{code} — {name} — {pack}"
-            if len(label) > 64:
-                label = label[:61] + "…"
-            buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
-
-        buttons.append([InlineKeyboardButton("Cancelar", callback_data=CALLBACK_CANCEL)])
-        markup = InlineKeyboardMarkup(buttons)
-        total = len(matched) if is_numeric else len(results)
-        suffix = f" (mostrando 15 de {total}, seja mais específico)" if total > 15 else ""
-        text = f"🔍 <b>{total} resultado(s)</b> para «{escape(q)}»{suffix}:"
+        # Store full result list for pagination
+        all_results = matched if is_numeric else results
+        user_id = update.effective_user.id
+        context.bot_data[f"search_{user_id}"] = all_results
+        markup, text = _search_page(all_results, page=0, query=q)
         if update.message:
             await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
         elif update.callback_query:
@@ -1307,6 +1359,7 @@ def register_handlers(application):
     )
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(search_card_selected, pattern=r'^CARD_SELECT_'))
+    application.add_handler(CallbackQueryHandler(search_page_callback, pattern=r'^SEARCH_PAGE_\d+$'))
     application.add_handler(CommandHandler("sets", sets_command))
     application.add_handler(CallbackQueryHandler(set_browse_callback, pattern=r'^SET_BROWSE_'))
     application.add_handler(CallbackQueryHandler(sets_back_callback, pattern=r'^SETS_BACK$'))
