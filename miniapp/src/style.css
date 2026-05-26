@@ -666,6 +666,12 @@ input, select { outline: none; }
   font-weight: 700;
 }
 
+.row-link {
+  color: var(--link);
+  text-decoration: none;
+}
+.row-link:active { opacity: 0.7; }
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (min-width: 768px) {

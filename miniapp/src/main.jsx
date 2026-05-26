@@ -1060,12 +1060,10 @@ function App() {
   const [cancellingCommand, setCancellingCommand] = useState(null);
 
   const searchTimerRef = useRef(null);
-  const historySearchTimerRef = useRef(null);
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoadingState, setHistoryLoadingState] = useState(false);
   const [historyError, setHistoryError] = useState(null);
   const [historyDate, setHistoryDate] = useState('');
-  const [historyQuery, setHistoryQuery] = useState('');
   const [historyHasMore, setHistoryHasMore] = useState(false);
   // Explicit "all days" mode — never derived from daily_post_days length
   const [allDaysMode, setAllDaysMode] = useState(false);
@@ -1195,7 +1193,7 @@ function App() {
 
   // ── Auto-load history when entering history tab ─────────────────────────────
   useEffect(() => {
-    if (activeTab === 'history') fetchHistoryItems(historyDate, historyQuery, 0);
+    if (activeTab === 'history') fetchHistoryItems(historyDate, 0);
   }, [activeTab]);
 
   // ── API calls ───────────────────────────────────────────────────────────────
@@ -1523,13 +1521,12 @@ function App() {
     finally { setSearchingCards(false); }
   }
 
-  async function fetchHistoryItems(date, query, offset) {
+  async function fetchHistoryItems(date, offset) {
     if (!apiConfigured) return;
     setHistoryLoadingState(true);
     setHistoryError(null);
     const params = new URLSearchParams({ limit: '30', offset: String(offset) });
     if (date) params.set('date', date);
-    if ((query || '').trim().length >= 2) params.set('q', query.trim());
     try {
       const { ok, status, json } = await apiFetch(`/history?${params.toString()}`);
       if (ok) {
@@ -1886,31 +1883,15 @@ function App() {
                 value={historyDate}
                 onChange={(e) => {
                   setHistoryDate(e.target.value);
-                  fetchHistoryItems(e.target.value, historyQuery, 0);
+                  fetchHistoryItems(e.target.value, 0);
                 }}
-              />
-            </label>
-            <div className="row search-row">
-              <Icon name="search" />
-              <input
-                className="search-input"
-                type="search"
-                value={historyQuery}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setHistoryQuery(val);
-                  clearTimeout(historySearchTimerRef.current);
-                  historySearchTimerRef.current = setTimeout(() => fetchHistoryItems(historyDate, val, 0), 400);
-                }}
-                placeholder={copy.searchPlaceholder}
               />
               {historyLoadingState && <Spinner />}
-            </div>
-            {(historyDate || historyQuery) && (
+            </label>
+            {historyDate && (
               <button className="row row-action" type="button" style={{ color: 'var(--link)' }} onClick={() => {
                 setHistoryDate('');
-                setHistoryQuery('');
-                fetchHistoryItems('', '', 0);
+                fetchHistoryItems('', 0);
               }}>
                 <Icon name="x" />
                 <span className="row-label">{copy.clearFilter}</span>
@@ -1931,10 +1912,17 @@ function App() {
               const tone = post.status?.startsWith('POSTED') ? 'ok' : post.status?.startsWith('FAIL') ? 'err' : '';
               const srcTone = post.source === 'scheduled' ? 'ok' : 'warn';
               const srcLabel = post.source === 'scheduled' ? copy.scheduledPost : post.source === 'manual' ? copy.manualPost : null;
+              const arkhamUrl = post.card_code ? `https://arkhamdb.com/card/${post.card_code}` : null;
               return (
                 <div key={post.id} className="row">
                   <div className="row-main">
-                    <span className="row-label">{post.card_name || post.card_code}</span>
+                    {arkhamUrl ? (
+                      <a className="row-label row-link" href={arkhamUrl} target="_blank" rel="noopener noreferrer">
+                        {post.card_name || post.card_code}
+                      </a>
+                    ) : (
+                      <span className="row-label">{post.card_name || post.card_code}</span>
+                    )}
                     <span className="row-caption">
                       {[post.card_code, post.created_at ? new Date(post.created_at).toLocaleString(copy.locale) : null].filter(Boolean).join(' · ')}
                     </span>
@@ -1945,9 +1933,9 @@ function App() {
               );
             })}
             {historyHasMore && (
-              <MenuRow icon="refresh" label={copy.loadMore} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyQuery, historyItems.length)} />
+              <MenuRow icon="refresh" label={copy.loadMore} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyItems.length)} />
             )}
-            <MenuRow icon="refresh" label={copy.refreshQueue} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyQuery, 0)} />
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, 0)} />
           </Section>
         </>
       )}
