@@ -944,7 +944,7 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     for code, entry in chunk:
         name = _taboo_name(name_map, code)
         restriction = _taboo_restriction_label(entry)
-        btn_label = f"{name} — {restriction}"
+        btn_label = f"{code} · {name} · {restriction}"
         if len(btn_label) > 64:
             btn_label = btn_label[:61] + "…"
         buttons.append([InlineKeyboardButton(btn_label, callback_data=f"TABOO_CARD_{code}")])
