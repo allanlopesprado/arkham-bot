@@ -644,23 +644,246 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Could not fetch FAQ right now.")
 
 
+def _parse_taboo_data(taboos) -> tuple[dict | None, dict]:
+    """Returns (active_list, cards_by_code) where cards_by_code maps code→taboo entry."""
+    import json
+    if not taboos:
+        return None, {}
+    active = next((t for t in taboos if t.get('active')), taboos[0] if taboos else None)
+    if not active:
+        return None, {}
+    cards = active.get('cards', [])
+    if isinstance(cards, str):
+        try:
+            cards = json.loads(cards)
+        except Exception:
+            cards = []
+    by_code = {c['code']: c for c in cards if isinstance(c, dict) and c.get('code')}
+    return active, by_code
+
+
+def _taboo_restriction_label(entry: dict) -> str:
+    """Returns a short human-readable restriction for a taboo entry."""
+    parts = []
+    xp = entry.get('xp')
+    if xp is not None:
+        parts.append(f"{'+'if xp>0 else ''}{xp} XP")
+    dl = entry.get('deck_limit')
+    if dl is not None:
+        parts.append("Proibida" if dl == 0 else f"Limite {dl}/deck")
+    if entry.get('exceptional'):
+        parts.append("Exceptional")
+    if entry.get('text') or entry.get('replacement_text'):
+        parts.append("Errata")
+    return " · ".join(parts) if parts else "Restrita"
+
+
+def _taboo_category(entry: dict) -> str:
+    dl = entry.get('deck_limit')
+    if dl == 0:
+        return 'forbidden'
+    xp = entry.get('xp')
+    if xp is not None:
+        return 'xp_up' if xp > 0 else 'xp_down'
+    if entry.get('exceptional'):
+        return 'exceptional'
+    if entry.get('text') or entry.get('replacement_text'):
+        return 'errata'
+    return 'other'
+
+
+TABOO_CATEGORIES = {
+    'forbidden':   ('🚫', 'Proibidas'),
+    'xp_up':       ('⬆️', '+XP (mais caro)'),
+    'xp_down':     ('⬇️', '−XP (mais barato)'),
+    'exceptional': ('⭐', 'Exceptional'),
+    'errata':      ('📝', 'Errata de texto'),
+    'other':       ('⚠️', 'Outras restrições'),
+}
+
+
 async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     import asyncio
-    from .arkhamdb_client import fetch_taboos_sync
+    from .arkhamdb_client import fetch_all_cards_sync, fetch_taboos_sync
 
     try:
-        taboos = await asyncio.to_thread(fetch_taboos_sync)
-        if isinstance(taboos, list):
-            await update.message.reply_text(f"Taboo lists available: {len(taboos)}")
-        elif isinstance(taboos, dict):
-            await update.message.reply_text(f"Taboo data loaded. Keys: {', '.join(sorted(taboos.keys())[:20])}")
-        else:
-            await update.message.reply_text("No taboo data found.")
+        taboos, all_cards_raw = await asyncio.gather(
+            asyncio.to_thread(fetch_taboos_sync),
+            asyncio.to_thread(fetch_all_cards_sync, True),
+        )
+        active, by_code = _parse_taboo_data(taboos)
+        if not active or not by_code:
+            await update.message.reply_text("Nenhuma lista de taboo ativa encontrada.")
+            return
+
+        # Build name map from full card list
+        name_map = {c['code']: (c.get('name') or c.get('real_name') or c['code']) for c in all_cards_raw if c.get('code')}
+
+        # If searching a specific card
+        if context.args:
+            q = " ".join(context.args).strip().lower()
+            matches = {code: entry for code, entry in by_code.items()
+                       if q in name_map.get(code, '').lower() or q == code.lower()}
+            if not matches:
+                await update.message.reply_text(f"Nenhuma restrição taboo encontrada para «{escape(q)}».", parse_mode=ParseMode.HTML)
+                return
+            if len(matches) == 1:
+                code, entry = next(iter(matches.items()))
+                await _send_taboo_card(update, code, entry, name_map)
+                return
+            lines = [f"<b>Resultados taboo para «{escape(q)}»:</b>"]
+            for code, entry in list(matches.items())[:20]:
+                name = escape(name_map.get(code, code))
+                label = escape(_taboo_restriction_label(entry))
+                lines.append(f"• <b>{name}</b> ({code}) — {label}")
+            await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+            return
+
+        # Categorise
+        cats: dict[str, list] = {k: [] for k in TABOO_CATEGORIES}
+        for code, entry in by_code.items():
+            cat = _taboo_category(entry)
+            cats.setdefault(cat, []).append((code, entry))
+
+        # Store for callbacks
+        context.bot_data['taboo_active'] = active
+        context.bot_data['taboo_by_code'] = by_code
+        context.bot_data['taboo_name_map'] = name_map
+        context.bot_data['taboo_cats'] = cats
+
+        date_str = active.get('date_start', '')[:10]
+        total = len(by_code)
+        lines = [f"📋 <b>Lista de Taboo Ativa</b>"]
+        lines.append(f"Data: {date_str} · {total} carta(s) afetada(s)\n")
+        for cat_key, (icon, label) in TABOO_CATEGORIES.items():
+            count = len(cats.get(cat_key, []))
+            if count:
+                lines.append(f"{icon} {label}: <b>{count}</b>")
+
+        buttons = []
+        for cat_key, (icon, label) in TABOO_CATEGORIES.items():
+            count = len(cats.get(cat_key, []))
+            if count:
+                buttons.append([InlineKeyboardButton(f"{icon} {label} ({count})", callback_data=f"TABOO_CAT_{cat_key}_0")])
+        buttons.append([InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)])
+
+        await update.message.reply_text(
+            "\n".join(lines),
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
     except Exception as exc:
         logger.error(f"taboo_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch taboo data right now.")
+        await update.message.reply_text("Não foi possível carregar a lista de taboo agora.")
+
+
+async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dict) -> None:
+    """Sends a card image with its taboo restriction info."""
+    card, _ = await get_card_async(code)
+    name = name_map.get(code) or (card.get('name') if card else code)
+    restriction = _taboo_restriction_label(entry)
+    text_note = entry.get('text') or entry.get('replacement_text') or ''
+
+    if card:
+        caption, is_spoiler = _spoiler_caption(card)
+        taboo_block = f"\n\n⚠️ <b>Taboo:</b> {escape(restriction)}"
+        if text_note:
+            taboo_block += f"\n<i>{escape(text_note)}</i>"
+        caption = caption + taboo_block
+        image_src = card.get('imagesrc') or card.get('image_src')
+        img = await _fetch_card_image(code, image_src)
+        target = update.message or (update.callback_query.message if update.callback_query else None)
+        if target:
+            if img:
+                await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
+            else:
+                await target.reply_text(caption, parse_mode=ParseMode.HTML)
+    else:
+        text = f"<b>{escape(name)}</b> (<code>{code}</code>)\n⚠️ <b>Taboo:</b> {escape(restriction)}"
+        if text_note:
+            text += f"\n<i>{escape(text_note)}</i>"
+        target = update.message or (update.callback_query.message if update.callback_query else None)
+        if target:
+            await target.reply_text(text, parse_mode=ParseMode.HTML)
+
+
+async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    parts = query.data.replace("TABOO_CAT_", "").rsplit("_", 1)
+    cat_key = parts[0]
+    page = int(parts[1]) if len(parts) > 1 else 0
+
+    cats = context.bot_data.get('taboo_cats', {})
+    name_map = context.bot_data.get('taboo_name_map', {})
+    entries = cats.get(cat_key, [])
+    icon, label = TABOO_CATEGORIES.get(cat_key, ('⚠️', cat_key))
+
+    PAGE = 10
+    total = len(entries)
+    total_pages = max(1, (total + PAGE - 1) // PAGE)
+    page = max(0, min(page, total_pages - 1))
+    chunk = entries[page * PAGE:(page + 1) * PAGE]
+
+    buttons = []
+    for code, entry in chunk:
+        name = name_map.get(code, code)
+        restriction = _taboo_restriction_label(entry)
+        btn_label = f"{name} — {restriction}"
+        if len(btn_label) > 64:
+            btn_label = btn_label[:61] + "…"
+        buttons.append([InlineKeyboardButton(btn_label, callback_data=f"TABOO_CARD_{code}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"TABOO_CAT_{cat_key}_{page-1}"))
+    nav.append(InlineKeyboardButton("↩️ Voltar", callback_data="TABOO_BACK"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}"))
+    buttons.append(nav)
+
+    text = f"{icon} <b>{label}</b> — {total} carta(s) — página {page+1}/{total_pages}:"
+    await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    code = query.data.replace("TABOO_CARD_", "")
+    by_code = context.bot_data.get('taboo_by_code', {})
+    name_map = context.bot_data.get('taboo_name_map', {})
+    entry = by_code.get(code)
+    if not entry:
+        await query.answer("Carta não encontrada na lista de taboo.", show_alert=True)
+        return
+    await _send_taboo_card(update, code, entry, name_map)
+
+
+async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    active = context.bot_data.get('taboo_active', {})
+    cats = context.bot_data.get('taboo_cats', {})
+    date_str = active.get('date_start', '')[:10]
+    total = sum(len(v) for v in cats.values())
+
+    lines = [f"📋 <b>Lista de Taboo Ativa</b>"]
+    lines.append(f"Data: {date_str} · {total} carta(s) afetada(s)\n")
+    for cat_key, (icon, label) in TABOO_CATEGORIES.items():
+        count = len(cats.get(cat_key, []))
+        if count:
+            lines.append(f"{icon} {label}: <b>{count}</b>")
+
+    buttons = []
+    for cat_key, (icon, label) in TABOO_CATEGORIES.items():
+        count = len(cats.get(cat_key, []))
+        if count:
+            buttons.append([InlineKeyboardButton(f"{icon} {label} ({count})", callback_data=f"TABOO_CAT_{cat_key}_0")])
+    buttons.append([InlineKeyboardButton("❌ Fechar", callback_data=CALLBACK_CANCEL)])
+
+    await query.edit_message_text("\n".join(lines), parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
 
 
 async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1457,6 +1680,9 @@ def register_handlers(application):
     application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("faq", faq_command))
     application.add_handler(CommandHandler("taboo", taboo_command))
+    application.add_handler(CallbackQueryHandler(taboo_category_callback, pattern=r'^TABOO_CAT_'))
+    application.add_handler(CallbackQueryHandler(taboo_card_callback, pattern=r'^TABOO_CARD_'))
+    application.add_handler(CallbackQueryHandler(taboo_back_callback, pattern=r'^TABOO_BACK$'))
     application.add_handler(CommandHandler("decklist", decklist_command))
     search_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("search", search_command)],
