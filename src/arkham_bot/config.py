@@ -87,7 +87,9 @@ def _parse_int_set(raw: str | None) -> set[int]:
 
 ADMIN_TELEGRAM_USER_IDS = _parse_int_set(os.getenv("ADMIN_TELEGRAM_USER_IDS"))
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # kept for backwards compat, not used
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 ARKHAMDB_OAUTH_CLIENT_ID = os.getenv("ARKHAMDB_OAUTH_CLIENT_ID")
 ARKHAMDB_OAUTH_CLIENT_SECRET = os.getenv("ARKHAMDB_OAUTH_CLIENT_SECRET")
 AI_DAILY_CARD_ENABLED = os.getenv("AI_DAILY_CARD_ENABLED", "true").lower() == "true"

@@ -828,9 +828,9 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Tests AI connectivity and reports configuration status."""
     if not await _require_admin(update):
         return
-    from .config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, OPENAI_API_KEY
+    from .config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENAI_API_KEY
     from .repositories.settings_repo import get_setting
-    from .ai.daily_card_selector import VALID_MODELS, _provider, _key_available
+    from .ai.daily_card_selector import VALID_MODELS, _OPENAI_COMPAT, _provider, _key_available
 
     ai_enabled_db = get_setting('ai_enabled', True)
     _model_raw = get_setting('ai_model', None)
@@ -838,45 +838,50 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ai_language = get_setting('ai_language', 'pt-BR')
     provider = _provider(ai_model_db)
 
+    key_status = {
+        "GEMINI": bool(GEMINI_API_KEY),
+        "OPENAI": bool(OPENAI_API_KEY),
+        "GROQ": bool(GROQ_API_KEY),
+        "MISTRAL": bool(MISTRAL_API_KEY),
+    }
     model_note = f" (DB tinha '{_model_raw}', ignorado)" if _model_raw and _model_raw not in VALID_MODELS else ""
+    keys_line = "  ".join(f"{k}: {'✅' if v else '❌'}" for k, v in key_status.items())
     lines = [
         f"<b>AI Diagnostic ({provider.upper()})</b>",
-        f"AI_DAILY_CARD_ENABLED (env): <b>{AI_DAILY_CARD_ENABLED}</b>",
-        f"GEMINI_API_KEY set: <b>{bool(GEMINI_API_KEY)}</b>",
-        f"OPENAI_API_KEY set: <b>{bool(OPENAI_API_KEY)}</b>",
-        f"ai_enabled (DB): <b>{ai_enabled_db}</b>",
+        f"AI habilitada (env): <b>{AI_DAILY_CARD_ENABLED}</b>",
+        f"AI habilitada (DB): <b>{ai_enabled_db}</b>",
         f"Model: <b>{ai_model_db}</b>{model_note}",
-        f"Provider: <b>{provider}</b>",
-        f"Language: <b>{ai_language}</b>",
+        f"Provider: <b>{provider}</b>  |  Idioma: <b>{ai_language}</b>",
+        f"Chaves: {keys_line}",
         "",
     ]
 
     if not AI_DAILY_CARD_ENABLED:
-        lines.append("AI disabled by env var AI_DAILY_CARD_ENABLED=false")
+        lines.append("AI desabilitada pela variável AI_DAILY_CARD_ENABLED=false")
         await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
     elif not _key_available(ai_model_db):
-        lines.append(f"{provider.upper()} API key not set — add it to the .env on the server")
+        lines.append(f"Chave {provider.upper()}_API_KEY não configurada no .env do servidor")
         await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
     elif not ai_enabled_db:
-        lines.append("AI disabled in database — enable from the mini app")
+        lines.append("AI desabilitada no banco — habilite pelo mini app")
         await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
     else:
-        lines.append(f"Testing {provider.upper()} connection...")
+        lines.append(f"Testando conexão {provider.upper()}...")
         await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
         try:
             import httpx
-            if provider == "openai":
-                url = "https://api.openai.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+            if provider in _OPENAI_COMPAT:
+                api_url, get_key = _OPENAI_COMPAT[provider]
+                headers = {"Authorization": f"Bearer {get_key()}"}
                 req_json = {
                     "model": ai_model_db,
                     "max_tokens": 5,
                     "messages": [{"role": "user", "content": "Say OK"}],
                 }
                 async with httpx.AsyncClient(timeout=15) as client:
-                    resp = await client.post(url, json=req_json, headers=headers)
+                    resp = await client.post(api_url, json=req_json, headers=headers)
             else:
-                url = (
+                api_url = (
                     f"https://generativelanguage.googleapis.com/v1beta/models/{ai_model_db}"
                     f":generateContent?key={GEMINI_API_KEY}"
                 )
@@ -885,15 +890,15 @@ async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "generationConfig": {"maxOutputTokens": 5},
                 }
                 async with httpx.AsyncClient(timeout=15) as client:
-                    resp = await client.post(url, json=req_json)
+                    resp = await client.post(api_url, json=req_json)
             if resp.status_code == 200:
-                await update.message.reply_text(f"✅ {provider.upper()} OK — AI fully operational")
+                await update.message.reply_text(f"✅ {provider.upper()} OK — IA operacional")
             else:
                 body = resp.json()
                 err = body.get("error", {}).get("message", resp.text[:300])
                 await update.message.reply_text(f"❌ {provider.upper()} HTTP {resp.status_code}: {err}")
         except Exception as exc:
-            await update.message.reply_text(f"❌ {provider.upper()} connection failed: {exc}")
+            await update.message.reply_text(f"❌ {provider.upper()} falhou: {exc}")
 
 
 async def post_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

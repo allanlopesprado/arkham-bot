@@ -24,7 +24,12 @@ const SETTINGS_KEYS = new Set([
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
 const AI_TONES = new Set(['random','misterioso','tenso','epico','sombrio','reflexivo','esperancoso','perturbador','melancolico']);
-const AI_MODELS = new Set(['gemini-2.0-flash','gemini-2.5-flash','gemini-2.5-flash-preview-05-20','gemini-2.5-pro','gpt-4o-mini','gpt-4o','gpt-4.1-mini','gpt-4.1','gpt-4-turbo']);
+const AI_MODELS = new Set([
+  'gemini-2.0-flash','gemini-2.5-flash','gemini-2.5-flash-preview-05-20','gemini-2.5-pro',
+  'gpt-4o-mini','gpt-4o','gpt-4.1-mini','gpt-4.1','gpt-4-turbo',
+  'llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768',
+  'mistral-small-latest','mistral-medium-latest','open-mistral-7b',
+]);
 const AI_CREATIVITY_VALUES = new Set(['conservative','default','creative']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'all']);
 const VALID_CARD_TYPES = new Set([

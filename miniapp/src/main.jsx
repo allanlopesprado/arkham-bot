@@ -179,7 +179,7 @@ const I18N = {
     aiEnabled: 'IA habilitada',
     aiEnabledCaption: 'Seleciona e comenta cartas automaticamente',
     aiAutoOnly: 'IA apenas nos posts automáticos',
-    aiAutoOnlyCaption: 'Quando ativo, a IA não é usada em comandos manuais (protege o limite de requisições)',
+    aiAutoOnlyCaption: 'Protege o limite diário: IA só roda no post agendado, não em /post manual',
     aiLanguage: 'Idioma da IA',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
@@ -391,7 +391,7 @@ const I18N = {
     aiEnabled: 'AI enabled',
     aiEnabledCaption: 'Automatically selects and comments on cards',
     aiAutoOnly: 'AI for scheduled posts only',
-    aiAutoOnlyCaption: 'When on, AI is not used for manual commands (protects rate limits)',
+    aiAutoOnlyCaption: 'Protects daily quota: AI only runs on the scheduled post, not on manual /post',
     aiLanguage: 'AI language',
     aiLanguagePt: 'Português (pt-BR)',
     aiLanguageEn: 'English (en-US)',
@@ -606,14 +606,20 @@ const AI_TONES = [
 ];
 
 const AI_MODELS = [
-  { value: 'gemini-2.5-flash',                  label: 'Gemini 2.5 Flash — recomendado (gratuito)' },
-  { value: 'gemini-2.0-flash',                  label: 'Gemini 2.0 Flash — rápido (gratuito)' },
-  { value: 'gemini-2.5-flash-preview-05-20',    label: 'Gemini 2.5 Flash Preview (gratuito)' },
-  { value: 'gemini-2.5-pro',                    label: 'Gemini 2.5 Pro — maior qualidade (gratuito)' },
-  { value: 'gpt-4o-mini',                       label: 'GPT-4o Mini — econômico (pago)' },
-  { value: 'gpt-4o',                            label: 'GPT-4o — alta qualidade (pago)' },
-  { value: 'gpt-4.1-mini',                      label: 'GPT-4.1 Mini — econômico (pago)' },
-  { value: 'gpt-4.1',                           label: 'GPT-4.1 — alta qualidade (pago)' },
+  { value: 'gemini-2.5-flash',               label: 'Gemini 2.5 Flash — recomendado (gratuito)' },
+  { value: 'gemini-2.0-flash',               label: 'Gemini 2.0 Flash — rápido (gratuito)' },
+  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview (gratuito)' },
+  { value: 'gemini-2.5-pro',                 label: 'Gemini 2.5 Pro — alta qualidade (gratuito)' },
+  { value: 'llama-3.3-70b-versatile',        label: 'Llama 3.3 70B — Groq, rápido (gratuito)' },
+  { value: 'llama-3.1-8b-instant',           label: 'Llama 3.1 8B — Groq, ultra-rápido (gratuito)' },
+  { value: 'mixtral-8x7b-32768',             label: 'Mixtral 8x7B — Groq (gratuito)' },
+  { value: 'mistral-small-latest',           label: 'Mistral Small — bom em PT (gratuito)' },
+  { value: 'mistral-medium-latest',          label: 'Mistral Medium — alta qualidade (gratuito)' },
+  { value: 'open-mistral-7b',                label: 'Mistral 7B — leve (gratuito)' },
+  { value: 'gpt-4o-mini',                    label: 'GPT-4o Mini — econômico (pago)' },
+  { value: 'gpt-4o',                         label: 'GPT-4o — alta qualidade (pago)' },
+  { value: 'gpt-4.1-mini',                   label: 'GPT-4.1 Mini — econômico (pago)' },
+  { value: 'gpt-4.1',                        label: 'GPT-4.1 — alta qualidade (pago)' },
 ];
 
 const DEFAULT_SETTINGS = {

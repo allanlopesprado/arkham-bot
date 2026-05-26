@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, OPENAI_API_KEY, REQUEST_TIMEOUT_SECONDS
+from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENAI_API_KEY, REQUEST_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +25,26 @@ _TAG_RE = re.compile(r'<[^>]+>|\[[^\]]+\]')
 
 GEMINI_MODELS = {"gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro"}
 OPENAI_MODELS = {"gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "gpt-4-turbo"}
-VALID_MODELS = GEMINI_MODELS | OPENAI_MODELS
+GROQ_MODELS = {"llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"}
+MISTRAL_MODELS = {"mistral-small-latest", "mistral-medium-latest", "open-mistral-7b"}
+VALID_MODELS = GEMINI_MODELS | OPENAI_MODELS | GROQ_MODELS | MISTRAL_MODELS
 TEMPERATURE_MAP = {"conservative": 0.5, "default": 0.9, "creative": 1.4}
+
+_OPENAI_COMPAT = {
+    "openai":  ("https://api.openai.com/v1/chat/completions",         lambda: OPENAI_API_KEY),
+    "groq":    ("https://api.groq.com/openai/v1/chat/completions",    lambda: GROQ_API_KEY),
+    "mistral": ("https://api.mistral.ai/v1/chat/completions",         lambda: MISTRAL_API_KEY),
+}
 
 
 def _provider(model: str) -> str:
-    return "openai" if model.startswith("gpt-") else "gemini"
+    if model.startswith("gpt-"):
+        return "openai"
+    if model in GROQ_MODELS:
+        return "groq"
+    if model in MISTRAL_MODELS:
+        return "mistral"
+    return "gemini"
 
 
 def _strip(text: str | None, limit: int) -> str:
@@ -102,16 +116,14 @@ async def _call_gemini(prompt: dict, model: str, temperature: float) -> dict:
     return json.loads(text)
 
 
-async def _call_openai(prompt: dict, model: str, temperature: float) -> dict:
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+async def _call_openai_compat(prompt: dict, model: str, temperature: float, provider: str) -> dict:
+    url, get_key = _OPENAI_COMPAT[provider]
+    headers = {"Authorization": f"Bearer {get_key()}"}
     payload = {
         "model": model,
         "temperature": temperature,
         "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
-        ],
+        "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
     }
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         response = await client.post(url, json=payload, headers=headers)
@@ -121,15 +133,16 @@ async def _call_openai(prompt: dict, model: str, temperature: float) -> dict:
 
 
 async def _call_ai(prompt: dict, model: str, temperature: float) -> dict:
-    if _provider(model) == "openai":
-        return await _call_openai(prompt, model, temperature)
+    provider = _provider(model)
+    if provider in _OPENAI_COMPAT:
+        return await _call_openai_compat(prompt, model, temperature, provider)
     return await _call_gemini(prompt, model, temperature)
 
 
 def _key_available(model: str) -> bool:
-    if _provider(model) == "openai":
-        return bool(OPENAI_API_KEY)
-    return bool(GEMINI_API_KEY)
+    provider = _provider(model)
+    keys = {"openai": OPENAI_API_KEY, "groq": GROQ_API_KEY, "mistral": MISTRAL_API_KEY}
+    return bool(keys.get(provider, GEMINI_API_KEY))
 
 
 async def choose_daily_card_with_ai(
