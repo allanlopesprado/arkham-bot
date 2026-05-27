@@ -92,8 +92,25 @@ def _exceptional_tag(card: dict) -> str:
     return ''
 
 
+_SKILL_ICONS_STATS = {
+    'skill_willpower': ('👤', 'Will'),
+    'skill_intellect': ('📓', 'Int'),
+    'skill_combat':    ('✊🏻', 'Combat'),
+    'skill_agility':   ('🪽', 'Agi'),
+    'skill_wild':      ('❓', 'Wild'),
+}
+
+_SKILL_ICONS_SKILLS = {
+    'skill_willpower': ('👤', 'Will'),
+    'skill_intellect': ('📓', 'Intellect'),
+    'skill_combat':    ('✊🏻', 'Combat'),
+    'skill_agility':   ('🪽', 'Agility'),
+    'skill_wild':      ('❓', 'Wild'),
+}
+
+
 def _fmt_faction_stats(card: dict) -> str:
-    """Plain text faction line for stats block. Empty for mythos/encounter cards."""
+    """Faction line with icons. Empty for mythos/encounter cards."""
     factions = []
     for key in ('faction_name', 'faction2_name', 'faction3_name'):
         f = card.get(key)
@@ -104,22 +121,26 @@ def _fmt_faction_stats(card: dict) -> str:
     factions = list(dict.fromkeys(factions))
     if not factions or all(f.lower() in _ENCOUNTER_FACTION for f in factions):
         return ''
-    return ' / '.join(factions)
+    return ' / '.join(f"{FACTION_ICONS_MAP.get(f, '⚪')} {f}" for f in factions)
 
 
 def _fmt_skills_text(card: dict) -> str:
-    """Returns 'Intellect x2. Agility x1.' or empty string."""
+    """Returns '📓 Intellect x2. 🪽 Agility x1.' or empty string."""
     parts = []
-    for key, name in SKILL_NAMES_STATS.items():
+    for key, (icon, name) in _SKILL_ICONS_SKILLS.items():
         v = card.get(key)
         if v and v > 0:
-            parts.append(f'{name} x{v}')
+            parts.append(f'{icon} {name} x{v}')
     return '. '.join(parts) + '.' if parts else ''
 
 
 def _fmt_slot_text(card: dict) -> str:
     slot_raw = card.get('slot', '') or ''
-    return SLOT_TEXT_MAP.get(slot_raw, slot_raw)
+    icon = SLOT_ICONS_MAP.get(slot_raw, '')
+    name = SLOT_TEXT_MAP.get(slot_raw, slot_raw)
+    if not name:
+        return ''
+    return f'{icon} {name}' if icon else name
 
 
 def _fmt_cost_stat(card: dict) -> str | None:
@@ -151,19 +172,20 @@ def _build_stats_lines(card: dict) -> list[str]:
             card.get('skill_willpower') is None
         )
         if not is_mini:
+            parts = []
+            for key, (icon, short) in _SKILL_ICONS_STATS.items():
+                v = card.get(key)
+                if v is not None:
+                    parts.append(f'{icon} <b>{short}:</b> {v}')
+            if parts:
+                lines.append('. '.join(parts) + '.')
             lines.append(
-                f"<b>Will:</b> {_fmt_stat(card.get('skill_willpower'))}. "
-                f"<b>Int:</b> {_fmt_stat(card.get('skill_intellect'))}. "
-                f"<b>Combat:</b> {_fmt_stat(card.get('skill_combat'))}. "
-                f"<b>Agi:</b> {_fmt_stat(card.get('skill_agility'))}."
-            )
-            lines.append(
-                f"<b>Health:</b> {_fmt_stat(card.get('health'))}. "
-                f"<b>Sanity:</b> {_fmt_stat(card.get('sanity'))}."
+                f"❤️ <b>Health:</b> {_fmt_stat(card.get('health'))}. "
+                f"🧠 <b>Sanity:</b> {_fmt_stat(card.get('sanity'))}."
             )
         xp = card.get('xp')
         if xp:
-            lines.append(f"<b>XP:</b> {xp}.")
+            lines.append(f"⭐️ <b>XP:</b> {xp}.")
 
     elif tc in ('asset', 'event', 'skill'):
         cost = _fmt_cost_stat(card)
@@ -178,9 +200,9 @@ def _build_stats_lines(card: dict) -> list[str]:
 
         cost_parts = []
         if cost is not None:
-            cost_parts.append(f"<b>Cost:</b> {cost}.")
+            cost_parts.append(f"💰 <b>Cost:</b> {cost}.")
         if xp:
-            cost_parts.append(f"<b>XP:</b> {xp}.")
+            cost_parts.append(f"⭐️ <b>XP:</b> {xp}.")
         if meta_flags:
             cost_parts.append(' '.join(meta_flags))
         if cost_parts:
@@ -194,8 +216,8 @@ def _build_stats_lines(card: dict) -> list[str]:
         sanity = card.get('sanity')
         if health is not None or sanity is not None:
             lines.append(
-                f"<b>Health:</b> {_fmt_stat(health, '0')}. "
-                f"<b>Sanity:</b> {_fmt_stat(sanity, '0')}."
+                f"❤️ <b>Health:</b> {_fmt_stat(health, '0')}. "
+                f"🧠 <b>Sanity:</b> {_fmt_stat(sanity, '0')}."
             )
 
         skills = _fmt_skills_text(card)
@@ -208,31 +230,31 @@ def _build_stats_lines(card: dict) -> list[str]:
 
         bonded = card.get('bonded_to')
         if bonded:
-            lines.append(f"<b>Bonded:</b> {_e(bonded)}.")
+            lines.append(f"🔗 <b>Bonded:</b> {_e(bonded)}.")
 
     elif tc in ('enemy', 'enemy_location'):
         hp_suffix = ' (x inv.)' if card.get('health_per_investigator') else ''
         lines.append(
-            f"<b>Fight:</b> {_fmt_stat(card.get('enemy_fight'))}. "
-            f"<b>Health:</b> {_fmt_stat(card.get('health'))}{hp_suffix}. "
-            f"<b>Evade:</b> {_fmt_stat(card.get('enemy_evade'))}."
+            f"✊🏻 <b>Fight:</b> {_fmt_stat(card.get('enemy_fight'))}. "
+            f"❤️ <b>Health:</b> {_fmt_stat(card.get('health'))}{hp_suffix}. "
+            f"🪽 <b>Evade:</b> {_fmt_stat(card.get('enemy_evade'))}."
         )
         lines.append(
-            f"<b>Damage:</b> {_fmt_stat(card.get('enemy_damage'))}. "
-            f"<b>Horror:</b> {_fmt_stat(card.get('enemy_horror'))}."
+            f"💢 <b>Damage:</b> {_fmt_stat(card.get('enemy_damage'))}. "
+            f"😨 <b>Horror:</b> {_fmt_stat(card.get('enemy_horror'))}."
         )
         if tc == 'enemy_location':
             cl_suf = '' if card.get('clues_fixed') else ' (x inv.)'
             lines.append(
-                f"<b>Shroud:</b> {_fmt_stat(card.get('shroud'))}. "
-                f"<b>Clues:</b> {_fmt_stat(card.get('clues'))}{cl_suf}."
+                f"🌑 <b>Shroud:</b> {_fmt_stat(card.get('shroud'))}. "
+                f"🔍 <b>Clues:</b> {_fmt_stat(card.get('clues'))}{cl_suf}."
             )
 
     elif tc == 'location':
         cl_suf = '' if card.get('clues_fixed') else ' (x inv.)'
         lines.append(
-            f"<b>Shroud:</b> {_fmt_stat(card.get('shroud'))}. "
-            f"<b>Clues:</b> {_fmt_stat(card.get('clues'))}{cl_suf}."
+            f"🌑 <b>Shroud:</b> {_fmt_stat(card.get('shroud'))}. "
+            f"🔍 <b>Clues:</b> {_fmt_stat(card.get('clues'))}{cl_suf}."
         )
 
     elif tc == 'act':
@@ -240,7 +262,7 @@ def _build_stats_lines(card: dict) -> list[str]:
         if card.get('stage') is not None:
             parts.append(f"<b>Stage:</b> {card['stage']}.")
         if card.get('clues') is not None:
-            parts.append(f"<b>Clues:</b> {card['clues']}.")
+            parts.append(f"🔍 <b>Clues:</b> {card['clues']}.")
         if parts:
             lines.append(' '.join(parts))
 
@@ -249,14 +271,14 @@ def _build_stats_lines(card: dict) -> list[str]:
         if card.get('stage') is not None:
             parts.append(f"<b>Stage:</b> {card['stage']}.")
         if card.get('doom') is not None:
-            parts.append(f"<b>Doom:</b> {card['doom']}.")
+            parts.append(f"💀 <b>Doom:</b> {card['doom']}.")
         if parts:
             lines.append(' '.join(parts))
 
     elif tc == 'key':
         linked = card.get('linked_to_name') or card.get('linked_to_code')
         if linked:
-            lines.append(f"<b>Linked to:</b> {_e(linked)}.")
+            lines.append(f"🔑 <b>Linked to:</b> {_e(linked)}.")
 
     elif tc in ('scenario', 'story'):
         encounter_name = card.get('encounter_name', '')
