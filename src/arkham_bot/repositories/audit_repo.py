@@ -1,6 +1,6 @@
 import logging
 
-from ..supabase_client import get_supabase_client
+from ..core.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 

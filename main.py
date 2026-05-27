@@ -8,7 +8,7 @@ if str(SRC_DIR) not in sys.path:
 
 import filelock
 
-from arkham_bot.config import (
+from arkham_bot.core.config import (
     CACHE_FILE,
     CACHE_LOCK,
     HISTORY_FILE,
@@ -19,7 +19,7 @@ from arkham_bot.config import (
     TELEGRAM_CHAT_ID,
     ensure_runtime_dirs,
 )
-from arkham_bot.logging_config import setup_logging
+from arkham_bot.core.logging_config import setup_logging
 
 
 logger = setup_logging()
@@ -27,8 +27,8 @@ logger = setup_logging()
 
 async def interactive_post_init(application):
     from telegram import BotCommand
-    from arkham_bot.scheduler import start_daily_scheduler
-    from arkham_bot.telegram_handlers import bot_started_message
+    from arkham_bot.services.scheduler import start_daily_scheduler
+    from arkham_bot.handlers.telegram_handlers import bot_started_message
 
     await application.bot.set_my_commands([
         BotCommand("search",    "Busca cartas por nome"),
@@ -47,7 +47,7 @@ async def interactive_post_init(application):
 def run_interactive_bot():
     """Runs the bot in Long Polling mode using ApplicationBuilder."""
     from telegram.ext import ApplicationBuilder
-    from arkham_bot.telegram_handlers import register_handlers
+    from arkham_bot.handlers.telegram_handlers import register_handlers
 
     logger.info("--- STARTING INTERACTIVE MODE (LONG POLLING) ---")
 
@@ -139,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         card_code_arg = args[0]
 
     try:
-        from arkham_bot.daily_card import post_daily_card
+        from arkham_bot.services.daily_card import post_daily_card
 
         with filelock.FileLock(MAIN_PROCESS_LOCK, timeout=1):
             mode = "specific_card" if card_code_arg else "cron"

@@ -1,6 +1,6 @@
 import sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-from src.arkham_bot.card_provider import get_card
+from src.arkham_bot.services.card_provider import get_card
 
 samples = {
     'Asset simples':           '01059',

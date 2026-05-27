@@ -14,7 +14,7 @@ from .arkhamdb_models import (
     validate_packs_payload,
     validate_taboos_payload,
 )
-from .config import (
+from ..core.config import (
     ARKHAM_CARD_API_URL,
     ARKHAMDB_API_URL,
     BASE_URL,

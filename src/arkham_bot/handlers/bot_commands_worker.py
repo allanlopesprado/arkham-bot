@@ -5,7 +5,7 @@ from typing import Any
 from telegram import Bot
 from telegram.error import TelegramError
 
-from .config import (
+from ..core.config import (
     ADMIN_TELEGRAM_USER_IDS,
     BOT_COMMANDS_BATCH_SIZE,
     BOT_COMMANDS_MAX_RETRIES,
@@ -16,11 +16,11 @@ from .config import (
     POSTED_CARDS_LOCK,
     TELEGRAM_BOT_TOKEN,
 )
-from .daily_card import post_daily_card
-from .local_storage import save_posted_card, safe_atomic_write
-from .permissions import is_admin_user
-from .repositories.audit_repo import create_audit_log
-from .repositories.commands_repo import (
+from ..services.daily_card import post_daily_card
+from ..services.local_storage import save_posted_card, safe_atomic_write
+from ..core.permissions import is_admin_user
+from ..repositories.audit_repo import create_audit_log
+from ..repositories.commands_repo import (
     cancel_pending_commands,
     fetch_pending_commands,
     mark_command_executed,
@@ -29,7 +29,7 @@ from .repositories.commands_repo import (
     mark_command_retrying,
     recover_stale_processing_commands,
 )
-from .repositories.settings_repo import set_setting
+from ..repositories.settings_repo import set_setting
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import html
 import re
-from .i18n import get_strings
+from ..i18n import get_strings
 
 
 MAX_CAPTION_BYTES = 1024

@@ -14,11 +14,11 @@ from telegram import Bot
 from telegram.constants import ParseMode
 from telegram.error import RetryAfter, TelegramError
 
-from .arkhamdb_client import download_image_sync, fetch_all_cards_sync
-from .repositories.cards_repo import get_all_cards as _db_get_all_cards
+from ..clients.arkhamdb_client import download_image_sync, fetch_all_cards_sync
+from ..repositories.cards_repo import get_all_cards as _db_get_all_cards
 from .card_provider import get_card
-from .ai.daily_card_selector import choose_daily_card_with_ai, generate_card_commentary
-from .config import (
+from ..ai.daily_card_selector import choose_daily_card_with_ai, generate_card_commentary
+from ..core.config import (
     BASE_URL,
     EXTENSIONS_TO_TRY,
     POSTED_CARDS_FILE,
@@ -38,10 +38,10 @@ from .local_storage import (
     save_last_pinned_daily_card,
     save_posted_card,
 )
-from .repositories.settings_repo import get_setting
-from .repositories.history_repo import create_history_entry
-from .text_formatters import format_card_back_caption, format_card_caption
-from .i18n import get_strings
+from ..repositories.settings_repo import get_setting
+from ..repositories.history_repo import create_history_entry
+from ..formatters.text_formatters import format_card_back_caption, format_card_caption
+from ..i18n import get_strings
 
 
 logger = logging.getLogger(__name__)

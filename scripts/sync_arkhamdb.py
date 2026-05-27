@@ -8,21 +8,21 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from arkham_bot.arkhamdb_client import (
+from arkham_bot.clients.arkhamdb_client import (
     fetch_all_cards_sync,
     fetch_factions_sync,
     fetch_faq_by_card_code_sync,
     fetch_packs_sync,
     fetch_taboos_sync,
 )
-from arkham_bot.logging_config import setup_logging
+from arkham_bot.core.logging_config import setup_logging
 from arkham_bot.repositories.audit_repo import create_audit_log
 from arkham_bot.repositories.cards_repo import bulk_upsert_cards
 from arkham_bot.repositories.factions_repo import upsert_faction
 from arkham_bot.repositories.faq_repo import upsert_faq
 from arkham_bot.repositories.packs_repo import upsert_pack
 from arkham_bot.repositories.taboos_repo import upsert_taboo
-from arkham_bot.supabase_client import get_supabase_client
+from arkham_bot.core.supabase_client import get_supabase_client
 
 logger = setup_logging()
 

@@ -1,7 +1,7 @@
 import logging
 
-from .arkhamdb_client import fetch_card_by_code_async, fetch_card_by_code_sync
-from .repositories.cards_repo import get_card_by_code
+from ..clients.arkhamdb_client import fetch_card_by_code_async, fetch_card_by_code_sync
+from ..repositories.cards_repo import get_card_by_code
 
 
 logger = logging.getLogger(__name__)

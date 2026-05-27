@@ -1,4 +1,4 @@
-from ..supabase_client import get_supabase_client
+from ..core.supabase_client import get_supabase_client
 
 
 def get_setting(key: str, default=None):

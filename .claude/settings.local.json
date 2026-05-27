@@ -90,7 +90,21 @@
       "Bash(cat)",
       "Read(//tmp/**)",
       "Bash(python -m compileall -q /c/Users/allan/Desktop/arkham-bot/src /c/Users/allan/Desktop/arkham-bot/scripts)",
-      "Bash(git -C /c/Users/allan/Desktop/arkham-bot add src/arkham_bot/repositories/admins_repo.py src/arkham_bot/repositories/cards_repo.py src/arkham_bot/config.py)"
+      "Bash(git -C /c/Users/allan/Desktop/arkham-bot add src/arkham_bot/repositories/admins_repo.py src/arkham_bot/repositories/cards_repo.py src/arkham_bot/config.py)",
+      "Bash(python -c \"import src.arkham_bot.telegram_handlers; print\\('OK'\\)\")",
+      "Bash(python -c \"import src.arkham_bot.scheduler; print\\('OK'\\)\")",
+      "Bash(python scripts/_preview_stats.py)",
+      "Bash(python -m scripts._preview_stats)",
+      "Bash(python -c \"from src.arkham_bot.text_formatters import format_card_caption; print\\('OK'\\)\")",
+      "Bash(python -c \"from src.arkham_bot.text_formatters import format_card_caption, format_card_back_caption; print\\('OK'\\)\")",
+      "Bash(python -c \"from src.arkham_bot.i18n import get_strings; s = get_strings\\('en-US'\\); print\\(s['help_cards_section']\\); s2 = get_strings\\('pt-BR'\\); print\\(s2['help_cards_section']\\)\")",
+      "Bash(git mv *)",
+      "Bash(python -c \"from src.arkham_bot.i18n import get_strings; print\\(get_strings\\('pt-BR'\\)['help_cards_section']\\); print\\(get_strings\\('en-US'\\)['help_cards_section']\\)\")",
+      "Bash(New-Item -ItemType Directory -Force src/arkham_bot/core, src/arkham_bot/clients, src/arkham_bot/services, src/arkham_bot/handlers, src/arkham_bot/formatters)",
+      "Bash(Out-Null)",
+      "Bash(sed -i 's/from \\\\.\\\\.supabase_client import/from ..core.supabase_client import/g' src/arkham_bot/repositories/*.py)",
+      "Bash(sed -i 's/from \\\\.\\\\.config import/from ..core.config import/g' src/arkham_bot/repositories/*.py)",
+      "Bash(xargs grep -l \"arkham_bot\\\\.\")"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -20,10 +20,10 @@ from telegram.ext import (
 
 import random
 
-from .arkhamdb_client import download_image_async
-from .card_provider import get_card_async
-from .supabase_client import get_supabase_client
-from .config import (
+from ..clients.arkhamdb_client import download_image_async
+from ..services.card_provider import get_card_async
+from ..core.supabase_client import get_supabase_client
+from ..core.config import (
     BASE_URL,
     CALLBACK_CANCEL,
     CHOOSING_CARD_NUMBER,
@@ -31,11 +31,11 @@ from .config import (
     EXTENSIONS_TO_TRY,
     TELEGRAM_CHAT_ID,
 )
-from .permissions import admin_source, is_admin_user
-from .rate_limit import rate_limiter
-from .repositories.cards_repo import get_card_packs
-from .text_formatters import format_card_back_caption, format_card_caption
-from .i18n import get_strings
+from ..core.permissions import admin_source, is_admin_user
+from ..core.rate_limit import rate_limiter
+from ..repositories.cards_repo import get_card_packs
+from ..formatters.text_formatters import format_card_back_caption, format_card_caption
+from ..i18n import get_strings
 
 
 logger = logging.getLogger(__name__)

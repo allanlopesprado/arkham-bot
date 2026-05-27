@@ -8,13 +8,13 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from arkham_bot.config import (
+from arkham_bot.core.config import (
     SUPABASE_ENABLED,
     TELEGRAM_BOT_TOKEN,
     ensure_runtime_dirs,
 )
-from arkham_bot.logging_config import setup_logging
-from arkham_bot.supabase_client import get_supabase_client
+from arkham_bot.core.logging_config import setup_logging
+from arkham_bot.core.supabase_client import get_supabase_client
 
 
 logger = setup_logging()

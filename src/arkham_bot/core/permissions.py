@@ -1,7 +1,7 @@
 import logging
 
 from .config import ADMIN_TELEGRAM_USER_IDS
-from .repositories.admins_repo import get_admin
+from ..repositories.admins_repo import get_admin
 
 logger = logging.getLogger(__name__)
 

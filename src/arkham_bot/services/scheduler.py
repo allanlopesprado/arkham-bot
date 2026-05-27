@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from .config import (
+from ..core.config import (
     BOT_COMMANDS_POLLING_ENABLED,
     DAILY_POST_DAYS,
     DAILY_POST_ENABLED,
@@ -13,8 +13,8 @@ from .config import (
     TIMEZONE,
 )
 from .daily_card import post_daily_card
-from .repositories.settings_repo import get_setting
-from .repositories.commands_repo import enqueue_command
+from ..repositories.settings_repo import get_setting
+from ..repositories.commands_repo import enqueue_command
 
 
 logger = logging.getLogger(__name__)

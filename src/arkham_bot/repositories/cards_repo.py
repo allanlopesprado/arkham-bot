@@ -1,8 +1,8 @@
 import re
 from collections import defaultdict
 
-from ..config import PACK_PREFIX_LABEL_OVERRIDES
-from ..supabase_client import get_supabase_client
+from ..core.config import PACK_PREFIX_LABEL_OVERRIDES
+from ..core.supabase_client import get_supabase_client
 
 _PAGE = 1000
 

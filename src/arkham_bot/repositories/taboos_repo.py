@@ -1,4 +1,4 @@
-from ..supabase_client import get_supabase_client
+from ..core.supabase_client import get_supabase_client
 
 
 def upsert_taboo(taboo_id: str, payload: dict) -> None:

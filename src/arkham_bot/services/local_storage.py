@@ -9,7 +9,7 @@ from pathlib import Path
 
 import filelock
 
-from .config import (
+from ..core.config import (
     CACHE_EXPIRATION_SECONDS,
     CACHE_FILE,
     CACHE_LOCK,

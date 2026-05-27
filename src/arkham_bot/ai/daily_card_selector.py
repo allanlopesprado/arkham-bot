@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from ..config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENAI_API_KEY, REQUEST_TIMEOUT_SECONDS
+from ..core.config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENAI_API_KEY, REQUEST_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
