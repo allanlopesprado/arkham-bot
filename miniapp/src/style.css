@@ -581,6 +581,7 @@ input, select { outline: none; }
 }
 
 .time-add-input {
+  position: relative;
   margin-left: auto;
   background: none;
   border: none;
@@ -594,7 +595,13 @@ input, select { outline: none; }
   cursor: pointer;
 }
 .time-add-input::-webkit-calendar-picker-indicator {
-  display: none;
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  cursor: pointer;
 }
 
 .time-add-btn {
