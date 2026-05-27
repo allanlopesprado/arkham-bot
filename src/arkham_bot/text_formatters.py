@@ -27,7 +27,7 @@ GLOBAL_ICON_REPLACEMENTS = {
 
 SLOT_ICONS_MAP = {
     'Hand': '🤚🏻',
-    'Hand x2': '🤚🏻🤚🏻',
+    'Hand x2': '🤲🏻',
     'Arcane': '🔮',
     'Arcane x2': '🔮🔮',
     'Ally': '🕵️',
