@@ -91,7 +91,7 @@ strings: dict = {
 
     # /search
     "search_prompt": "🔍 Enter card name or code:",
-    "search_btn_cancel": "❌ Cancel",
+    "search_btn_cancel": "Cancel",
     "search_empty_query": "Type something to search.",
     "search_searching": "🔍 Searching…",
     "search_not_found": "No cards found. Try a different term.",
@@ -100,7 +100,7 @@ strings: dict = {
     "search_session_expired": "Session expired. Use /search again.",
     "search_btn_previous": "⬅️ Previous",
     "search_btn_next": "➡️ Next",
-    "search_btn_cancel_nav": "❌ Cancel",
+    "search_btn_cancel_nav": "Cancel",
     "search_card_not_found": "Card not found.",
     "search_card_load_error": "Error loading card.",
     "search_card_not_found_code": "Card <code>{code}</code> not found.",
