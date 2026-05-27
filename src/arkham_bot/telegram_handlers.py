@@ -547,7 +547,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await query.edit_message_text(
         text=f"Pack **{pack_name}** {card_info} selected!\n"
-             f"👉 Please **now enter the card number** you want to search for ({example_hint}):",
+             f"👉🏻 Please **now enter the card number** you want to search for ({example_hint}):",
         parse_mode=ParseMode.MARKDOWN
     )
 
