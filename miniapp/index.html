@@ -7,21 +7,17 @@
     <title>Arkham Bot Admin</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-      // Exit fullscreen immediately — before React loads — on non-mobile platforms.
-      // Telegram Desktop activates fullscreen before JS bundles parse, causing broken rendering.
+      // Request fullscreen only on mobile (android/ios). Exit immediately on desktop.
       (function () {
         try {
           var app = window.Telegram && window.Telegram.WebApp;
           if (!app) return;
           var mobile = ['android', 'ios'];
-          if (mobile.indexOf(app.platform) === -1) {
+          if (mobile.indexOf(app.platform) !== -1) {
+            app.requestFullscreen && app.requestFullscreen();
+          } else {
             app.exitFullscreen && app.exitFullscreen();
           }
-          app.onEvent && app.onEvent('fullscreenFailed', function (data) {
-            if (data && data.error === 'UNSUPPORTED') {
-              app.exitFullscreen && app.exitFullscreen();
-            }
-          });
         } catch (e) {}
       })();
     </script>

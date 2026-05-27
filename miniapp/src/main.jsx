@@ -1190,15 +1190,17 @@ function App() {
     app.onEvent?.('themeChanged', applyColors);
     app.onEvent?.('viewportChanged', onViewportChanged);
 
-    // Fullscreen: only supported on mobile (Bot API 8.0+). Exit on desktop or failure.
+    // Fullscreen: request on mobile only (Bot API 8.0+), exit on desktop.
     const mobileOnly = ['android', 'ios'];
-    if (app.isVersionAtLeast?.('8.0') && !mobileOnly.includes(app.platform)) {
-      try { app.exitFullscreen?.(); } catch {}
+    if (app.isVersionAtLeast?.('8.0')) {
+      try {
+        if (mobileOnly.includes(app.platform)) app.requestFullscreen?.();
+        else app.exitFullscreen?.();
+      } catch {}
     }
     const onFullscreenFailed = ({ error } = {}) => {
       if (error === 'UNSUPPORTED') { try { app.exitFullscreen?.(); } catch {} }
     };
-    // fullscreenChanged fires when entering/exiting fullscreen — state readable via app.isFullscreen
     const onFullscreenChanged = () => {};
     app.onEvent?.('fullscreenFailed', onFullscreenFailed);
     app.onEvent?.('fullscreenChanged', onFullscreenChanged);
