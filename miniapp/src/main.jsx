@@ -1227,7 +1227,7 @@ function App() {
     const app = tg();
     if (!app) return;
     app.ready?.();
-    app.expand?.();
+    if (['android', 'ios'].includes(app.platform)) app.expand?.();
     try { app.setHeaderColor?.('secondary_bg_color'); } catch {}
     try { app.setBackgroundColor?.('bg_color'); } catch {}
     try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
@@ -1237,16 +1237,18 @@ function App() {
       try { app.setBackgroundColor?.('bg_color'); } catch {}
       try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
     };
-    const onViewportChanged = ({ isStateStable }) => { if (isStateStable) app.expand?.(); };
+    const mobileOnlyPlatforms = ['android', 'ios'];
+    const onViewportChanged = ({ isStateStable }) => {
+      if (isStateStable && mobileOnlyPlatforms.includes(app.platform)) app.expand?.();
+    };
 
     app.onEvent?.('themeChanged', applyColors);
     app.onEvent?.('viewportChanged', onViewportChanged);
 
     // Fullscreen: request on mobile only (Bot API 8.0+), exit on desktop.
-    const mobileOnly = ['android', 'ios'];
     if (app.isVersionAtLeast?.('8.0')) {
       try {
-        if (mobileOnly.includes(app.platform)) app.requestFullscreen?.();
+        if (mobileOnlyPlatforms.includes(app.platform)) app.requestFullscreen?.();
         else app.exitFullscreen?.();
       } catch {}
     }
