@@ -1,4 +1,4 @@
-from arkham_bot.core.rate_limit import InMemoryRateLimiter
+from arkham_bot.core.rate_limiter import InMemoryRateLimiter
 from arkham_bot.core.config import RATE_LIMIT_PER_USER_MAX_REQUESTS, RATE_LIMIT_PER_CHAT_MAX_REQUESTS
 
 

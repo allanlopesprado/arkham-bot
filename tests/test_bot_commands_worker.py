@@ -1,6 +1,6 @@
 import asyncio
 
-from arkham_bot.handlers import bot_commands_worker
+from arkham_bot.handlers import command_worker as bot_commands_worker
 from arkham_bot.services.daily_card import DailyPostResult
 
 

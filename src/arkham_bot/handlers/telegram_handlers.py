@@ -32,7 +32,7 @@ from ..core.config import (
     TELEGRAM_CHAT_ID,
 )
 from ..core.permissions import admin_source, is_admin_user
-from ..core.rate_limit import rate_limiter
+from ..core.rate_limiter import rate_limiter
 from ..repositories.cards_repo import get_card_packs
 from ..formatters.text_formatters import format_card_back_caption, format_card_caption
 from ..i18n import get_strings

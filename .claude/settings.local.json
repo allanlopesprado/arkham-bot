@@ -107,7 +107,12 @@
       "Bash(xargs grep -l \"arkham_bot\\\\.\")",
       "Bash(python -c \"import src.arkham_bot.formatters.text_formatters as m; print\\([x for x in dir\\(m\\) if not x.startswith\\('_'\\)]\\)\")",
       "Bash(python -m pytest tests/ -x --tb=short -q)",
-      "Bash(python -m pytest tests/ --tb=short -q)"
+      "Bash(python -m pytest tests/ --tb=short -q)",
+      "Bash(sed -i 's|from ..core.rate_limit import|from ..core.rate_limiter import|g' src/arkham_bot/handlers/telegram_handlers.py)",
+      "Bash(sed -i 's|from .bot_commands_worker import|from .command_worker import|g' src/arkham_bot/services/scheduler.py)",
+      "Bash(sed -i 's|from arkham_bot.handlers import bot_commands_worker|from arkham_bot.handlers import command_worker as bot_commands_worker|g' tests/test_bot_commands_worker.py)",
+      "Bash(sed -i 's|from arkham_bot.core.rate_limit import|from arkham_bot.core.rate_limiter import|g' tests/test_rate_limit.py)",
+      "Bash(python -m pytest tests/ -q --tb=short)"
     ],
     "additionalDirectories": [
       "\\tmp"

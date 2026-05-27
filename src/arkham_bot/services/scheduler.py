@@ -195,7 +195,7 @@ def start_daily_scheduler(application) -> None:
     application.create_task(daily_scheduler_loop(), name="daily-card-scheduler")
     if BOT_COMMANDS_POLLING_ENABLED:
         try:
-            from .bot_commands_worker import start_bot_commands_worker
+            from .command_worker import start_bot_commands_worker
 
             start_bot_commands_worker(application)
         except Exception as exc:
