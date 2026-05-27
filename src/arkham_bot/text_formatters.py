@@ -301,7 +301,7 @@ def format_card_caption(card, is_interactive=False):
             lines.append(" | ".join(hs_parts))
 
         if skill:
-            lines.append(skill)
+            lines.append(f"Skills: {skill}")
 
         dl = _deck_limit_display(card.get('deck_limit'))
         if dl:
@@ -319,14 +319,11 @@ def format_card_caption(card, is_interactive=False):
 
     elif tc == 'skill':
         xp = card.get('xp')
-        parts = []
         if xp:
-            parts.append(f"⭐️ XP: {xp}")
+            lines.append(f"⭐️ XP: {xp}")
         skill = skill_test_display(card)
         if skill:
-            parts.append(skill)
-        if parts:
-            lines.append(" | ".join(parts))
+            lines.append(f"Skills: {skill}")
         dl = _deck_limit_display(card.get('deck_limit'))
         if dl:
             lines.append(dl)
