@@ -2,6 +2,8 @@
 
 Bot Telegram para Arkham Horror: The Card Game, com backend Python, fila/estado no Supabase, Mini App administrativo em React/Vite e Worker Cloudflare para comandos autenticados.
 
+Repositorio validado para edicoes remotas via GitHub connector.
+
 ## Documentacao
 
 - [Documentacao tecnica](docs/technical.md)
