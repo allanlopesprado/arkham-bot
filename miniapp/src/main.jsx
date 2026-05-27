@@ -1728,12 +1728,12 @@ function App() {
           </Section>
 
           <Section title={copy.actionsTitle}>
-            <Row icon="send"  label={copy.postCard}   onClick={() => setActiveTab('post')} />
-            <Row icon="clock" label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="send"     label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="clock"    label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="settings" label={copy.settings}   onClick={() => setActiveTab('settings')} />
           </Section>
 
           <Section title={copy.manageTitle}>
-            <Row icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
             <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
             <Row icon="database" label={copy.databaseTab} onClick={() => setActiveTab('database')} />
           </Section>
