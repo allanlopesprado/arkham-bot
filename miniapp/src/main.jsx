@@ -660,44 +660,44 @@ const AI_TONES = [
 const AI_PROVIDERS = [
   {
     value: 'gemini',
-    labelPt: 'Google Gemini — gratuito',
-    labelEn: 'Google Gemini — free',
+    labelPt: 'Google Gemini',
+    labelEn: 'Google Gemini',
     models: [
-      { value: 'gemini-2.5-flash',               labelPt: 'Gemini 2.5 Flash — recomendado', labelEn: 'Gemini 2.5 Flash — recommended' },
-      { value: 'gemini-2.0-flash',               labelPt: 'Gemini 2.0 Flash — rápido',       labelEn: 'Gemini 2.0 Flash — fast' },
-      { value: 'gemini-2.5-flash-preview-05-20', labelPt: 'Gemini 2.5 Flash Preview',         labelEn: 'Gemini 2.5 Flash Preview' },
-      { value: 'gemini-2.5-pro',                 labelPt: 'Gemini 2.5 Pro — alta qualidade', labelEn: 'Gemini 2.5 Pro — high quality' },
+      { value: 'gemini-2.5-flash',               label: 'Gemini 2.5 Flash ★' },
+      { value: 'gemini-2.0-flash',               label: 'Gemini 2.0 Flash' },
+      { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview' },
+      { value: 'gemini-2.5-pro',                 label: 'Gemini 2.5 Pro' },
     ],
   },
   {
     value: 'groq',
-    labelPt: 'Groq — gratuito, ultra-rápido',
-    labelEn: 'Groq — free, ultra-fast',
+    labelPt: 'Groq',
+    labelEn: 'Groq',
     models: [
-      { value: 'llama-3.3-70b-versatile', labelPt: 'Llama 3.3 70B — recomendado',  labelEn: 'Llama 3.3 70B — recommended' },
-      { value: 'llama-3.1-8b-instant',    labelPt: 'Llama 3.1 8B — ultra-rápido',  labelEn: 'Llama 3.1 8B — ultra-fast' },
-      { value: 'mixtral-8x7b-32768',      labelPt: 'Mixtral 8x7B',                 labelEn: 'Mixtral 8x7B' },
+      { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B ★' },
+      { value: 'llama-3.1-8b-instant',    label: 'Llama 3.1 8B' },
+      { value: 'mixtral-8x7b-32768',      label: 'Mixtral 8x7B' },
     ],
   },
   {
     value: 'mistral',
-    labelPt: 'Mistral AI — gratuito',
-    labelEn: 'Mistral AI — free',
+    labelPt: 'Mistral AI',
+    labelEn: 'Mistral AI',
     models: [
-      { value: 'mistral-small-latest',  labelPt: 'Mistral Small — bom em PT',    labelEn: 'Mistral Small — good quality' },
-      { value: 'mistral-medium-latest', labelPt: 'Mistral Medium — alta qualidade', labelEn: 'Mistral Medium — high quality' },
-      { value: 'open-mistral-7b',       labelPt: 'Mistral 7B — leve',            labelEn: 'Mistral 7B — lightweight' },
+      { value: 'mistral-small-latest',  label: 'Mistral Small' },
+      { value: 'mistral-medium-latest', label: 'Mistral Medium' },
+      { value: 'open-mistral-7b',       label: 'Mistral 7B' },
     ],
   },
   {
     value: 'openai',
-    labelPt: 'OpenAI — pago',
-    labelEn: 'OpenAI — paid',
+    labelPt: 'OpenAI',
+    labelEn: 'OpenAI',
     models: [
-      { value: 'gpt-4o-mini', labelPt: 'GPT-4o Mini — econômico',    labelEn: 'GPT-4o Mini — affordable' },
-      { value: 'gpt-4o',      labelPt: 'GPT-4o — alta qualidade',    labelEn: 'GPT-4o — high quality' },
-      { value: 'gpt-4.1-mini', labelPt: 'GPT-4.1 Mini — econômico', labelEn: 'GPT-4.1 Mini — affordable' },
-      { value: 'gpt-4.1',     labelPt: 'GPT-4.1 — alta qualidade',  labelEn: 'GPT-4.1 — high quality' },
+      { value: 'gpt-4o-mini',  label: 'GPT-4o Mini' },
+      { value: 'gpt-4o',       label: 'GPT-4o' },
+      { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+      { value: 'gpt-4.1',      label: 'GPT-4.1' },
     ],
   },
 ];
@@ -978,6 +978,17 @@ function SelectRow({ label, value, onChange, children }) {
         {children}
       </select>
     </label>
+  );
+}
+
+function StackedSelectRow({ label, value, onChange, children }) {
+  return (
+    <div className="stacked-select-row">
+      <span className="row-label">{label}</span>
+      <select className="block-select" value={value} onChange={(e) => { haptic('selection'); onChange(e.target.value); }}>
+        {children}
+      </select>
+    </div>
   );
 }
 
@@ -2180,19 +2191,19 @@ function App() {
                     const currentProvider = _providerOfModel(settings.ai_model);
                     const providerModels = AI_PROVIDERS.find((p) => p.value === currentProvider)?.models ?? [];
                     return (<>
-                      <SelectRow label={copy.aiProvider} value={currentProvider} onChange={(providerValue) => {
+                      <StackedSelectRow label={copy.aiProvider} value={currentProvider} onChange={(providerValue) => {
                         const firstModel = AI_PROVIDERS.find((p) => p.value === providerValue)?.models[0]?.value;
                         if (firstModel) updateSetting('ai_model', firstModel);
                       }}>
                         {AI_PROVIDERS.map((p) => (
                           <option key={p.value} value={p.value}>{lang === 'pt' ? p.labelPt : p.labelEn}</option>
                         ))}
-                      </SelectRow>
-                      <SelectRow label={copy.aiModel} value={settings.ai_model} onChange={(v) => updateSetting('ai_model', v)}>
+                      </StackedSelectRow>
+                      <StackedSelectRow label={copy.aiModel} value={settings.ai_model} onChange={(v) => updateSetting('ai_model', v)}>
                         {providerModels.map((m) => (
-                          <option key={m.value} value={m.value}>{lang === 'pt' ? m.labelPt : m.labelEn}</option>
+                          <option key={m.value} value={m.value}>{m.label}</option>
                         ))}
-                      </SelectRow>
+                      </StackedSelectRow>
                     </>);
                   })()}
                 </Section>
