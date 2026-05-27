@@ -42,7 +42,7 @@ ARKHAMDB_API_URL = "https://arkhamdb.com/api/public/cards/"
 ARKHAM_CARD_API_URL = "https://arkhamdb.com/api/public/card/"
 
 CACHE_EXPIRATION_SECONDS = 24 * 60 * 60
-EXTENSIONS_TO_TRY = ['.png', '.jpg', '.jpeg']
+EXTENSIONS_TO_TRY = ['.jpg', '.png', '.jpeg']
 
 # Logging Configurations
 LOG_FILE = LOG_DIR / "bot_execution.log"

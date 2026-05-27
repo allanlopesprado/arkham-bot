@@ -673,7 +673,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
 
                 if back_image_src:
                     for ext in EXTENSIONS_TO_TRY:
-                        BACK_IMAGE_PATH = back_image_src or f"/bundles/cards/{card_code}b{ext}"
+                        BACK_IMAGE_PATH = back_image_src if back_image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}b{ext}"
                         BACK_IMAGE_URL = urljoin(BASE_URL, BACK_IMAGE_PATH)
 
                         try:
