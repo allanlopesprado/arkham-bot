@@ -2015,14 +2015,24 @@ function App() {
             )}
 
             <Section title={copy.postTimes}>
-              <TimeEditor
-                times={getTimesForDay(activeDayCode)}
-                pendingTime={pendingTime}
-                onPendingTimeChange={setPendingTime}
-                onAdd={() => addTimeForDay(activeDayCode)}
-                onRemove={(time) => removeTimeForDay(activeDayCode, time)}
-                copy={copy}
-              />
+              <div className="time-add-row" style={{ paddingTop: 8 }}>
+                <Icon name="clock" />
+                <span className="row-label" style={{ marginRight: 8 }}>{copy.syncScheduleTime}</span>
+                <input
+                  className="time-add-input"
+                  type="time"
+                  value={getTimesForDay(activeDayCode)[0] || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.slice(0, 5);
+                    if (!val) return;
+                    if (activeDayCode === 'all') {
+                      setSettings((cur) => ({ ...cur, daily_post_times: [val] }));
+                    } else {
+                      updateDayConfig(activeDayCode, (cfg) => ({ ...cfg, times: [val] }));
+                    }
+                  }}
+                />
+              </div>
             </Section>
 
             {/* Cycles */}
