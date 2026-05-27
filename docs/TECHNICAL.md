@@ -69,12 +69,19 @@ Variaveis principais:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ADMIN_TELEGRAM_USER_IDS`
+- `TIMEZONE`
 - `DAILY_POST_ENABLED`
 - `DAILY_POST_TIMES`
 - `DAILY_POST_DAYS`
+- `AI_DAILY_CARD_ENABLED`
+- `AI_MODEL`
+- `GEMINI_API_KEY`
+- `OPENAI_API_KEY`
+- `GROQ_API_KEY`
+- `MISTRAL_API_KEY`
 - `BOT_COMMANDS_POLLING_ENABLED`
 - `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS`
-- `OPENAI_API_KEY`
+- `REQUEST_TIMEOUT_SECONDS`
 
 ### `logging_config.py`
 
@@ -94,13 +101,13 @@ Funcoes principais:
 
 - `fetch_all_cards_sync(include_encounter=False)`
 - `fetch_card_by_code_sync(card_code)`
-- `fetch_cards_by_pack_sync(pack_code)`
 - `fetch_packs_sync()`
 - `fetch_factions_sync()`
 - `fetch_faq_by_card_code_sync(card_code)`
 - `fetch_taboos_sync()`
 - `fetch_decklist_sync(decklist_id)`
 - `download_image_sync(url)`
+- `download_image_async(url)`
 
 ### `arkhamdb_models.py`
 
@@ -133,10 +140,14 @@ Antes de buscar novos comandos, recupera comandos presos em `processing` ha mais
 Comandos aceitos:
 
 - `post_now`
+- `repost_card`
 - `skip_card`
 - `pause_daily_post`
 - `resume_daily_post`
 - `sync_arkhamdb`
+- `reset_cycle`
+- `clear_queue`
+- `update_setting`
 
 Estados usados:
 
@@ -180,15 +191,15 @@ Camada de acesso ao Supabase.
 
 ### `ai/`
 
-Selecao opcional de carta diaria via OpenAI.
+Selecao opcional de carta diaria. Suporta Gemini (padrao), OpenAI, Groq e Mistral.
 
 Ativada somente com:
 
 ```txt
 AI_DAILY_CARD_ENABLED=true
-OPENAI_API_KEY=<valor>
+AI_MODEL=gemini-2.5-flash   # ou gpt-4o-mini, groq/..., mistral/...
+GEMINI_API_KEY=<valor>       # ou OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY
 ```
-
 
 ## Supabase
 
@@ -241,10 +252,14 @@ Endpoints:
 Comandos aceitos pelo Worker:
 
 - `post_now`
+- `repost_card`
 - `skip_card`
 - `pause_daily_post`
 - `resume_daily_post`
 - `sync_arkhamdb`
+- `reset_cycle`
+- `clear_queue`
+- `update_setting`
 
 Aliases:
 
@@ -275,10 +290,6 @@ O Mini App:
 - nao contem secrets;
 - desabilita acoes quando usuario nao e admin ou quando esta fora do Telegram.
 
-## IA
-
-O modulo em `src/arkham_bot/ai/` e opcional. A ativacao depende de `AI_DAILY_CARD_ENABLED=true` e `OPENAI_API_KEY`.
-
 ## GitHub Actions
 
 ### `.github/workflows/deploy.yml`
@@ -289,7 +300,9 @@ Workflow de validacao geral:
 - roda compile;
 - roda testes;
 - roda help;
-- roda healthcheck nao estrito.
+- roda healthcheck nao estrito;
+- valida sintaxe e testes do Worker;
+- faz build do Mini App.
 
 ### `.github/workflows/deploy-oracle.yml`
 
@@ -329,7 +342,7 @@ Comando:
 ## Seguranca
 
 - `.env` nao deve ser commitado.
-- `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY` e chaves SSH nao devem aparecer em logs.
+- `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` e chaves de IA nao devem aparecer em logs.
 - `SUPABASE_SERVICE_ROLE_KEY` nao deve ir para frontend.
 - Worker deve validar Telegram initData antes de aceitar comandos.
 - Worker deve validar admin antes de inserir comando critico.
