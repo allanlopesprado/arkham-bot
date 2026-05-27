@@ -1984,7 +1984,6 @@ function App() {
                   />
                 ))}
                 <div className="time-add-row">
-                  <Icon name="clock" />
                   <span className="row-label" style={{ marginRight: 8 }}>{copy.syncScheduleTime}</span>
                   <input
                     className="time-add-input"
