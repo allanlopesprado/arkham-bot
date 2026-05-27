@@ -1047,39 +1047,6 @@ function formatDelay(v, lang) {
   return `${m}min ${s}s`;
 }
 
-function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, copy }) {
-  return (
-    <>
-      {times.length === 0 && (
-        <div className="time-empty"><Icon name="clock" /><span>{copy.noTimesConfigured}</span></div>
-      )}
-      {times.length > 0 && (
-        <div className="time-chips">
-          {times.map((time) => (
-            <div className="time-chip" key={time}>
-              <span className="time-chip-value">{time}</span>
-              <button className="time-chip-remove" type="button" onClick={() => onRemove(time)} aria-label={copy.removeTime}>
-                <Icon name="x" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="time-add-row">
-        <span className="row-label">{copy.postTime}</span>
-        <input
-          className="time-add-input"
-          type="time"
-          value={pendingTime}
-          onChange={(e) => onPendingTimeChange(e.target.value.slice(0, 5))}
-        />
-        <button className="time-add-btn" type="button" onClick={onAdd}>
-          {copy.addTime}
-        </button>
-      </div>
-    </>
-  );
-}
 
 function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure, disabled }) {
   return (
@@ -2061,7 +2028,7 @@ function App() {
             )}
 
             <Section title={copy.postTimes}>
-              <div className="time-add-row" style={{ paddingTop: 8 }}>
+              <div className="time-add-row">
                 <span className="row-label">{copy.postTime}</span>
                 <input
                   className="time-add-input"
