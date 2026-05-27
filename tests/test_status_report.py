@@ -30,12 +30,12 @@ def test_format_status_report_includes_operational_fields():
     text = telegram_handlers._format_status_report(payload)
 
     assert "<b>Arkham Bot</b>" in text
-    assert "<code>Status operacional</code>" in text
-    assert "Agendamento" in text
+    assert "<code>Operational status</code>" in text
+    assert "Scheduling" in text
     assert "Supabase: <b>ok</b>" in text
-    assert "Cartas: <code>1234</code>" in text
-    assert "IA diaria: <b>ativo</b>" in text
-    assert "Fila pendente/retry: <code>0</code>" in text
+    assert "Cards: <code>1234</code>" in text
+    assert "AI daily: <b>ativo</b>" in text
+    assert "Pending/retry queue: <code>0</code>" in text
 
 
 def test_format_status_report_escapes_values():

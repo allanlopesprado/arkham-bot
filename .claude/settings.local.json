@@ -18,7 +18,35 @@
       "Bash(npx wrangler *)",
       "Bash(Get-Content \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\logs\\\\bot_execution.log\" -Tail 80)",
       "Bash(python -c \"from src.arkham_bot.telegram_handlers import ai_test_command; from src.arkham_bot.daily_card import post_daily_card; print\\('OK'\\)\")",
-      "Bash(python -c \"from src.arkham_bot.ai.daily_card_selector import _call_gemini, VALID_MODELS; print\\('Python OK', VALID_MODELS\\)\")"
+      "Bash(python -c \"from src.arkham_bot.ai.daily_card_selector import _call_gemini, VALID_MODELS; print\\('Python OK', VALID_MODELS\\)\")",
+      "Bash(python -c \"from src.arkham_bot.telegram_handlers import ai_test_command; print\\('OK'\\)\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\src\\\\arkham_bot\\\\\" -Recurse -Filter \"*.py\" | Select-Object -First 30 FullName)",
+      "Bash(ssh -i ~/.ssh/id_ed25519 root@168.138.152.54 \"cd /opt/arkham-bot && git pull && sudo systemctl restart arkham-bot && sudo systemctl status arkham-bot --no-pager -l\")",
+      "Bash(ls ~/.ssh/ 2>/dev/null || echo \"no ssh dir\")",
+      "Read(//c/Users/allan/.ssh/**)",
+      "Bash(ssh -i ~/.ssh/arkham_oracle_deploy -o ConnectTimeout=15 root@168.138.152.54 \"cd /opt/arkham-bot && git pull && sudo systemctl restart arkham-bot && sudo systemctl status arkham-bot --no-pager -l\")",
+      "Bash(python -c \"import telegram; print\\(telegram.__version__\\)\")",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,'src'\\); import arkham_bot.telegram_handlers; print\\('OK'\\)\")",
+      "Bash(python -c \"import telegram; help\\(telegram.Message.reply_photo\\)\")",
+      "Bash(python -c \"import telegram; help\\(telegram.ReplyParameters.__init__\\)\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\src\" -Recurse -Filter \"*.py\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(grep -En \"^def _|^async def _\" \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\src\\\\arkham_bot\\\\telegram_handlers.py\" | grep -oE \"_[a-zA-Z_]+\" | sort | uniq > /tmp/defined_funcs.txt && grep -oE \"_[a-zA-Z_]+\\\\\\(\" \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\\\\src\\\\arkham_bot\\\\telegram_handlers.py\" | tr -d '\\(' | sort | uniq > /tmp/called_funcs.txt && comm -23 /tmp/defined_funcs.txt /tmp/called_funcs.txt)",
+      "Bash(git revert *)",
+      "WebSearch",
+      "WebFetch(domain:docs.telegram-mini-apps.com)",
+      "WebFetch(domain:telegram.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:wtemu.ru)",
+      "Bash(xargs grep -l \"FastAPI\\\\|Flask\\\\|starlette\\\\|aiohttp\")",
+      "Bash(node -e ' *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\" -Recurse -Include \"*.py\", \"*.js\", \"*.jsx\", \"*.ts\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\allan\\\\Desktop\\\\arkham-bot\" -Recurse -Directory)",
+      "Bash(python -m pytest tests/ -q)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

@@ -31,17 +31,12 @@ async def interactive_post_init(application):
     from arkham_bot.telegram_handlers import bot_started_message
 
     await application.bot.set_my_commands([
-        BotCommand("start",      "Inicia o bot"),
-        BotCommand("help",       "Ajuda e comandos disponíveis"),
         BotCommand("menu",       "Abre o menu principal"),
-        BotCommand("today",      "Card do dia atual"),
         BotCommand("random",     "Card aleatório"),
         BotCommand("search",     "Busca cartas por nome"),
         BotCommand("sets",       "Navega cartas por set/expansão"),
         BotCommand("card",       "Busca carta por código"),
         BotCommand("status",     "Status do bot"),
-        BotCommand("chatid",     "Mostra o ID deste chat"),
-        BotCommand("ai_test",    "Testa a configuração da IA"),
     ])
     await bot_started_message(application)
     start_daily_scheduler(application)

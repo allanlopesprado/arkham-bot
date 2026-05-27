@@ -397,7 +397,6 @@ def _format_help_report(is_admin: bool) -> str:
         "<b>Cartas</b>",
         "- <code>/card</code> - busca guiada por ciclo/pacote",
         "- <code>/random</code> - carta aleatoria",
-        "- <code>/today</code> - ultima carta diaria registrada",
         "- <code>/search &lt;texto&gt;</code> - busca por nome/texto",
         "- <code>/pack &lt;codigo&gt;</code> - cartas de um pacote",
         "- <code>/faction &lt;codigo&gt;</code> - cartas por faccao",
@@ -418,7 +417,6 @@ def _format_help_report(is_admin: bool) -> str:
         lines.extend([
             "",
             "<b>Admin</b>",
-            "- <code>/admin</code> - valida permissao",
             "- <code>/post &lt;card_code&gt;</code> - posta carta agora",
             "- <code>/repost &lt;card_code&gt;</code> - reposta carta",
             "- <code>/skip &lt;card_code&gt;</code> - marca carta como usada",

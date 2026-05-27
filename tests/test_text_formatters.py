@@ -16,7 +16,9 @@ def test_format_factions_display_removes_neutral_when_multiclass():
 
 
 def test_skill_test_display():
-    assert skill_test_display({"skill_willpower": 2, "skill_combat": 1}).startswith("Skill Test:")
+    result = skill_test_display({"skill_willpower": 2, "skill_combat": 1})
+    assert result.count("👤") == 2
+    assert "✊🏻" in result
 
 
 def test_format_card_caption_minimal_card():
