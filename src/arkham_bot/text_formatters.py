@@ -97,7 +97,7 @@ def _fmt_cost(card: dict) -> str:
     if cost == -2:
         return 'X'
     if cost is None:
-        return '—'
+        return '-'
     return str(cost)
 
 
