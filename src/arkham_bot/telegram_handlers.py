@@ -1026,6 +1026,10 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     await _send_taboo_card(update, code, entry, name_map, reply_to=query.message)
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
 
 
 async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
