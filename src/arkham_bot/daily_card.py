@@ -41,6 +41,7 @@ from .local_storage import (
 from .repositories.settings_repo import get_setting
 from .repositories.history_repo import create_history_entry
 from .text_formatters import format_card_back_caption, format_card_caption
+from .i18n import get_strings
 
 
 logger = logging.getLogger(__name__)
@@ -232,11 +233,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     logger.warning("All cards in current selection posted. Resetting cycle.")
                     await bot.send_message(
                         chat_id=chat_id,
-                        text=(
-                            "🔄 <b>Ciclo concluído!</b>\n"
-                            "Todas as cartas da seleção atual já foram postadas.\n"
-                            "O ciclo foi reiniciado automaticamente."
-                        ),
+                        text=get_strings()["daily_cycle_reset"],
                         parse_mode=ParseMode.HTML,
                     )
                     posted_cards.clear()

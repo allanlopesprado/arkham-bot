@@ -35,6 +35,7 @@ from .permissions import admin_source, is_admin_user
 from .rate_limit import rate_limiter
 from .repositories.cards_repo import get_card_packs
 from .text_formatters import format_card_back_caption, format_card_caption
+from .i18n import get_strings
 
 
 logger = logging.getLogger(__name__)
@@ -203,10 +204,8 @@ def _format_list(value) -> str:
 
 
 def _format_days(value) -> str:
-    names = {
-        "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu",
-        "fri": "Fri", "sat": "Sat", "sun": "Sun",
-    }
+    s = get_strings()
+    names = _day_labels(s)
     if not isinstance(value, list):
         return _format_list(value)
     return ", ".join(names.get(str(item), str(item)) for item in value) or "-"
@@ -269,55 +268,63 @@ def _bold(value) -> str:
     return f"<b>{_safe_status_value(value)}</b>"
 
 
-_DAY_LABELS = {'mon': 'Seg', 'tue': 'Ter', 'wed': 'Qua', 'thu': 'Qui', 'fri': 'Sex', 'sat': 'Sab', 'sun': 'Dom', 'all': 'Todos'}
+def _day_labels(s: dict) -> dict:
+    return {
+        'mon': s['day_mon'], 'tue': s['day_tue'], 'wed': s['day_wed'],
+        'thu': s['day_thu'], 'fri': s['day_fri'], 'sat': s['day_sat'],
+        'sun': s['day_sun'], 'all': s['day_all'],
+    }
 
 
 def _format_day_config_lines(day_config: dict) -> list[str]:
     if not isinstance(day_config, dict) or not day_config:
         return []
+    s = get_strings()
+    labels = _day_labels(s)
     lines = ["", "<b>Config por dia</b>"]
     order = ['all', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
     for code in order:
         cfg = day_config.get(code)
         if not cfg:
             continue
-        label = _DAY_LABELS.get(code, code)
+        label = labels.get(code, code)
         packs = cfg.get('packs') or []
         types = cfg.get('types') or []
-        packs_str = f"{len(packs)} packs" if packs else "todos"
-        types_str = ", ".join(types[:4]) + ("…" if len(types) > 4 else "") if types else "todos"
-        lines.append(f"- {label}: packs={packs_str} | tipos={_code(types_str)}")
+        packs_str = f"{len(packs)} packs" if packs else "all"
+        types_str = ", ".join(types[:4]) + ("…" if len(types) > 4 else "") if types else "all"
+        lines.append(f"- {label}: packs={packs_str} | types={_code(types_str)}")
     return lines if len(lines) > 2 else []
 
 
 def _format_status(payload: dict) -> str:
+    s = get_strings()
     lines = [
-        "<b>Arkham Bot - Online</b>",
-        f"Uptime: {payload['uptime']}",
-        f"Cartas: {payload['cards_count']}",
+        s["status_title"],
+        s["status_uptime"].format(uptime=payload["uptime"]),
+        s["status_cards"].format(cards_count=payload["cards_count"]),
     ]
     return "\n".join(lines)
 
 
 def _format_help_report() -> str:
+    s = get_strings()
     lines = [
-        "<b>Arkham Bot</b>",
+        s["help_title"], "",
+        s["help_cards_section"],
+        s["help_card_cmd"],
+        s["help_sets_cmd"],
+        s["help_search_cmd"],
         "",
-        "<b>Cartas</b>",
-        "- <code>/card</code> - busca guiada por ciclo/pacote",
-        "- <code>/sets</code> - navega cartas por set/expansao",
-        "- <code>/search &lt;texto&gt;</code> - busca por nome/texto",
+        s["help_rules_section"],
+        s["help_faq_cmd"],
+        s["help_taboo_cmd"],
+        s["help_decklist_cmd"],
         "",
-        "<b>Regras e referencias</b>",
-        "- <code>/faq &lt;card_code&gt;</code> - FAQ da carta",
-        "- <code>/taboo</code> - lista taboo",
-        "- <code>/decklist &lt;id&gt;</code> - decklist do ArkhamDB",
+        s["help_history_section"],
+        s["help_cotd_cmd"],
         "",
-        "<b>Historico</b>",
-        "- <code>/cotd</code> - cartas do dia por mes",
-        "",
-        "<b>Bot</b>",
-        "- <code>/status</code> - status operacional",
+        s["help_bot_section"],
+        s["help_status_cmd"],
     ]
     return "\n".join(lines)
 
@@ -433,7 +440,8 @@ async def bot_started_message(application):
     """Sends a message to the group as soon as the bot starts."""
     if TELEGRAM_CHAT_ID:
         try:
-            await application.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Bot started and listening for messages...")
+            s = get_strings()
+            await application.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=s["bot_started"])
         except Exception as e:
             logger.error(f"Could not send startup message. Error: {e}")
 
@@ -497,13 +505,14 @@ async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         button = InlineKeyboardButton(label, callback_data=f"SEARCH_{pack['prefix']}")
         keyboard_layout.append([button])
 
-    close_button = InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL)
+    s = get_strings()
+    close_button = InlineKeyboardButton(s["card_btn_close"], callback_data=CALLBACK_CANCEL)
     keyboard_layout.append([close_button])
 
     reply_markup = InlineKeyboardMarkup(keyboard_layout)
 
     await update.message.reply_text(
-        "Choose a pack to search for the card:",
+        s["card_choose_pack"],
         reply_markup=reply_markup,
         reply_parameters=ReplyParameters(message_id=update.message.message_id),
     )
@@ -516,10 +525,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     await query.answer()
 
+    s = get_strings()
     data = query.data
     if not data or not data.startswith("SEARCH_"):
         logger.warning(f"Unknown callback_data received: {data!r}")
-        await query.edit_message_text("Operation canceled. Type /card to start again.")
+        await query.edit_message_text(s["card_canceled"])
         context.user_data.clear()
         return ConversationHandler.END
 
@@ -528,7 +538,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     pack_entry = next((p for p in packs if p['prefix'] == pack_code), None)
     if not pack_entry:
         logger.warning(f"Invalid pack callback_data received: {data!r}")
-        await query.edit_message_text("Operation canceled. Type /card to start again.")
+        await query.edit_message_text(s["card_canceled"])
         context.user_data.clear()
         return ConversationHandler.END
 
@@ -544,11 +554,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         example_hint = f"Ex: {sample_str}"
     else:
         card_info = ""
-        example_hint = "Ex: 1, 10, 50"
+        example_hint = s["card_example_fallback"]
 
     await query.edit_message_text(
-        text=f"Pack **{pack_name}** {card_info} selected!\n"
-             f"👉🏻 Please **now enter the card number** you want to search for ({example_hint}):",
+        text=s["card_pack_selected"].format(pack_name=pack_name, card_info=card_info, example_hint=example_hint),
         parse_mode=ParseMode.MARKDOWN
     )
 
@@ -559,12 +568,13 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Processes the card number, searches the API, and returns the name/image."""
     card_number_input = update.message.text.strip()
 
+    s = get_strings()
     if not card_number_input.isalnum() and not any(c.isdigit() for c in card_number_input):
-        await update.message.reply_text("Invalid input. Please enter the card code or number (Ex: 1, 150, L01).")
+        await update.message.reply_text(s["card_invalid_input"])
         return CHOOSING_CARD_NUMBER
 
     if len(card_number_input) > 5:
-        await update.message.reply_text("Invalid input. The card code seems too long. Please enter the card number (Ex: 1, 150, L01).")
+        await update.message.reply_text(s["card_input_too_long"])
         return CHOOSING_CARD_NUMBER
 
     card_number = card_number_input
@@ -577,7 +587,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
     pack_code = context.user_data.get('selected_pack_code')
 
     if not pack_code:
-        await update.message.reply_text("⚠️ Pack not selected. Please start again with /card.")
+        await update.message.reply_text(s["card_no_pack"])
         context.user_data.clear()
         return ConversationHandler.END
 
@@ -590,7 +600,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_reply = ReplyParameters(message_id=user_msg_id)
 
     status_msg = await update.message.reply_text(
-        f"⏳ Buscando carta **{full_card_id}**...",
+        s["card_searching"].format(full_card_id=full_card_id),
         parse_mode=ParseMode.MARKDOWN,
         reply_parameters=user_reply,
     )
@@ -610,7 +620,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         card_data, source = await get_card_async(full_card_id)
         if not card_data:
-            await _update_status(f"⚠️ Carta `{full_card_id}` não encontrada. Verifique o código e tente novamente.")
+            await _update_status(s["card_not_found"].format(full_card_id=full_card_id))
             context.user_data.clear()
             return ConversationHandler.END
         logger.info(f"Card {full_card_id} loaded from {source}")
@@ -699,7 +709,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     except Exception as e:
         logger.error(f"receive_card_number error for {full_card_id}: {e}", exc_info=True)
-        await _update_status(f"🚨 Erro ao buscar a carta `{full_card_id}`. Tente novamente mais tarde.")
+        await _update_status(s["card_error"].format(full_card_id=full_card_id))
         context.user_data.clear()
         return ConversationHandler.END
 
@@ -715,9 +725,11 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             await query.delete_message()
         except Exception:
-            await query.edit_message_text("✖️ Fechado.")
+            s = get_strings()
+            await query.edit_message_text(s["cancel_closed"])
     else:
-        await update.message.reply_text("Operação cancelada.")
+        s = get_strings()
+        await update.message.reply_text(s["cancel_text"])
 
     context.user_data.clear()
     return ConversationHandler.END
@@ -727,17 +739,18 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
+    s = get_strings()
     if not context.args:
-        await update.message.reply_text("Usage: /faq <card_code>")
+        await update.message.reply_text(s["faq_usage"])
         return
     card_code = context.args[0].strip()
     try:
         faq = await _fetch_faq(card_code)
         if not faq:
-            await update.message.reply_text(f"Nenhum FAQ encontrado para <code>{escape(card_code)}</code>.", parse_mode=ParseMode.HTML)
+            await update.message.reply_text(s["faq_not_found"].format(card_code=escape(card_code)), parse_mode=ParseMode.HTML)
             return
         entries = faq if isinstance(faq, list) else [faq]
-        lines = [f"📖 <b>FAQ — {escape(card_code)}</b>"]
+        lines = [s["faq_title"].format(card_code=escape(card_code))]
         for entry in entries:
             if isinstance(entry, dict):
                 q = entry.get('question') or entry.get('title') or ''
@@ -753,7 +766,7 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
     except Exception as exc:
         logger.error(f"faq_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch FAQ right now.")
+        await update.message.reply_text(s["faq_error"])
 
 
 def _parse_taboo_cards(taboo_list: dict) -> dict:
@@ -770,18 +783,19 @@ def _parse_taboo_cards(taboo_list: dict) -> dict:
 
 def _taboo_restriction_label(entry: dict) -> str:
     """Returns a short human-readable restriction for a taboo entry."""
+    s = get_strings()
     parts = []
     xp = entry.get('xp')
     if xp is not None:
         parts.append(f"{'+'if xp>0 else ''}{xp} XP")
     dl = entry.get('deck_limit')
     if dl is not None:
-        parts.append("Banned" if dl == 0 else f"Limit {dl}/deck")
+        parts.append(s["taboo_label_banned"] if dl == 0 else s["taboo_label_limit"].format(n=dl))
     if entry.get('exceptional'):
-        parts.append("Exceptional")
+        parts.append(s["taboo_label_exceptional"])
     if entry.get('text') or entry.get('replacement_text'):
-        parts.append("Errata")
-    return " · ".join(parts) if parts else "Restrita"
+        parts.append(s["taboo_label_errata"])
+    return " · ".join(parts) if parts else s["taboo_label_restricted"]
 
 
 def _taboo_category(entry: dict) -> str:
@@ -798,38 +812,46 @@ def _taboo_category(entry: dict) -> str:
     return 'other'
 
 
-TABOO_CATEGORIES = {
-    'forbidden':   ('', 'Banned'),
-    'xp_up':       ('', '+XP (more expensive)'),
-    'xp_down':     ('', '−XP (cheaper)'),
-    'exceptional': ('', 'Exceptional'),
-    'errata':      ('', 'Text errata'),
-    'other':       ('', 'Other restrictions'),
-}
+TABOO_CATEGORY_KEYS = ['forbidden', 'xp_up', 'xp_down', 'exceptional', 'errata', 'other']
+
+
+def _taboo_categories() -> dict[str, tuple[str, str]]:
+    """Returns TABOO_CATEGORIES dict with localized labels."""
+    s = get_strings()
+    return {
+        'forbidden':   ('', s['taboo_cat_forbidden']),
+        'xp_up':       ('', s['taboo_cat_xp_up']),
+        'xp_down':     ('', s['taboo_cat_xp_down']),
+        'exceptional': ('', s['taboo_cat_exceptional']),
+        'errata':      ('', s['taboo_cat_errata']),
+        'other':       ('', s['taboo_cat_other']),
+    }
 
 
 def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict) -> tuple[str, InlineKeyboardMarkup]:
     """Builds the taboo list selection message and buttons."""
+    s = get_strings()
     sorted_lists = sorted(taboos, key=lambda t: t.get('date_start', ''), reverse=True)
-    lines = ["<b>Taboo Lists</b>", "Select a list to explore:\n"]
+    lines = [s["taboo_lists_title"], s["taboo_lists_subtitle"]]
     buttons = []
     for i, t in enumerate(sorted_lists):
         raw = t.get('date_start', '')[:10]
         date = f"{raw[8:10]}/{raw[5:7]}/{raw[:4]}" if len(raw) == 10 else raw
         tid = t.get('id', i)
-        label = f"{'[current] ' if i == 0 else ''}{date}"
+        label = f"{s['taboo_list_current_prefix'] if i == 0 else ''}{date}"
         buttons.append([InlineKeyboardButton(label, callback_data=f"TABOO_LIST_{tid}")])
-    buttons.append([InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL)])
+    buttons.append([InlineKeyboardButton(s["taboo_btn_close"], callback_data=CALLBACK_CANCEL)])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
 def _taboo_detail_text_and_buttons(taboo: dict, cats: dict) -> tuple[str, InlineKeyboardMarkup]:
     """Builds the category summary for a selected taboo list."""
+    s = get_strings()
+    TABOO_CATEGORIES = _taboo_categories()
     raw_date = taboo.get('date_start', '')[:10]
     date_str = f"{raw_date[8:10]}/{raw_date[5:7]}/{raw_date[:4]}" if len(raw_date) == 10 else raw_date
     total = sum(len(v) for v in cats.values())
-    tid = taboo.get('id', '')
-    lines = [f"<b>Taboo — {date_str}</b>", f"{total} card(s) affected\n"]
+    lines = [s["taboo_detail_title"].format(date=date_str), s["taboo_detail_affected"].format(total=total)]
     for cat_key, (icon, label) in TABOO_CATEGORIES.items():
         count = len(cats.get(cat_key, []))
         if count:
@@ -840,8 +862,8 @@ def _taboo_detail_text_and_buttons(taboo: dict, cats: dict) -> tuple[str, Inline
         if count:
             buttons.append([InlineKeyboardButton(f"{label} ({count})", callback_data=f"TABOO_CAT_{cat_key}_0")])
     buttons.append([
-        InlineKeyboardButton("Lists", callback_data="TABOO_LISTS"),
-        InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL),
+        InlineKeyboardButton(s["taboo_btn_lists"], callback_data="TABOO_LISTS"),
+        InlineKeyboardButton(s["taboo_btn_close"], callback_data=CALLBACK_CANCEL),
     ])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
@@ -855,7 +877,8 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _fetch_all_cards(include_encounter=True),
         )
         if not taboos:
-            await update.message.reply_text("No taboo lists found.")
+            s = get_strings()
+            await update.message.reply_text(s["taboo_no_lists"])
             return
 
         name_map = {c['code']: {'name': c.get('name') or c.get('real_name') or c['code'], 'pack': c.get('pack_name') or ''} for c in all_cards_raw if c.get('code')}
@@ -869,14 +892,15 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             by_code = _parse_taboo_cards(sorted_lists[0])
             matches = {code: entry for code, entry in by_code.items()
                        if q in _taboo_name(name_map, code).lower() or q == code.lower()}
+            s = get_strings()
             if not matches:
-                await update.message.reply_text(f"No taboo restriction found for «{escape(q)}».", parse_mode=ParseMode.HTML)
+                await update.message.reply_text(s["taboo_not_found_for"].format(query=escape(q)), parse_mode=ParseMode.HTML)
                 return
             if len(matches) == 1:
                 code, entry = next(iter(matches.items()))
                 await _send_taboo_card(update, code, entry, name_map)
                 return
-            lines = [f"<b>Resultados taboo para «{escape(q)}»:</b>"]
+            lines = [s["taboo_results_title"].format(query=escape(q))]
             for code, entry in list(matches.items())[:20]:
                 lines.append(f"• <b>{escape(_taboo_name(name_map, code))}</b> ({code}) — {escape(_taboo_restriction_label(entry))}")
             await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
@@ -895,7 +919,8 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as exc:
         logger.error(f"taboo_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not load the taboo list right now.")
+        s = get_strings()
+        await update.message.reply_text(s["taboo_error"])
 
 
 async def taboo_list_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -907,10 +932,11 @@ async def taboo_list_select_callback(update: Update, context: ContextTypes.DEFAU
     name_map = context.bot_data.get('taboo_name_map', {})
     taboo = next((t for t in all_lists if str(t.get('id', '')) == tid), None)
     if not taboo:
-        await query.answer("List not found.", show_alert=True)
+        s = get_strings()
+        await query.answer(s["taboo_list_not_found"], show_alert=True)
         return
     by_code = _parse_taboo_cards(taboo)
-    cats: dict[str, list] = {k: [] for k in TABOO_CATEGORIES}
+    cats: dict[str, list] = {k: [] for k in TABOO_CATEGORY_KEYS}
     for code, entry in by_code.items():
         cat = _taboo_category(entry)
         cats.setdefault(cat, []).append((code, entry))
@@ -928,7 +954,8 @@ async def taboo_lists_back_callback(update: Update, context: ContextTypes.DEFAUL
     all_lists = context.bot_data.get('taboo_all_lists', [])
     name_map = context.bot_data.get('taboo_name_map', {})
     if not all_lists:
-        await query.answer("Session expired. Use /taboo again.", show_alert=True)
+        s = get_strings()
+        await query.answer(s["taboo_session_expired"], show_alert=True)
         return
     text, markup = _taboo_list_menu_text_and_buttons(all_lists, name_map)
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
@@ -981,7 +1008,9 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     cats = context.bot_data.get('taboo_cats', {})
     name_map = context.bot_data.get('taboo_name_map', {})
     entries = cats.get(cat_key, [])
+    TABOO_CATEGORIES = _taboo_categories()
     icon, label = TABOO_CATEGORIES.get(cat_key, ('', cat_key))
+    s = get_strings()
 
     PAGE = 10
     total = len(entries)
@@ -1000,10 +1029,10 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
 
     has_prev = page > 0
     has_next = page < total_pages - 1
-    btn_prev = InlineKeyboardButton("Previous", callback_data=f"TABOO_CAT_{cat_key}_{page-1}")
-    btn_next = InlineKeyboardButton("Next", callback_data=f"TABOO_CAT_{cat_key}_{page+1}")
-    btn_back = InlineKeyboardButton("Back", callback_data="TABOO_BACK")
-    btn_close = InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL)
+    btn_prev = InlineKeyboardButton(s["taboo_btn_previous"], callback_data=f"TABOO_CAT_{cat_key}_{page-1}")
+    btn_next = InlineKeyboardButton(s["taboo_btn_next"], callback_data=f"TABOO_CAT_{cat_key}_{page+1}")
+    btn_back = InlineKeyboardButton(s["taboo_btn_back"], callback_data="TABOO_BACK")
+    btn_close = InlineKeyboardButton(s["taboo_btn_close"], callback_data=CALLBACK_CANCEL)
     if has_prev and has_next:
         buttons.append([btn_prev, btn_close, btn_next])
     elif has_prev:
@@ -1013,7 +1042,7 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     else:
         buttons.append([btn_back, btn_close])
 
-    text = f"<b>{label}</b> — {total} card(s) — page {page+1}/{total_pages}:"
+    text = s["taboo_category_page"].format(label=label, total=total, page=page+1, total_pages=total_pages)
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
 
 
@@ -1024,11 +1053,12 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     by_code = context.bot_data.get('taboo_by_code', {})
     name_map = context.bot_data.get('taboo_name_map', {})
     entry = by_code.get(code)
+    s = get_strings()
     if not entry:
-        await query.answer("Card not found in taboo list.", show_alert=True)
+        await query.answer(s["taboo_card_not_found"], show_alert=True)
         return
 
-    await query.edit_message_text(f"⏳ Buscando carta <code>{code}</code>...", parse_mode=ParseMode.HTML)
+    await query.edit_message_text(s["taboo_card_searching"].format(code=code), parse_mode=ParseMode.HTML)
 
     origin_chat_id = context.bot_data.get('taboo_origin_chat_id')
     origin_message_id = context.bot_data.get('taboo_origin_message_id')
@@ -1095,7 +1125,8 @@ async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     taboo = context.bot_data.get('taboo_selected', {})
     cats = context.bot_data.get('taboo_cats', {})
     if not taboo:
-        await query.answer("Session expired. Use /taboo again.", show_alert=True)
+        s = get_strings()
+        await query.answer(s["taboo_session_expired"], show_alert=True)
         return
     text, markup = _taboo_detail_text_and_buttons(taboo, cats)
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
@@ -1104,28 +1135,29 @@ async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
+    s = get_strings()
     if not context.args:
-        await update.message.reply_text("Usage: /decklist <decklist_id>")
+        await update.message.reply_text(s["decklist_usage"])
         return
     from .arkhamdb_client import fetch_decklist_sync
 
     raw_arg = context.args[0].strip()
     match = re.search(r"(\d+)", raw_arg)
     if not match:
-        await update.message.reply_text("Invalid decklist id.")
+        await update.message.reply_text(s["decklist_invalid_id"])
         return
     decklist_id = match.group(1)
     try:
         deck = await asyncio.to_thread(fetch_decklist_sync, decklist_id)
-        name = deck.get('name', 'Untitled decklist')
-        investigator = deck.get('investigator_name') or deck.get('investigator_code') or 'Unknown investigator'
+        name = deck.get('name', s["decklist_untitled"])
+        investigator = deck.get('investigator_name') or deck.get('investigator_code') or s["decklist_unknown_investigator"]
         slots = deck.get('slots') if isinstance(deck.get('slots'), dict) else {}
         await update.message.reply_text(
-            f"Decklist: {name}\nInvestigator: {investigator}\nCards in slots: {len(slots)}\nhttps://arkhamdb.com/decklist/view/{decklist_id}"
+            s["decklist_text"].format(name=name, investigator=investigator, slots=len(slots), decklist_id=decklist_id)
         )
     except Exception as exc:
         logger.error(f"decklist_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch decklist right now.")
+        await update.message.reply_text(s["decklist_error"])
 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -1135,10 +1167,11 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if context.args:
         context.user_data["search_user_msg_id"] = update.message.message_id
         return await _search_run(update, context, " ".join(context.args).strip())
+    s = get_strings()
     prompt = await update.message.reply_text(
-        "🔍 Digite o nome ou código da carta:",
+        s["search_prompt"],
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("❌ Cancelar", callback_data=CALLBACK_CANCEL)
+            InlineKeyboardButton(s["search_btn_cancel"], callback_data=CALLBACK_CANCEL)
         ]])
     )
     context.user_data["search_prompt_msg_id"] = prompt.message_id
@@ -1151,8 +1184,9 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
     if not await _check_rate_limit(update):
         return ConversationHandler.END
     query = (update.message.text or "").strip()
+    s = get_strings()
     if not query:
-        await update.message.reply_text("Digite algo para buscar.")
+        await update.message.reply_text(s["search_empty_query"])
         return SEARCH_WAITING_QUERY
     # Delete the original prompt and send a "Pesquisando…" message in its place
     old_prompt = context.user_data.pop("search_prompt_obj", None)
@@ -1164,7 +1198,7 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
     context.user_data["search_user_msg_id"] = update.message.message_id
-    searching_msg = await update.message.reply_text("🔍 Pesquisando…")
+    searching_msg = await update.message.reply_text(s["search_searching"])
     context.user_data["search_prompt_obj"] = searching_msg
     return await _search_run(update, context, query)
 
@@ -1226,7 +1260,7 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
         if target:
             reply_to = update.message.message_id if update.message else None
             await target.reply_text(
-                f"Carta <code>{escape(code)}</code> não encontrada.",
+                get_strings()["search_card_not_found_code"].format(code=escape(code)),
                 parse_mode=ParseMode.HTML,
                 **({"reply_parameters": ReplyParameters(message_id=reply_to)} if reply_to else {})
             )
@@ -1248,7 +1282,7 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
     user_msg = update.message
 
     if is_spoiler:
-        await user_msg.reply_text("⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, do_quote=True)
+        await user_msg.reply_text(get_strings()["search_spoiler_warning"], parse_mode=ParseMode.HTML, do_quote=True)
 
     if img:
         front_msg = await user_msg.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, do_quote=True)
@@ -1284,7 +1318,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         card, _ = await get_card_async(card_code)
         if not card:
-            await query.edit_message_text("Carta não encontrada.")
+            await query.edit_message_text(get_strings()["search_card_not_found"])
             return ConversationHandler.END
         caption, is_spoiler = _spoiler_caption(card)
         image_src = card.get('imagesrc') or card.get('image_src')
@@ -1298,7 +1332,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         chat_id = query.message.chat_id
         rp = ReplyParameters(message_id=user_msg_id) if user_msg_id else None
         if is_spoiler:
-            await bot.send_message(chat_id=chat_id, text="⚠️ <b>Atenção: esta carta contém spoiler!</b>", parse_mode=ParseMode.HTML, reply_parameters=rp)
+            await bot.send_message(chat_id=chat_id, text=get_strings()["search_spoiler_warning"], parse_mode=ParseMode.HTML, reply_parameters=rp)
         if img:
             front_msg = await bot.send_photo(chat_id=chat_id, photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=rp)
         else:
@@ -1324,7 +1358,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as exc:
         logger.error(f"search_card_selected error: {exc}", exc_info=True)
         try:
-            await query.edit_message_text("Erro ao carregar a carta.")
+            await query.edit_message_text(get_strings()["search_card_load_error"])
         except Exception:
             pass
     return ConversationHandler.END
@@ -1351,15 +1385,16 @@ def _search_page(results: list, page: int, query: str) -> tuple[InlineKeyboardMa
             label = label[:61] + "…"
         buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
 
+    s = get_strings()
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"SEARCH_PAGE_{page - 1}"))
-    nav.append(InlineKeyboardButton("❌ Cancelar", callback_data=CALLBACK_CANCEL))
+        nav.append(InlineKeyboardButton(s["search_btn_previous"], callback_data=f"SEARCH_PAGE_{page - 1}"))
+    nav.append(InlineKeyboardButton(s["search_btn_cancel_nav"], callback_data=CALLBACK_CANCEL))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("➡️ Próximo", callback_data=f"SEARCH_PAGE_{page + 1}"))
+        nav.append(InlineKeyboardButton(s["search_btn_next"], callback_data=f"SEARCH_PAGE_{page + 1}"))
     buttons.append(nav)
 
-    text = f"🔍 <b>{total} resultado(s)</b> para «{escape(query)}» — página {page + 1}/{total_pages}:"
+    text = s["search_results"].format(total=total, query=escape(query), page=page + 1, total_pages=total_pages)
     return InlineKeyboardMarkup(buttons), text
 
 
@@ -1370,7 +1405,7 @@ async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = update.effective_user.id
     results = context.bot_data.get(f"search_{user_id}")
     if not results:
-        await query.edit_message_text("Sessão expirada. Use /search novamente.")
+        await query.edit_message_text(get_strings()["search_session_expired"])
         return
     # Recover original query from current message text
     msg_text = query.message.text or ""
@@ -1443,7 +1478,7 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
         await _delete_searching()
 
         if not results:
-            msg = "Nenhuma carta encontrada. Tente outro termo."
+            msg = get_strings()["search_not_found"]
             if update.message:
                 await update.message.reply_text(msg)
             elif update.callback_query:
@@ -1463,7 +1498,7 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
         logger.error(f"search_run error: {exc}", exc_info=True)
         _pop_search_prompt(context)
         if update.message:
-            await update.message.reply_text("Erro ao buscar cartas.")
+            await update.message.reply_text(get_strings()["search_error"])
     return ConversationHandler.END
 
 
@@ -1480,20 +1515,21 @@ async def sets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             name = c.get('pack_name') or code
             if code and code not in seen:
                 seen[code] = name
+        s = get_strings()
         if not seen:
-            await update.message.reply_text("Nenhum set disponível.")
+            await update.message.reply_text(s["sets_no_sets"])
             return
         buttons = [
             [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}")]
             for code, name in seen.items()
         ]
         await update.message.reply_text(
-            "📦 Escolha um set para ver as cartas:",
+            s["sets_choose"],
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as exc:
         logger.error(f"sets_command error: {exc}", exc_info=True)
-        await update.message.reply_text("Erro ao carregar sets.")
+        await update.message.reply_text(get_strings()["sets_error"])
 
 
 async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1504,8 +1540,9 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         cards = await _fetch_all_cards()
         pack_cards = [c for c in cards if c.get('pack_code') == pack_code]
+        s = get_strings()
         if not pack_cards:
-            await query.edit_message_text("Nenhuma carta encontrada neste set.")
+            await query.edit_message_text(s["sets_no_cards"])
             return
         pack_name = pack_cards[0].get('pack_name') or pack_code
         buttons = []
@@ -1517,15 +1554,15 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             if len(label) > 64:
                 label = label[:61] + "…"
             buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
-        buttons.append([InlineKeyboardButton("« Voltar aos sets", callback_data="SETS_BACK")])
+        buttons.append([InlineKeyboardButton(s["sets_btn_back"], callback_data="SETS_BACK")])
         await query.edit_message_text(
-            f"📦 <b>{escape(pack_name)}</b> — {len(pack_cards)} carta(s):",
+            s["sets_pack_title"].format(pack_name=escape(pack_name), count=len(pack_cards)),
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as exc:
         logger.error(f"set_browse_callback error: {exc}", exc_info=True)
-        await query.edit_message_text("Erro ao carregar cartas do set.")
+        await query.edit_message_text(get_strings()["sets_pack_error"])
 
 
 async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1544,13 +1581,14 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}")]
             for code, name in seen.items()
         ]
+        s = get_strings()
         await query.edit_message_text(
-            "📦 Escolha um set para ver as cartas:",
+            s["sets_choose"],
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as exc:
         logger.error(f"sets_back_callback error: {exc}", exc_info=True)
-        await query.edit_message_text("Erro ao carregar sets.")
+        await query.edit_message_text(get_strings()["sets_error"])
 
 
 
@@ -1559,7 +1597,8 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 
-MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+def _months() -> list[str]:
+    return get_strings()["months"]
 
 
 def _cotd_fetch_years() -> list[int]:
@@ -1622,13 +1661,14 @@ def _cotd_fetch_cards(year: int, month: int, tz_name: str = 'America/Sao_Paulo')
 async def cotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _check_rate_limit(update):
         return
+    s = get_strings()
     years = await asyncio.to_thread(_cotd_fetch_years)
     if not years:
-        await update.message.reply_text("Nenhuma carta do dia encontrada.")
+        await update.message.reply_text(s["cotd_no_cards"])
         return
     buttons = [[InlineKeyboardButton(str(y), callback_data=f"COTD_YEAR_{y}")] for y in years]
     await update.message.reply_text(
-        "Selecione o ano:",
+        s["cotd_select_year"],
         reply_markup=InlineKeyboardMarkup(buttons),
         reply_parameters=ReplyParameters(message_id=update.message.message_id),
     )
@@ -1638,17 +1678,19 @@ async def cotd_year_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     year = int(query.data.split('_')[-1])
+    s = get_strings()
     months = await asyncio.to_thread(_cotd_fetch_months, year)
     if not months:
-        await query.edit_message_text("Nenhuma carta encontrada para este ano.")
+        await query.edit_message_text(s["cotd_no_year"])
         return
+    month_names = _months()
     rows = [months[i:i+4] for i in range(0, len(months), 4)]
     buttons = [
-        [InlineKeyboardButton(MONTHS_PT[m - 1], callback_data=f"COTD_MONTH_{year}_{m}") for m in row]
+        [InlineKeyboardButton(month_names[m - 1], callback_data=f"COTD_MONTH_{year}_{m}") for m in row]
         for row in rows
     ]
-    buttons.append([InlineKeyboardButton("« Voltar", callback_data="COTD_BACK")])
-    await query.edit_message_text(f"Selecione o mês ({year}):", reply_markup=InlineKeyboardMarkup(buttons))
+    buttons.append([InlineKeyboardButton(s["cotd_btn_back"], callback_data="COTD_BACK")])
+    await query.edit_message_text(s["cotd_select_month"].format(year=year), reply_markup=InlineKeyboardMarkup(buttons))
 
 
 async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1656,12 +1698,13 @@ async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer()
     year_str, month_str = query.data.replace('COTD_MONTH_', '').split('_')
     year, month = int(year_str), int(month_str)
+    s = get_strings()
     cards = await asyncio.to_thread(_cotd_fetch_cards, year, month)
     if not cards:
-        await query.edit_message_text("Nenhuma carta encontrada para este mês.")
+        await query.edit_message_text(s["cotd_no_month"])
         return
-    month_name = MONTHS_PT[month - 1]
-    lines = [f"<b>Cartas do dia - {month_name}/{year}</b>", ""]
+    month_name = _months()[month - 1]
+    lines = [s["cotd_month_title"].format(month_name=month_name, year=year), ""]
     for c in cards:
         name = escape(c['name'] or c['code'])
         url = f"https://arkhamdb.com/card/{c['code']}"
@@ -1674,9 +1717,10 @@ async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def cotd_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
+    s = get_strings()
     years = await asyncio.to_thread(_cotd_fetch_years)
     buttons = [[InlineKeyboardButton(str(y), callback_data=f"COTD_YEAR_{y}")] for y in years]
-    await query.edit_message_text("Selecione o ano:", reply_markup=InlineKeyboardMarkup(buttons))
+    await query.edit_message_text(s["cotd_select_year"], reply_markup=InlineKeyboardMarkup(buttons))
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
