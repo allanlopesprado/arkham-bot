@@ -30,14 +30,14 @@ SLOT_ICONS_MAP = {
     'Hand x2': '🤚🏻🤚🏻',
     'Arcane': '🔮',
     'Arcane x2': '🔮🔮',
-    'Ally': '🤝',
+    'Ally': '🕵️',
     'Body': '🧥',
     'Accessory': '💎',
     'Tarot': '🃏',
     'Head': '🪖',
     'Hand. Arcane': '🤚🏻🔮',
     'Hand x2. Arcane': '🤚🏻🤚🏻🔮',
-    'Ally. Arcane': '👥🔮',
+    'Ally. Arcane': '🕵️🔮',
     'Body. Hand x2': '🧥🤚🏻🤚🏻',
     'Body. Arcane': '🧥🔮',
     'Arcane. Accessory': '🔮💎',
@@ -104,8 +104,8 @@ def _fmt_cost(card: dict) -> str:
 def _slot_display(slot_raw: str) -> str:
     if not slot_raw:
         return ""
-    icon = SLOT_ICONS_MAP.get(slot_raw, '🎴')
-    return f"Slot: {icon} {slot_raw}"
+    icon = SLOT_ICONS_MAP.get(slot_raw, slot_raw)
+    return f"Slot: {icon}"
 
 
 def _exceptional_tag(card: dict) -> str:
