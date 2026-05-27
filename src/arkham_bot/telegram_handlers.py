@@ -1627,7 +1627,11 @@ async def cotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text("Nenhuma carta do dia encontrada.")
         return
     buttons = [[InlineKeyboardButton(str(y), callback_data=f"COTD_YEAR_{y}")] for y in years]
-    await update.message.reply_text("Selecione o ano:", reply_markup=InlineKeyboardMarkup(buttons))
+    await update.message.reply_text(
+        "Selecione o ano:",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_parameters=ReplyParameters(message_id=update.message.message_id),
+    )
 
 
 async def cotd_year_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1663,8 +1667,8 @@ async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         url = f"https://arkhamdb.com/card/{c['code']}"
         lines.append(f"{c['day']:02d}/{month:02d} - <a href='{url}'>{name}</a>")
     text = "\n".join(lines)
-    back = InlineKeyboardMarkup([[InlineKeyboardButton("« Voltar", callback_data=f"COTD_YEAR_{year}")]])
-    await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=back)
+    from telegram import LinkPreviewOptions
+    await query.edit_message_text(text, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
 
 
 async def cotd_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
