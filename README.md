@@ -4,8 +4,8 @@ Bot Telegram para Arkham Horror: The Card Game, com backend Python, fila/estado 
 
 ## Documentacao
 
-- [Documentacao tecnica](docs/TECHNICAL.md)
-- [Operacao e deploy](docs/OPERATIONS.md)
+- [Documentacao tecnica](docs/technical.md)
+- [Operacao e deploy](docs/operations.md)
 
 ## Componentes
 

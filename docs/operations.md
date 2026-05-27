@@ -192,7 +192,7 @@ sudo systemctl restart arkham-bot
 
 ## GitHub Actions
 
-`deploy.yml` valida o projeto.
+`test.yml` valida o projeto.
 
 `deploy-oracle.yml` sincroniza Oracle com `origin/main` para mudancas de backend e tambem aceita execucao manual.
 

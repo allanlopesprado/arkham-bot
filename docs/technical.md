@@ -292,7 +292,7 @@ O Mini App:
 
 ## GitHub Actions
 
-### `.github/workflows/deploy.yml`
+### `.github/workflows/test.yml`
 
 Workflow de validacao geral:
 
