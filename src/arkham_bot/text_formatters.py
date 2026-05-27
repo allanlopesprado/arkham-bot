@@ -134,13 +134,12 @@ def _fmt_skills_text(card: dict) -> str:
     return '. '.join(parts) + '.' if parts else ''
 
 
-def _fmt_slot_text(card: dict) -> str:
+def _fmt_slot_text(card: dict) -> tuple[str, str]:
+    """Returns (icon, name) for the slot field."""
     slot_raw = card.get('slot', '') or ''
     icon = SLOT_ICONS_MAP.get(slot_raw, '')
     name = SLOT_TEXT_MAP.get(slot_raw, slot_raw)
-    if not name:
-        return ''
-    return f'{icon} {name}' if icon else name
+    return icon, name
 
 
 def _fmt_cost_stat(card: dict) -> str | None:
@@ -208,9 +207,10 @@ def _build_stats_lines(card: dict) -> list[str]:
         if cost_parts:
             lines.append(' '.join(cost_parts))
 
-        slot = _fmt_slot_text(card)
-        if slot:
-            lines.append(f"<b>Slot:</b> {slot}.")
+        slot_icon, slot_name = _fmt_slot_text(card)
+        if slot_name:
+            slot_prefix = f"{slot_icon} " if slot_icon else ""
+            lines.append(f"{slot_prefix}<b>Slot:</b> {slot_name}.")
 
         health = card.get('health')
         sanity = card.get('sanity')
