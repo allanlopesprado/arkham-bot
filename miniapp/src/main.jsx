@@ -1485,6 +1485,10 @@ function App() {
     const allSelected = WEEKDAYS.every((d) => n.daily_post_days.includes(d.code));
     setAllDaysMode(allSelected);
     setSavedAllDaysMode(allSelected);
+    // Sync miniapp UI language from the server-side ai_language setting
+    const uiLang = n.ai_language === 'en-US' ? 'en' : 'pt';
+    setLanguage(uiLang);
+    writeLangStorage(uiLang);
   }
 
   function updateSetting(key, value) {
@@ -1635,12 +1639,6 @@ function App() {
     if (dp.length > 0 && activeCycles > 0) parts.push(copy.cyclesSelected(activeCycles));
     if (dt.length > 0) parts.push(copy.typesSelected(dt.length));
     return parts.length ? parts.join(' · ') : copy.noCycleConfig;
-  }
-
-  function toggleLanguage() {
-    const next = language === 'pt' ? 'en' : 'pt';
-    setLanguage(next);
-    writeLangStorage(next);
   }
 
   function handleSearchChange(e) {
@@ -2177,11 +2175,6 @@ function App() {
 
             {settings.ai_enabled && (
               <>
-                <Section title={copy.aiLanguage}>
-                  <ToggleRow label={copy.aiLanguagePt} checked={settings.ai_language === 'pt-BR'} onChange={() => updateSetting('ai_language', 'pt-BR')} />
-                  <ToggleRow label={copy.aiLanguageEn} checked={settings.ai_language === 'en-US'} onChange={() => updateSetting('ai_language', 'en-US')} />
-                </Section>
-
                 <Section title={copy.aiTone}>
                   <SelectRow label={copy.aiTone} value={settings.ai_tone} onChange={(v) => updateSetting('ai_tone', v)}>
                     {AI_TONES.map((t) => (
@@ -2256,12 +2249,12 @@ function App() {
           <ToggleRow
             label={copy.portuguese}
             checked={language === 'pt'}
-            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); haptic('selection'); }}
+            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); haptic('selection'); }}
           />
           <ToggleRow
             label={copy.englishLang}
             checked={language === 'en'}
-            onChange={() => { setLanguage('en'); writeLangStorage('en'); haptic('selection'); }}
+            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); haptic('selection'); }}
           />
         </Section>
       )}
