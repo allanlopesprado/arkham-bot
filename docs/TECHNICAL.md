@@ -149,42 +149,19 @@ Estados usados:
 
 ### `telegram_handlers.py`
 
-Registra handlers de comandos publicos e administrativos.
+Registra handlers de comandos do bot.
 
-Comandos publicos:
+Comandos disponíveis:
 
-- `/start`
-- `/help`
-- `/menu`
-- `/status`
-- `/today`
-- `/random`
-- `/card`
-- `/faq`
-- `/taboo`
-- `/decklist`
-- `/search`
-- `/pack`
-- `/faction`
-- `/type`
-- `/xp`
-
-Comandos administrativos:
-
-- `/admin`
-- `/admin_status`
-- `/post`
-- `/repost`
-- `/skip`
-- `/pause`
-- `/resume`
-- `/settings`
-- `/errors`
-- `/queue`
-- `/sync`
-- `/reset_cycle`
-- `/add_admin`
-- `/remove_admin`
+- `/start` — boas-vindas
+- `/status` — status do bot (online, uptime, total de cartas)
+- `/card` — exibe carta pelo código
+- `/search` — busca cartas por nome
+- `/faq` — perguntas frequentes de uma carta
+- `/taboo` — lista de cartas taboo por lista/categoria
+- `/decklist` — exibe decklist do ArkhamDB
+- `/sets` — navega pelos packs/sets disponíveis
+- `/cotd` — histórico de cartas do dia (somente postagens automáticas), navegando por ano e mês
 
 ### `repositories/`
 
@@ -194,13 +171,10 @@ Camada de acesso ao Supabase.
 - `audit_repo.py`: `audit_logs`
 - `cards_repo.py`: `arkham_cards`
 - `commands_repo.py`: `bot_commands`
-- `decklists_repo.py`: `arkham_decklists_cache`
-- `errors_repo.py`: `bot_errors`
 - `factions_repo.py`: `arkham_factions`
 - `faq_repo.py`: `arkham_faq`
 - `history_repo.py`: `bot_posting_history`
 - `packs_repo.py`: `arkham_packs`
-- `posted_cards_repo.py`: `bot_posted_cards`
 - `settings_repo.py`: `bot_settings`
 - `taboos_repo.py`: `arkham_taboos`
 

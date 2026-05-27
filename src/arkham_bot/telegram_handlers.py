@@ -158,37 +158,9 @@ async def _check_rate_limit(update: Update) -> bool:
     return allowed
 
 
-async def _require_admin(update: Update) -> bool:
-    user_id = update.effective_user.id if update.effective_user else None
-    if is_admin_user(user_id):
-        return True
-    await update.message.reply_text("Administrative command restricted.")
-    return False
-
-
 def _chunks(text: str, size: int = 3900) -> list[str]:
     return [text[i:i + size] for i in range(0, len(text), size)] or [""]
 
-
-async def _send_long_or_private(update: Update, text: str, *, private_threshold: int = 1800) -> None:
-    if len(text) <= private_threshold:
-        for chunk in _chunks(text):
-            await update.message.reply_text(chunk)
-        return
-    try:
-        for chunk in _chunks(text):
-            await update.effective_user.send_message(chunk)
-        await update.message.reply_text("Enviei os detalhes no privado.")
-    except Exception:
-        await update.message.reply_text("Não consegui enviar no privado. Envie /start para o bot no privado e tente novamente.")
-
-
-def _yes_no(value: bool) -> str:
-    return "sim" if value else "nao"
-
-
-def _active_inactive(value: bool) -> str:
-    return "ativo" if value else "inativo"
 
 
 def _format_uptime(now: datetime) -> str:
@@ -665,32 +637,6 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data.clear()
     return ConversationHandler.END
 
-async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    user_id = update.effective_user.id if update.effective_user else None
-    await update.message.reply_text(
-        _format_help_report(),
-        parse_mode=ParseMode.HTML,
-    )
-
-
-
-async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    import random
-
-    try:
-        cards = await _fetch_all_cards()
-        valid_cards = [c for c in cards if c.get('type_code') not in ['set', 'campaign', 'scenario'] and c.get('spoiler', False) is False]
-        card = random.choice(valid_cards)
-        await update.message.reply_text(
-            f"Random card: {card.get('name') or card.get('real_name')} ({card.get('code')})\nhttps://arkhamdb.com/card/{card.get('code')}"
-        )
-    except Exception as exc:
-        logger.error(f"random_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch a random card right now.")
 
 
 async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1008,8 +954,6 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /decklist <decklist_id>")
         return
-    import asyncio
-    import re
     from .arkhamdb_client import fetch_decklist_sync
 
     raw_arg = context.args[0].strip()
@@ -1601,9 +1545,7 @@ def register_handlers(application):
     )
 
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("menu", menu_command))
     application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("faq", faq_command))
     application.add_handler(CommandHandler("taboo", taboo_command))
     application.add_handler(CallbackQueryHandler(taboo_list_select_callback, pattern=r'^TABOO_LIST_'))
@@ -1637,7 +1579,6 @@ def register_handlers(application):
     application.add_handler(CallbackQueryHandler(cotd_month_callback, pattern=r'^COTD_MONTH_\d+_\d+$'))
     application.add_handler(CallbackQueryHandler(cotd_back_callback, pattern=r'^COTD_BACK$'))
     application.add_handler(card_conv_handler)
-    application.add_handler(CommandHandler("cancel", cancel_conversation))
     application.add_handler(CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"))
     application.add_handler(CallbackQueryHandler(lambda u, c: u.callback_query.answer(), pattern=r"^NOOP$"))
     application.add_error_handler(error_handler)
