@@ -9,7 +9,9 @@ from .arkhamdb_models import (
     validate_card_payload,
     validate_cards_payload,
     validate_decklist_payload,
+    validate_factions_payload,
     validate_faq_payload,
+    validate_packs_payload,
     validate_taboos_payload,
 )
 from .config import (
@@ -77,6 +79,14 @@ def _faq_url(card_code: str) -> str:
     return f"{BASE_URL}api/public/faq/{card_code}"
 
 
+def _packs_url() -> str:
+    return f"{BASE_URL}api/public/packs/"
+
+
+def _factions_url() -> str:
+    return f"{BASE_URL}api/public/factions/"
+
+
 def _taboos_url() -> str:
     return f"{BASE_URL}api/public/taboos/"
 
@@ -90,6 +100,16 @@ async def _request_json_async(url: str, context: str):
         response = await client.get(url)
     response.raise_for_status()
     return _parse_json_response(response, context)
+
+
+@network_retry_sync
+def fetch_packs_sync() -> list[dict]:
+    return validate_packs_payload(_request_json_sync(_packs_url(), "packs"), "packs")
+
+
+@network_retry_sync
+def fetch_factions_sync() -> list[dict]:
+    return validate_factions_payload(_request_json_sync(_factions_url(), "factions"), "factions")
 
 
 @network_retry_sync

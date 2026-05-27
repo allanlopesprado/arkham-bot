@@ -15,7 +15,6 @@ if str(SRC_DIR) not in sys.path:
 from arkham_bot.arkhamdb_client import (
     fetch_all_cards_sync,
     fetch_card_by_code_sync,
-    fetch_cards_by_pack_sync,
     fetch_decklist_sync,
     fetch_factions_sync,
     fetch_faq_by_card_code_sync,
@@ -116,7 +115,6 @@ def main() -> int:
         lambda: fetch_all_cards_sync(include_encounter=True),
     ) or cards
     run_resource(statuses, "Card individual", "/api/public/card/01001", "card_01001.json", lambda: fetch_card_by_code_sync("01001"))
-    run_resource(statuses, "Cards by pack", "/api/public/cards/core", "cards_by_pack_01.json", lambda: fetch_cards_by_pack_sync("core"))
     packs = run_resource(statuses, "Pack", "/api/public/packs/", "packs.json", fetch_packs_sync) or []
     factions = run_resource(statuses, "Faction", "/api/public/factions/", "factions.json", fetch_factions_sync) or []
     run_resource(statuses, "Faq", "/api/public/faq/01001", "faq_01001.json", lambda: fetch_faq_by_card_code_sync("01001"))
