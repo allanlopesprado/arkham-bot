@@ -504,7 +504,8 @@ async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     await update.message.reply_text(
         "Choose a pack to search for the card:",
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        reply_parameters=ReplyParameters(message_id=update.message.message_id),
     )
 
     return CHOOSING_CARD_NUMBER
@@ -585,16 +586,37 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
     pack_name = pack_entry['display_name'] if pack_entry else f"code {pack_code}"
 
     full_card_id = f"{pack_code}{card_number}"
-    await update.message.reply_text(f"⏳ Buscando carta **{full_card_id}**...", parse_mode=ParseMode.MARKDOWN)
+    user_msg_id = update.message.message_id
+    user_reply = ReplyParameters(message_id=user_msg_id)
+
+    status_msg = await update.message.reply_text(
+        f"⏳ Buscando carta **{full_card_id}**...",
+        parse_mode=ParseMode.MARKDOWN,
+        reply_parameters=user_reply,
+    )
+
+    async def _update_status(text: str) -> None:
+        try:
+            await status_msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
+        except Exception:
+            pass
+
+    async def _delete_status() -> None:
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
 
     try:
         card_data, source = await get_card_async(full_card_id)
         if not card_data:
-            await update.message.reply_text(f"⚠️ Carta `{full_card_id}` não encontrada. Verifique o código e tente novamente.", parse_mode=ParseMode.MARKDOWN)
+            await _update_status(f"⚠️ Carta `{full_card_id}` não encontrada. Verifique o código e tente novamente.")
             context.user_data.clear()
             return ConversationHandler.END
         logger.info(f"Card {full_card_id} loaded from {source}")
         card_code = card_data.get('code')
+
+        await _update_status(f"📥 Carregando imagem de **{full_card_id}**...")
 
         image_src = card_data.get('imagesrc')
         card_image_bytes = None
@@ -614,16 +636,21 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                 continue
 
         caption = format_card_caption(card_data, is_interactive=True)
+        await _delete_status()
         message = None
 
         if card_image_bytes is None:
-            await update.message.reply_text(f"⚠️ Card {full_card_id} found, but the front image failed to load. Displaying text only.", parse_mode=ParseMode.MARKDOWN)
-            message = await update.message.reply_text(caption, parse_mode=ParseMode.HTML)
+            message = await update.message.reply_text(
+                caption,
+                parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
+            )
         else:
             message = await update.message.reply_photo(
                 photo=card_image_bytes,
                 caption=caption,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
             )
 
         if card_data.get('double_sided') == True and message:
@@ -657,7 +684,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                             photo=back_image_bytes,
                             caption=back_caption,
                             parse_mode=ParseMode.HTML,
-                            reply_parameters=ReplyParameters(message_id=message.message_id)
+                            reply_parameters=ReplyParameters(message_id=message.message_id),
                         )
                     except Exception as e:
                         logger.error(f"Failed to post interactive back image: {e}. Trying as text.")
@@ -669,15 +696,12 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                     await update.message.reply_text(
                         text=back_caption,
                         parse_mode=ParseMode.HTML,
-                        reply_parameters=ReplyParameters(message_id=message.message_id)
+                        reply_parameters=ReplyParameters(message_id=message.message_id),
                     )
 
     except Exception as e:
         logger.error(f"receive_card_number error for {full_card_id}: {e}", exc_info=True)
-        await update.message.reply_text(
-            f"🚨 Erro ao buscar a carta `{full_card_id}`. Tente novamente mais tarde.",
-            parse_mode=ParseMode.MARKDOWN,
-        )
+        await _update_status(f"🚨 Erro ao buscar a carta `{full_card_id}`. Tente novamente mais tarde.")
         context.user_data.clear()
         return ConversationHandler.END
 
