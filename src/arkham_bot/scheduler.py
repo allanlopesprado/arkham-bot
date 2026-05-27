@@ -86,7 +86,23 @@ def _is_sync_due(now: datetime, sync_time: str, state: dict) -> bool:
     return state.get("last_sync_date") != now.date().isoformat()
 
 
-def _times_for_day(day_code: str, default_times: list[str], day_config) -> list[str]:
+def _times_for_day(day_code: str, default_times: list[str], day_config, post_days=None) -> list[str]:
+    # If all weekdays are configured in post_days, global mode is active — use default_times
+    if post_days is None:
+        # preserve original behavior when post_days not provided
+        pass
+    else:
+        try:
+            if isinstance(post_days, list) and set(post_days) == set(WEEKDAY_CODES):
+                return default_times
+            if isinstance(post_days, str):
+                post_days_list = [d.strip() for d in post_days.split(',') if d.strip()]
+                if set(post_days_list) == set(WEEKDAY_CODES):
+                    return default_times
+        except Exception:
+            # Fall back to per-day behavior on unexpected value
+            pass
+
     if not isinstance(day_config, dict):
         return default_times
     cfg = day_config.get(day_code)
@@ -106,7 +122,7 @@ async def daily_scheduler_loop() -> None:
             today = WEEKDAY_CODES[now.weekday()]
 
             if daily_post_enabled:
-                for post_time in _times_for_day(today, daily_post_times, day_config):
+                for post_time in _times_for_day(today, daily_post_times, day_config, daily_post_days):
                     if today not in daily_post_days:
                         continue
                     if _is_due(now, post_time, state):

@@ -25,6 +25,7 @@ from .config import (
     POSTED_CARDS_LOCK,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
+    DAILY_POST_DAYS,
 )
 from .local_storage import (
     load_card_cache,
@@ -195,12 +196,24 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     and (include_spoilers or not c.get('spoiler', False))
                 ]
 
-                # Per-day config: { mon: { packs: [...], types: [...] }, all: {...}, ... }
+                # Per-day config is only applied when per-day mode is active.
+                # If all weekdays are present in `daily_post_days`, global mode is active
+                # and we must ignore per-day filters stored in `day_config`.
                 day_config = get_setting('day_config', {})
+                # Normalize configured post days
+                post_days = get_setting('daily_post_days', DAILY_POST_DAYS)
+                if isinstance(post_days, str):
+                    post_days_list = [p.strip() for p in post_days.split(',') if p.strip()]
+                elif isinstance(post_days, list):
+                    post_days_list = post_days
+                else:
+                    post_days_list = []
+                per_day_mode = set(post_days_list) != set(_WEEKDAY_CODES)
+
                 today = _today_code(timezone_str)
                 today_cfg = (
                     (day_config.get(today) or day_config.get('all'))
-                    if isinstance(day_config, dict) else None
+                    if isinstance(day_config, dict) and per_day_mode else None
                 )
 
                 # Pack/cycle filter from today's config
