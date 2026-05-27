@@ -616,8 +616,6 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.info(f"Card {full_card_id} loaded from {source}")
         card_code = card_data.get('code')
 
-        await _update_status(f"📥 Carregando imagem de **{full_card_id}**...")
-
         image_src = card_data.get('imagesrc')
         card_image_bytes = None
 
