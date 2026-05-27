@@ -453,25 +453,29 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]]:
-    """Returns (count, min_pos, max_pos, sample_positions) for a pack code prefix."""
+    """Returns (count, min_num, max_num, sample_numbers) based on the numeric suffix users type."""
     try:
         client = get_supabase_client()
         if not client:
             return 0, 0, 0, []
         rows = client.get('arkham_cards', {
             'code': f'like.{pack_code_prefix}%',
-            'select': 'position',
+            'select': 'code',
             'limit': '2000',
         })
-        positions = sorted(set(r['position'] for r in rows if r.get('position')))
-        if not positions:
+        prefix_len = len(pack_code_prefix)
+        numbers = sorted(set(
+            int(r['code'][prefix_len:])
+            for r in rows
+            if r.get('code') and r['code'][prefix_len:].isdigit()
+        ))
+        if not numbers:
             return 0, 0, 0, []
-        count = len(positions)
-        min_pos = positions[0]
-        max_pos = positions[-1]
-        k = min(5, count)
-        sample = sorted(random.sample(positions, k))
-        return count, min_pos, max_pos, sample
+        # Exclude 0 from samples (usually a special/cover card)
+        sample_pool = [n for n in numbers if n > 0] or numbers
+        k = min(5, len(sample_pool))
+        sample = sorted(random.sample(sample_pool, k))
+        return len(numbers), numbers[0], numbers[-1], sample
     except Exception as exc:
         logger.warning(f"Failed to get pack positions for {pack_code_prefix}: {exc}")
         return 0, 0, 0, []
