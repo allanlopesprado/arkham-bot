@@ -1421,6 +1421,20 @@ function App() {
   }
   saveSettingsRef.current = saveSettings;
 
+  async function saveSingleSetting(key, value) {
+    try {
+      const { ok } = await apiFetch('/settings', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (ok) haptic('notification', 'success');
+      else haptic('notification', 'error');
+    } catch {
+      haptic('notification', 'error');
+    }
+  }
+
   async function cancelCommand(command) {
     const confirmed = await tgShowPopup({
       title: copy.cancelCommand,
@@ -2249,12 +2263,12 @@ function App() {
           <ToggleRow
             label={copy.portuguese}
             checked={language === 'pt'}
-            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); haptic('selection'); }}
+            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
           />
           <ToggleRow
             label={copy.englishLang}
             checked={language === 'en'}
-            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); haptic('selection'); }}
+            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
           />
         </Section>
       )}
