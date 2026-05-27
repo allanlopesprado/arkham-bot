@@ -189,13 +189,12 @@ const I18N = {
     aiTab: 'Inteligência Artificial',
     aiTabCaption: 'A IA seleciona cartas com critério narrativo e gera comentários atmosféricos antes e após cada postagem.',
     aiTone: 'Tom narrativo',
-    aiMessagesSection: 'Mensagens automáticas',
-    aiPreMessage: 'Introdução antes da carta',
-    aiPreMessageCaption: 'Texto atmosférico enviado antes da carta',
+    aiPreMessageTitle: 'Mensagem de abertura',
+    aiPreMessage: 'Ativado',
     aiPreMessageDelay: 'Intervalo antes da carta',
-    aiPostQuestion: 'Pergunta após a carta',
-    aiPostQuestionCaption: 'Pergunta enviada ao grupo após a carta',
-    aiPostQuestionDelay: 'Intervalo antes da pergunta',
+    aiPostQuestionTitle: 'Pergunta de discussão',
+    aiPostQuestion: 'Ativado',
+    aiPostQuestionDelay: 'Intervalo após a carta',
     aiProvider: 'Fornecedor de IA',
     aiModel: 'Modelo',
     aiCreativity: 'Criatividade',
@@ -428,13 +427,12 @@ const I18N = {
     aiTab: 'Artificial Intelligence',
     aiTabCaption: 'The AI selects cards with narrative criteria and generates atmospheric commentary before and after each post.',
     aiTone: 'Narrative tone',
-    aiMessagesSection: 'Automatic messages',
-    aiPreMessage: 'Intro before card',
-    aiPreMessageCaption: 'Atmospheric text sent before the card',
+    aiPreMessageTitle: 'Opening message',
+    aiPreMessage: 'Enabled',
     aiPreMessageDelay: 'Interval before card',
-    aiPostQuestion: 'Question after card',
-    aiPostQuestionCaption: 'Discussion question sent after the card',
-    aiPostQuestionDelay: 'Interval before question',
+    aiPostQuestionTitle: 'Discussion question',
+    aiPostQuestion: 'Enabled',
+    aiPostQuestionDelay: 'Interval after card',
     aiProvider: 'AI provider',
     aiModel: 'Model',
     aiCreativity: 'Creativity',
@@ -2197,6 +2195,24 @@ function App() {
                       </SelectRow>
                     </>);
                   })()}
+                </Section>
+
+                <Section title={copy.aiPreMessageTitle}>
+                  <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
+                  {settings.ai_pre_message_enabled && (
+                    <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
+                      {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
+                    </SelectRow>
+                  )}
+                </Section>
+
+                <Section title={copy.aiPostQuestionTitle}>
+                  <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
+                  {settings.ai_post_question_enabled && (
+                    <SelectRow label={copy.aiPostQuestionDelay} value={String(settings.ai_post_question_delay_seconds)} onChange={(v) => updateSetting('ai_post_question_delay_seconds', Number(v))}>
+                      {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
+                    </SelectRow>
+                  )}
                 </Section>
 
               </>
