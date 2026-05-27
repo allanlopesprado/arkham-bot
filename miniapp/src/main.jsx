@@ -1066,7 +1066,7 @@ function TimeEditor({ times, pendingTime, onPendingTimeChange, onAdd, onRemove, 
         </div>
       )}
       <div className="time-add-row">
-        <Icon name="clock" />
+        <span className="row-label">{copy.postTime}</span>
         <input
           className="time-add-input"
           type="time"
@@ -2060,7 +2060,7 @@ function App() {
 
             <Section title={copy.postTimes}>
               <div className="time-add-row" style={{ paddingTop: 8 }}>
-                <Icon name="clock" />
+                <span className="row-label">{copy.postTime}</span>
                 <input
                   className="time-add-input"
                   type="time"
