@@ -851,10 +851,15 @@ function Notice({ tone = 'warn', children }) {
   return <div className={`notice ${tone}`}>{children}</div>;
 }
 
-function Section({ title, footer, danger, bare, children }) {
+function Section({ title, footer, danger, bare, info, children }) {
   return (
     <section className="section">
-      {title && <div className={`section-title${danger ? ' danger' : ''}`}>{title}</div>}
+      {title && (
+        <div className={`section-title${danger ? ' danger' : ''}`}>
+          {title}
+          {info && <InfoTooltip text={info} />}
+        </div>
+      )}
       {bare ? children : <div className="card">{children}</div>}
       {footer && <div className="section-footer">{footer}</div>}
     </section>
@@ -1859,8 +1864,8 @@ function App() {
           </Section>
 
           {/* Card filter */}
-          <Section title={copy.cardFilter}>
-            <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} info={copy.includeSpoilersCaption} />
+          <Section title={copy.cardFilter} info={copy.includeSpoilersCaption}>
+            <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
           {/* Weekly schedule */}
