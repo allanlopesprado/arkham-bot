@@ -60,8 +60,8 @@ BOT_STARTED_AT = datetime.now(UTC)
 
 async def _fetch_all_cards(include_encounter: bool = False) -> list[dict]:
     """DB-first card list fetch with API fallback."""
-    from .repositories.cards_repo import get_all_cards
-    from .arkhamdb_client import fetch_all_cards_sync
+    from ..repositories.cards_repo import get_all_cards
+    from ..clients.arkhamdb_client import fetch_all_cards_sync
     try:
         cards = await asyncio.to_thread(get_all_cards, include_encounter)
         if cards:
@@ -74,8 +74,8 @@ async def _fetch_all_cards(include_encounter: bool = False) -> list[dict]:
 
 async def _fetch_all_taboos() -> list[dict]:
     """DB-first taboo list fetch with API fallback."""
-    from .repositories.taboos_repo import get_all_taboos
-    from .arkhamdb_client import fetch_taboos_sync
+    from ..repositories.taboos_repo import get_all_taboos
+    from ..clients.arkhamdb_client import fetch_taboos_sync
     try:
         taboos = await asyncio.to_thread(get_all_taboos)
         if taboos:
@@ -88,8 +88,8 @@ async def _fetch_all_taboos() -> list[dict]:
 
 async def _fetch_faq(card_code: str) -> list | None:
     """DB-first FAQ fetch with API fallback."""
-    from .repositories.faq_repo import get_faq_by_code
-    from .arkhamdb_client import fetch_faq_by_card_code_sync
+    from ..repositories.faq_repo import get_faq_by_code
+    from ..clients.arkhamdb_client import fetch_faq_by_card_code_sync
     try:
         faq = await asyncio.to_thread(get_faq_by_code, card_code)
         if faq is not None:
@@ -362,7 +362,7 @@ def _collect_status_payload(update: Update) -> dict:
     day_config = {}
 
     try:
-        from .repositories.settings_repo import get_all_settings
+        from ..repositories.settings_repo import get_all_settings
 
         settings = get_all_settings()
         if SUPABASE_ENABLED:
@@ -396,7 +396,7 @@ def _collect_status_payload(update: Update) -> dict:
 
     if is_admin:
         try:
-            from .repositories.commands_repo import fetch_pending_commands
+            from ..repositories.commands_repo import fetch_pending_commands
 
             pending_commands = str(len(fetch_pending_commands(50)))
         except Exception as exc:
@@ -1139,7 +1139,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(s["decklist_usage"])
         return
-    from .arkhamdb_client import fetch_decklist_sync
+    from ..clients.arkhamdb_client import fetch_decklist_sync
 
     raw_arg = context.args[0].strip()
     match = re.search(r"(\d+)", raw_arg)
@@ -1427,7 +1427,7 @@ def _pop_search_prompt(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
-    from .repositories.cards_repo import search_cards
+    from ..repositories.cards_repo import search_cards
 
     q = query.strip()
     is_numeric = re.fullmatch(r'\d+', q) is not None

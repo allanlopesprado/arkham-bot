@@ -1,4 +1,9 @@
+import logging
+
 from . import en, pt_br
+from ..repositories.settings_repo import get_setting
+
+logger = logging.getLogger(__name__)
 
 _SUPPORTED = {
     "en-US": en.strings,
@@ -7,15 +12,10 @@ _SUPPORTED = {
 
 
 def get_strings(lang: str | None = None) -> dict:
-    """
-    Returns the string dictionary for the given language code.
-    Falls back to English if the language is not supported or not provided.
-    If lang is None, reads ai_language from settings automatically.
-    """
     if lang is None:
         try:
-            from ..repositories.settings_repo import get_setting
-            lang = str(get_setting("ai_language", "en-US") or "en-US")
+            lang = str(get_setting("ai_language", "pt-BR") or "pt-BR")
         except Exception:
-            lang = "en-US"
-    return _SUPPORTED.get(lang, en.strings)
+            logger.warning("get_strings: failed to read ai_language from settings, falling back to pt-BR")
+            lang = "pt-BR"
+    return _SUPPORTED.get(lang, pt_br.strings)
