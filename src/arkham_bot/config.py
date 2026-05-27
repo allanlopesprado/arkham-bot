@@ -67,7 +67,6 @@ RATE_LIMIT_PER_USER_WINDOW_SECONDS = 60
 RATE_LIMIT_PER_CHAT_MAX_REQUESTS = 60
 RATE_LIMIT_PER_CHAT_WINDOW_SECONDS = 60
 RATE_LIMIT_EXEMPT_ADMINS = True
-RATE_LIMIT_EXCEEDED_MESSAGE_PT = "Muitas solicitações em pouco tempo. Aguarde alguns segundos e tente novamente."
 RATE_LIMIT_EXCEEDED_MESSAGE_EN = "Too many requests in a short time. Please wait a few seconds and try again."
 
 

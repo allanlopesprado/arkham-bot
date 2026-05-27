@@ -53,13 +53,6 @@ def bulk_upsert_cards(cards: list[dict]) -> None:
     client.upsert("arkham_cards", [_build_card_row(c) for c in cards], on_conflict="code")
 
 
-def upsert_card(card: dict) -> None:
-    """Upsert a single card. Prefer bulk_upsert_cards for sync operations."""
-    client = get_supabase_client()
-    if not client:
-        return
-    client.upsert("arkham_cards", _build_card_row(card), on_conflict="code")
-
 
 def get_card_by_code(code: str) -> dict | None:
     client = get_supabase_client()
