@@ -18,23 +18,42 @@ from telegram.ext import (
     filters,
 )
 
+import random
+
 from .arkhamdb_client import download_image_async
 from .card_provider import get_card_async
+from .supabase_client import get_supabase_client
 from .config import (
     BASE_URL,
     CALLBACK_CANCEL,
     CHOOSING_CARD_NUMBER,
     SEARCH_WAITING_QUERY,
     EXTENSIONS_TO_TRY,
-    PACK_CODES,
     TELEGRAM_CHAT_ID,
 )
 from .permissions import admin_source, is_admin_user
 from .rate_limit import rate_limiter
+from .repositories.cards_repo import get_card_packs
 from .text_formatters import format_card_back_caption, format_card_caption
 
 
 logger = logging.getLogger(__name__)
+
+_pack_list_cache: list[dict] = []
+_pack_list_cache_ts: float = 0.0
+_PACK_LIST_TTL = 3600.0  # 1 hour
+
+
+def _get_cached_pack_list() -> list[dict]:
+    global _pack_list_cache, _pack_list_cache_ts
+    import time
+    if _pack_list_cache and (time.monotonic() - _pack_list_cache_ts) < _PACK_LIST_TTL:
+        return _pack_list_cache
+    packs = get_card_packs()
+    if packs:
+        _pack_list_cache = packs
+        _pack_list_cache_ts = time.monotonic()
+    return _pack_list_cache
 BOT_STARTED_AT = datetime.now(UTC)
 
 
@@ -433,6 +452,31 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(_format_help_report(), parse_mode=ParseMode.HTML)
 
 
+def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]]:
+    """Returns (count, min_pos, max_pos, sample_positions) for a pack code prefix."""
+    try:
+        client = get_supabase_client()
+        if not client:
+            return 0, 0, 0, []
+        rows = client.get('arkham_cards', {
+            'code': f'like.{pack_code_prefix}%',
+            'select': 'position',
+            'limit': '2000',
+        })
+        positions = sorted(set(r['position'] for r in rows if r.get('position')))
+        if not positions:
+            return 0, 0, 0, []
+        count = len(positions)
+        min_pos = positions[0]
+        max_pos = positions[-1]
+        k = min(5, count)
+        sample = sorted(random.sample(positions, k))
+        return count, min_pos, max_pos, sample
+    except Exception as exc:
+        logger.warning(f"Failed to get pack positions for {pack_code_prefix}: {exc}")
+        return 0, 0, 0, []
+
+
 async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Sends a message with inline buttons, listing each pack on a separate line
@@ -441,12 +485,12 @@ async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     if not await _check_rate_limit(update):
         return ConversationHandler.END
 
+    packs = await asyncio.to_thread(_get_cached_pack_list)
     keyboard_layout = []
-    pack_names = list(PACK_CODES.keys())
 
-    for pack_name in pack_names:
-        pack_code = PACK_CODES[pack_name]
-        button = InlineKeyboardButton(pack_name, callback_data=f"SEARCH_{pack_code}")
+    for pack in packs:
+        label = f"{pack['display_name']} ({pack['card_count']})"
+        button = InlineKeyboardButton(label, callback_data=f"SEARCH_{pack['prefix']}")
         keyboard_layout.append([button])
 
     close_button = InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL)
@@ -475,19 +519,31 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return ConversationHandler.END
 
     pack_code = data.split('_')[1]
-    if pack_code not in PACK_CODES.values():
+    packs = await asyncio.to_thread(_get_cached_pack_list)
+    pack_entry = next((p for p in packs if p['prefix'] == pack_code), None)
+    if not pack_entry:
         logger.warning(f"Invalid pack callback_data received: {data!r}")
         await query.edit_message_text("Operation canceled. Type /card to start again.")
         context.user_data.clear()
         return ConversationHandler.END
 
-    pack_name = next((name for name, code in PACK_CODES.items() if code == pack_code), f"Code {pack_code}")
+    pack_name = pack_entry['display_name']
 
     context.user_data['selected_pack_code'] = pack_code
 
+    count, min_pos, max_pos, sample = await asyncio.to_thread(_get_pack_positions, pack_code)
+
+    if count > 0:
+        sample_str = ", ".join(str(p) for p in sample)
+        card_info = f"({count} cards, {min_pos}–{max_pos})"
+        example_hint = f"Ex: {sample_str}"
+    else:
+        card_info = ""
+        example_hint = "Ex: 1, 10, 50"
+
     await query.edit_message_text(
-        text=f"Pack **{pack_name}** ({pack_code}) selected!\n"
-             f"👉 Please **now enter the card number** you want to search for (Ex: 19, 45, 73, 98, 137):",
+        text=f"Pack **{pack_name}** {card_info} selected!\n"
+             f"👉 Please **now enter the card number** you want to search for ({example_hint}):",
         parse_mode=ParseMode.MARKDOWN
     )
 
@@ -520,7 +576,9 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data.clear()
         return ConversationHandler.END
 
-    pack_name = next((name for name, code in PACK_CODES.items() if code == pack_code), f"code {pack_code}")
+    packs = _get_cached_pack_list()
+    pack_entry = next((p for p in packs if p['prefix'] == pack_code), None)
+    pack_name = pack_entry['display_name'] if pack_entry else f"code {pack_code}"
 
     full_card_id = f"{pack_code}{card_number}"
     await update.message.reply_text(f"⏳ Buscando carta **{full_card_id}**...", parse_mode=ParseMode.MARKDOWN)

@@ -1,8 +1,56 @@
 import re
+from collections import defaultdict
 
+from ..config import PACK_PREFIX_LABEL_OVERRIDES
 from ..supabase_client import get_supabase_client
 
 _PAGE = 1000
+
+
+def get_card_packs() -> list[dict]:
+    """
+    Returns packs grouped by 2-digit code prefix, sorted by prefix.
+    Each entry: {prefix, display_name, card_count}
+    Picks the shortest pack_name in each group as display name (usually the main cycle pack).
+    """
+    client = get_supabase_client()
+    if not client:
+        return []
+
+    groups: dict[str, dict] = defaultdict(lambda: {"names": {}, "count": 0})
+    offset = 0
+    while True:
+        rows = client.get("arkham_cards", {
+            "select": "code,pack_name",
+            "limit": str(_PAGE),
+            "offset": str(offset),
+        })
+        if not rows:
+            break
+        for row in rows:
+            code = row.get("code", "")
+            pack_name = row.get("pack_name", "")
+            if len(code) >= 2 and pack_name:
+                prefix = code[:2]
+                groups[prefix]["names"][pack_name] = groups[prefix]["names"].get(pack_name, 0) + 1
+                groups[prefix]["count"] += 1
+        if len(rows) < _PAGE:
+            break
+        offset += _PAGE
+
+    result = []
+    for prefix, data in sorted(groups.items()):
+        if prefix in PACK_PREFIX_LABEL_OVERRIDES:
+            best_name = PACK_PREFIX_LABEL_OVERRIDES[prefix]
+        else:
+            # Pick the name with the most cards; break ties by shortest name
+            best_name = max(data["names"], key=lambda n: (data["names"][n], -len(n)))
+        result.append({
+            "prefix": prefix,
+            "display_name": best_name,
+            "card_count": data["count"],
+        })
+    return result
 
 
 def _build_card_row(card: dict) -> dict:

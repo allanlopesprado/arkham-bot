@@ -101,24 +101,12 @@ BOT_COMMANDS_MAX_RETRIES = int(os.getenv("BOT_COMMANDS_MAX_RETRIES", "3"))
 BOT_COMMANDS_RETRY_DELAY_SECONDS = int(os.getenv("BOT_COMMANDS_RETRY_DELAY_SECONDS", "60"))
 BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS = int(os.getenv("BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS", "900"))
 
-# Mapping for the /card command
-PACK_CODES = {
-    'Core': '01',
-    'The Dunwich Legacy': '02',
-    'The Path to Carcosa': '03',
-    'The Forgotten Age': '04',
-    'The Circle Undone': '05',
-    'The Dream-Eaters': '06',
-    'The Innsmouth Conspiracy': '07',
-    'Edge of the Earth': '08',
-    'The Scarlet Keys': '09',
-    'The Feast of Hemlock Vale': '10',
-    'The Drowned City': '11',
-    'Return to the Path to Carcosa': '12',
-    'Investigator Starter Decks': '13',
-    'Side Stories': '14',
-    'Promotional': '15',
-    'Parallel': '16',
+# Override labels for code prefixes that group many packs with similar card counts,
+# making auto-detection of a representative name unreliable.
+PACK_PREFIX_LABEL_OVERRIDES: dict[str, str] = {
+    "60": "Investigator Starter Decks",
+    "90": "Parallel / Side Stories",
+    "98": "Promo (small)",
 }
 
 

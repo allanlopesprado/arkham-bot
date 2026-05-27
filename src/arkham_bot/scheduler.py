@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from .config import (
@@ -37,10 +37,12 @@ def _save_state(state: dict) -> None:
     DAILY_SCHEDULER_STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _is_due(now: datetime, post_time: str, state: dict) -> bool:
+def _is_due(now: datetime, post_time: str, state: dict, before_seconds: int = 0) -> bool:
     try:
         hour, minute = [int(part) for part in post_time.split(":", 1)]
         scheduled = datetime.combine(now.date(), time(hour, minute), tzinfo=now.tzinfo)
+        if before_seconds and isinstance(before_seconds, int) and before_seconds > 0:
+            scheduled = scheduled - timedelta(seconds=before_seconds)
     except ValueError:
         logger.warning(f"scheduler_tick_error: invalid time configured: {post_time}")
         return False
@@ -122,10 +124,19 @@ async def daily_scheduler_loop() -> None:
             today = WEEKDAY_CODES[now.weekday()]
 
             if daily_post_enabled:
+                # Determine whether we should trigger earlier to allow AI pre-message delays
+                ai_enabled = bool(get_setting('ai_enabled', True))
+                ai_pre_enabled = bool(get_setting('ai_pre_message_enabled', True))
+                try:
+                    ai_pre_delay = max(0, int(get_setting('ai_pre_message_delay_seconds', 0) or 0))
+                except Exception:
+                    ai_pre_delay = 0
+                before_seconds = ai_pre_delay if (ai_enabled and ai_pre_enabled and ai_pre_delay > 0) else 0
+
                 for post_time in _times_for_day(today, daily_post_times, day_config, daily_post_days):
                     if today not in daily_post_days:
                         continue
-                    if _is_due(now, post_time, state):
+                    if _is_due(now, post_time, state, before_seconds=before_seconds):
                         logger.info("daily_post_due")
                         result = await post_daily_card(is_scheduled=True)
                         state.update({
