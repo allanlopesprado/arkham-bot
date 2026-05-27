@@ -559,8 +559,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Responds to the /start command."""
-    await update.message.reply_text("Hello! Bot started and ready for commands.")
+    await menu_command(update, context)
 
 
 async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -768,7 +767,7 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data.clear()
     return ConversationHandler.END
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     user_id = update.effective_user.id if update.effective_user else None
@@ -777,23 +776,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.HTML,
     )
 
-
-async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await help_command(update, context)
-
-
-async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    from .local_storage import load_last_pinned_daily_card
-
-    last = load_last_pinned_daily_card()
-    if not last:
-        await update.message.reply_text("No daily card has been recorded locally yet.")
-        return
-    await update.message.reply_text(
-        f"Last daily card: {last.get('card_code')} — message_id={last.get('message_id')} — date={last.get('posted_date')}"
-    )
 
 
 async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1646,106 +1628,8 @@ async def xp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Could not fetch XP data right now.")
 
 
-async def admin_status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    user_id = update.effective_user.id if update.effective_user else None
-    await update.message.reply_text(f"Admin access OK. Source: {admin_source(user_id)}")
 
 
-async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await admin_status_command(update, context)
-
-
-async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .config import TELEGRAM_CHAT_ID
-    chat = update.effective_chat
-    await update.message.reply_text(
-        f"<b>Chat ID info</b>\n"
-        f"Este chat: <code>{chat.id}</code>\n"
-        f"TELEGRAM_CHAT_ID (.env): <code>{TELEGRAM_CHAT_ID}</code>\n"
-        f"Match: <b>{'✅ SIM' if str(chat.id) == str(TELEGRAM_CHAT_ID) else '❌ NÃO — corrija o .env'}</b>",
-        parse_mode=ParseMode.HTML,
-    )
-
-
-async def ai_test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tests AI connectivity and reports configuration status."""
-    if not await _require_admin(update):
-        return
-    from .config import AI_DAILY_CARD_ENABLED, AI_MODEL, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENAI_API_KEY
-    from .repositories.settings_repo import get_setting
-    from .ai.daily_card_selector import VALID_MODELS, _OPENAI_COMPAT, _provider, _key_available
-
-    ai_enabled_db = get_setting('ai_enabled', True)
-    _model_raw = get_setting('ai_model', None)
-    ai_model_db = _model_raw if _model_raw and _model_raw in VALID_MODELS else AI_MODEL
-    ai_language = get_setting('ai_language', 'pt-BR')
-    provider = _provider(ai_model_db)
-
-    key_status = {
-        "GEMINI": bool(GEMINI_API_KEY),
-        "OPENAI": bool(OPENAI_API_KEY),
-        "GROQ": bool(GROQ_API_KEY),
-        "MISTRAL": bool(MISTRAL_API_KEY),
-    }
-    model_note = f" (DB tinha '{_model_raw}', ignorado)" if _model_raw and _model_raw not in VALID_MODELS else ""
-    keys_line = "  ".join(f"{k}: {'✅' if v else '❌'}" for k, v in key_status.items())
-    lines = [
-        f"<b>AI Diagnostic ({provider.upper()})</b>",
-        f"AI habilitada (env): <b>{AI_DAILY_CARD_ENABLED}</b>",
-        f"AI habilitada (DB): <b>{ai_enabled_db}</b>",
-        f"Model: <b>{ai_model_db}</b>{model_note}",
-        f"Provider: <b>{provider}</b>  |  Idioma: <b>{ai_language}</b>",
-        f"Chaves: {keys_line}",
-        "",
-    ]
-
-    if not AI_DAILY_CARD_ENABLED:
-        lines.append("AI desabilitada pela variável AI_DAILY_CARD_ENABLED=false")
-        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
-    elif not _key_available(ai_model_db):
-        lines.append(f"Chave {provider.upper()}_API_KEY não configurada no .env do servidor")
-        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
-    elif not ai_enabled_db:
-        lines.append("AI desabilitada no banco — habilite pelo mini app")
-        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
-    else:
-        lines.append(f"Testando conexão {provider.upper()}...")
-        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
-        try:
-            import httpx
-            if provider in _OPENAI_COMPAT:
-                api_url, get_key = _OPENAI_COMPAT[provider]
-                headers = {"Authorization": f"Bearer {get_key()}"}
-                req_json = {
-                    "model": ai_model_db,
-                    "max_tokens": 5,
-                    "messages": [{"role": "user", "content": "Say OK"}],
-                }
-                async with httpx.AsyncClient(timeout=15) as client:
-                    resp = await client.post(api_url, json=req_json, headers=headers)
-            else:
-                api_url = (
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{ai_model_db}"
-                    f":generateContent?key={GEMINI_API_KEY}"
-                )
-                req_json = {
-                    "contents": [{"parts": [{"text": "Say OK"}]}],
-                    "generationConfig": {"maxOutputTokens": 5},
-                }
-                async with httpx.AsyncClient(timeout=15) as client:
-                    resp = await client.post(api_url, json=req_json)
-            if resp.status_code == 200:
-                await update.message.reply_text(f"✅ {provider.upper()} OK — IA operacional")
-            else:
-                body = resp.json()
-                err = body.get("error", {}).get("message", resp.text[:300])
-                await update.message.reply_text(f"❌ {provider.upper()} HTTP {resp.status_code}: {err}")
-        except Exception as exc:
-            await update.message.reply_text(f"❌ {provider.upper()} falhou: {exc}")
 
 
 async def post_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1918,10 +1802,8 @@ def register_handlers(application):
     )
 
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("menu", menu_command))
     application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("today", today_command))
     application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("faq", faq_command))
     application.add_handler(CommandHandler("taboo", taboo_command))
@@ -1955,10 +1837,6 @@ def register_handlers(application):
     application.add_handler(CommandHandler("faction", faction_command))
     application.add_handler(CommandHandler("type", type_command))
     application.add_handler(CommandHandler("xp", xp_command))
-    application.add_handler(CommandHandler("admin", admin_command))
-    application.add_handler(CommandHandler("admin_status", admin_status_command))
-    application.add_handler(CommandHandler("ai_test", ai_test_command))
-    application.add_handler(CommandHandler("chatid", chatid_command))
     application.add_handler(CommandHandler("post", post_admin_command))
     application.add_handler(CommandHandler("repost", repost_admin_command))
     application.add_handler(CommandHandler("skip", skip_admin_command))
