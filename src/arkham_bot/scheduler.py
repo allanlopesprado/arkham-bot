@@ -37,6 +37,10 @@ def _save_state(state: dict) -> None:
     DAILY_SCHEDULER_STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _slot_key(date_iso: str, post_time: str) -> str:
+    return f"{date_iso}_{post_time}"
+
+
 def _is_due(now: datetime, post_time: str, state: dict, before_seconds: int = 0) -> bool:
     try:
         hour, minute = [int(part) for part in post_time.split(":", 1)]
@@ -49,7 +53,8 @@ def _is_due(now: datetime, post_time: str, state: dict, before_seconds: int = 0)
     elapsed_minutes = (now - scheduled).total_seconds() / 60
     if elapsed_minutes < 0 or elapsed_minutes > POST_WINDOW_MINUTES:
         return False
-    return state.get("last_daily_post_date") != now.date().isoformat() or state.get("last_daily_post_time") != post_time
+    posted_slots = state.get("posted_slots", [])
+    return _slot_key(now.date().isoformat(), post_time) not in posted_slots
 
 
 def _as_list(value, default: list[str]) -> list[str]:
@@ -139,8 +144,13 @@ async def daily_scheduler_loop() -> None:
                     if _is_due(now, post_time, state, before_seconds=before_seconds):
                         logger.info("daily_post_due")
                         result = await post_daily_card(is_scheduled=True)
+                        today_iso = now.date().isoformat()
+                        # Keep only slots from today to avoid unbounded growth
+                        posted_slots = [s for s in state.get("posted_slots", []) if s.startswith(today_iso)]
+                        posted_slots.append(_slot_key(today_iso, post_time))
                         state.update({
-                            "last_daily_post_date": now.date().isoformat(),
+                            "posted_slots": posted_slots,
+                            "last_daily_post_date": today_iso,
                             "last_daily_post_time": post_time,
                             "last_daily_post_status": "success" if result.success else "failed",
                             "last_daily_post_error": result.error,
