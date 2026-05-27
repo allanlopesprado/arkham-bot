@@ -1033,6 +1033,29 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     origin_chat_id = context.bot_data.get('taboo_origin_chat_id')
     origin_message_id = context.bot_data.get('taboo_origin_message_id')
 
+    # Busca tudo antes de deletar — evita sensação de vazio
+    card, _ = await get_card_async(code)
+    name = _taboo_name(name_map, code) or (card.get('name') if card else code)
+    restriction = _taboo_restriction_label(entry)
+    text_note = entry.get('text') or entry.get('replacement_text') or ''
+    img = None
+    caption = None
+    is_spoiler = False
+    plain_text = None
+
+    if card:
+        caption, is_spoiler = _spoiler_caption(card)
+        taboo_block = f"\n\n<b>Taboo:</b> {escape(restriction)}"
+        if text_note:
+            taboo_block += f"\n<i>{escape(text_note)}</i>"
+        caption = caption + taboo_block
+        image_src = card.get('imagesrc') or card.get('image_src')
+        img = await _fetch_card_image(code, image_src)
+    else:
+        plain_text = f"<b>{escape(name)}</b> (<code>{code}</code>)\n<b>Taboo:</b> {escape(restriction)}"
+        if text_note:
+            plain_text += f"\n<i>{escape(text_note)}</i>"
+
     try:
         await query.message.delete()
     except Exception:
@@ -1040,42 +1063,26 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if origin_chat_id and origin_message_id:
         reply_params = ReplyParameters(message_id=origin_message_id)
-        card, _ = await get_card_async(code)
-        name = _taboo_name(name_map, code) or (card.get('name') if card else code)
-        restriction = _taboo_restriction_label(entry)
-        text_note = entry.get('text') or entry.get('replacement_text') or ''
-
-        if card:
-            caption, is_spoiler = _spoiler_caption(card)
-            taboo_block = f"\n\n<b>Taboo:</b> {escape(restriction)}"
-            if text_note:
-                taboo_block += f"\n<i>{escape(text_note)}</i>"
-            caption = caption + taboo_block
-            image_src = card.get('imagesrc') or card.get('image_src')
-            img = await _fetch_card_image(code, image_src)
-            if img:
-                await update.get_bot().send_photo(
-                    chat_id=origin_chat_id,
-                    photo=img,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    has_spoiler=is_spoiler,
-                    reply_parameters=reply_params,
-                )
-            else:
-                await update.get_bot().send_message(
-                    chat_id=origin_chat_id,
-                    text=caption,
-                    parse_mode=ParseMode.HTML,
-                    reply_parameters=reply_params,
-                )
-        else:
-            text = f"<b>{escape(name)}</b> (<code>{code}</code>)\n<b>Taboo:</b> {escape(restriction)}"
-            if text_note:
-                text += f"\n<i>{escape(text_note)}</i>"
+        if img:
+            await update.get_bot().send_photo(
+                chat_id=origin_chat_id,
+                photo=img,
+                caption=caption,
+                parse_mode=ParseMode.HTML,
+                has_spoiler=is_spoiler,
+                reply_parameters=reply_params,
+            )
+        elif caption:
             await update.get_bot().send_message(
                 chat_id=origin_chat_id,
-                text=text,
+                text=caption,
+                parse_mode=ParseMode.HTML,
+                reply_parameters=reply_params,
+            )
+        else:
+            await update.get_bot().send_message(
+                chat_id=origin_chat_id,
+                text=plain_text or code,
                 parse_mode=ParseMode.HTML,
                 reply_parameters=reply_params,
             )
