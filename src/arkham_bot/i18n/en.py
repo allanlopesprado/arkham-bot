@@ -1,8 +1,8 @@
 strings: dict = {
-    # ── Startup ──────────────────────────────────────────────────────────────
+    # Startup
     "bot_started": "Bot started and listening for messages...",
 
-    # ── /start / help ─────────────────────────────────────────────────────────
+    # /start / help
     "help_title": "<b>Arkham Bot</b>",
     "help_cards_section": "<b>Cards</b>",
     "help_card_cmd": "- <code>/card</code> - guided search by cycle/pack",
@@ -17,12 +17,12 @@ strings: dict = {
     "help_bot_section": "<b>Bot</b>",
     "help_status_cmd": "- <code>/status</code> - operational status",
 
-    # ── /status ───────────────────────────────────────────────────────────────
+    # /status
     "status_title": "<b>Arkham Bot - Online</b>",
     "status_uptime": "Uptime: {uptime}",
     "status_cards": "Cards: {cards_count}",
 
-    # ── /card ─────────────────────────────────────────────────────────────────
+    # /card
     "card_choose_pack": "Choose a pack to search for the card:",
     "card_btn_close": "Close",
     "card_canceled": "Operation canceled. Type /card to start again.",
@@ -35,17 +35,17 @@ strings: dict = {
     "card_not_found": "⚠️ Card `{full_card_id}` not found. Check the code and try again.",
     "card_error": "🚨 Error fetching card `{full_card_id}`. Please try again later.",
 
-    # ── cancel ────────────────────────────────────────────────────────────────
+    # cancel
     "cancel_closed": "✖️ Closed.",
     "cancel_text": "Operation canceled.",
 
-    # ── /faq ──────────────────────────────────────────────────────────────────
+    # /faq
     "faq_usage": "Usage: /faq <card_code>",
     "faq_not_found": "No FAQ found for <code>{card_code}</code>.",
     "faq_title": "📖 <b>FAQ — {card_code}</b>",
     "faq_error": "Could not fetch FAQ right now.",
 
-    # ── /taboo ────────────────────────────────────────────────────────────────
+    # /taboo
     "taboo_no_lists": "No taboo lists found.",
     "taboo_not_found_for": "No taboo restriction found for «{query}».",
     "taboo_results_title": "<b>Taboo results for «{query}»:</b>",
@@ -66,14 +66,14 @@ strings: dict = {
     "taboo_detail_affected": "{total} card(s) affected\n",
     "taboo_category_page": "<b>{label}</b> — {total} card(s) — page {page}/{total_pages}:",
 
-    # ── taboo restriction labels ──────────────────────────────────────────────
+    # taboo restriction labels
     "taboo_label_banned": "Banned",
     "taboo_label_limit": "Limit {n}/deck",
     "taboo_label_exceptional": "Exceptional",
     "taboo_label_errata": "Errata",
     "taboo_label_restricted": "Restricted",
 
-    # ── taboo category labels ─────────────────────────────────────────────────
+    # taboo category labels
     "taboo_cat_forbidden": "Banned",
     "taboo_cat_xp_up": "+XP (more expensive)",
     "taboo_cat_xp_down": "−XP (cheaper)",
@@ -81,7 +81,7 @@ strings: dict = {
     "taboo_cat_errata": "Text errata",
     "taboo_cat_other": "Other restrictions",
 
-    # ── /decklist ─────────────────────────────────────────────────────────────
+    # /decklist
     "decklist_usage": "Usage: /decklist <decklist_id>",
     "decklist_invalid_id": "Invalid decklist id.",
     "decklist_text": "Decklist: {name}\nInvestigator: {investigator}\nCards in slots: {slots}\nhttps://arkhamdb.com/decklist/view/{decklist_id}",
@@ -89,7 +89,7 @@ strings: dict = {
     "decklist_untitled": "Untitled decklist",
     "decklist_unknown_investigator": "Unknown investigator",
 
-    # ── /search ───────────────────────────────────────────────────────────────
+    # /search
     "search_prompt": "🔍 Enter card name or code:",
     "search_btn_cancel": "❌ Cancel",
     "search_empty_query": "Type something to search.",
@@ -106,7 +106,7 @@ strings: dict = {
     "search_card_not_found_code": "Card <code>{code}</code> not found.",
     "search_spoiler_warning": "⚠️ <b>Warning: this card contains a spoiler!</b>",
 
-    # ── /sets ─────────────────────────────────────────────────────────────────
+    # /sets
     "sets_no_sets": "No sets available.",
     "sets_choose": "📦 Choose a set to browse its cards:",
     "sets_error": "Error loading sets.",
@@ -115,7 +115,7 @@ strings: dict = {
     "sets_pack_error": "Error loading cards from set.",
     "sets_btn_back": "« Back to sets",
 
-    # ── /cotd ─────────────────────────────────────────────────────────────────
+    # /cotd
     "cotd_no_cards": "No card of the day found.",
     "cotd_select_year": "Select year:",
     "cotd_no_year": "No cards found for this year.",
@@ -124,14 +124,14 @@ strings: dict = {
     "cotd_month_title": "<b>Cards of the Day - {month_name}/{year}</b>",
     "cotd_btn_back": "« Back",
 
-    # ── daily_card.py ─────────────────────────────────────────────────────────
+    # daily_card.py
     "daily_cycle_reset": (
         "🔄 <b>Cycle complete!</b>\n"
         "All cards in the current selection have been posted.\n"
         "The cycle has been reset automatically."
     ),
 
-    # ── text_formatters.py ────────────────────────────────────────────────────
+    # text_formatters.py
     "fmt_exceptional": "⚡ Exceptional",
     "fmt_permanent": "Permanent.",
     "fmt_myriad": "Myriad.",
@@ -173,7 +173,7 @@ strings: dict = {
     "stat_linked_to": "Linked to",
     "stat_per_inv": " (x inv.)",
 
-    # skill names (used in Skills line)
+    # skill names
     "skill_will": "Will",
     "skill_intellect": "Intellect",
     "skill_combat": "Combat",
@@ -184,7 +184,7 @@ strings: dict = {
     "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
 
-    # day labels (short, for status display)
+    # day labels
     "day_mon": "Mon", "day_tue": "Tue", "day_wed": "Wed", "day_thu": "Thu",
     "day_fri": "Fri", "day_sat": "Sat", "day_sun": "Sun", "day_all": "All",
 }

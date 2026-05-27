@@ -1,8 +1,8 @@
-from . import en, pt
+from . import en, pt_br
 
 _SUPPORTED = {
     "en-US": en.strings,
-    "pt-BR": pt.strings,
+    "pt-BR": pt_br.strings,
 }
 
 

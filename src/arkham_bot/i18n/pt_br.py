@@ -1,8 +1,8 @@
 strings: dict = {
-    # ── Startup ──────────────────────────────────────────────────────────────
+    # Startup
     "bot_started": "Bot iniciado e aguardando mensagens...",
 
-    # ── /start / help ─────────────────────────────────────────────────────────
+    # /start / help
     "help_title": "<b>Arkham Bot</b>",
     "help_cards_section": "<b>Cartas</b>",
     "help_card_cmd": "- <code>/card</code> - busca guiada por ciclo/pacote",
@@ -17,12 +17,12 @@ strings: dict = {
     "help_bot_section": "<b>Bot</b>",
     "help_status_cmd": "- <code>/status</code> - status operacional",
 
-    # ── /status ───────────────────────────────────────────────────────────────
+    # /status
     "status_title": "<b>Arkham Bot - Online</b>",
     "status_uptime": "Uptime: {uptime}",
     "status_cards": "Cartas: {cards_count}",
 
-    # ── /card ─────────────────────────────────────────────────────────────────
+    # /card
     "card_choose_pack": "Escolha um pacote para buscar a carta:",
     "card_btn_close": "Fechar",
     "card_canceled": "Operação cancelada. Digite /card para começar de novo.",
@@ -35,17 +35,17 @@ strings: dict = {
     "card_not_found": "⚠️ Carta `{full_card_id}` não encontrada. Verifique o código e tente novamente.",
     "card_error": "🚨 Erro ao buscar a carta `{full_card_id}`. Tente novamente mais tarde.",
 
-    # ── cancel ────────────────────────────────────────────────────────────────
+    # cancel
     "cancel_closed": "✖️ Fechado.",
     "cancel_text": "Operação cancelada.",
 
-    # ── /faq ──────────────────────────────────────────────────────────────────
+    # /faq
     "faq_usage": "Uso: /faq <card_code>",
     "faq_not_found": "Nenhum FAQ encontrado para <code>{card_code}</code>.",
     "faq_title": "📖 <b>FAQ — {card_code}</b>",
     "faq_error": "Não foi possível carregar o FAQ agora.",
 
-    # ── /taboo ────────────────────────────────────────────────────────────────
+    # /taboo
     "taboo_no_lists": "Nenhuma lista taboo encontrada.",
     "taboo_not_found_for": "Nenhuma restrição taboo encontrada para «{query}».",
     "taboo_results_title": "<b>Resultados taboo para «{query}»:</b>",
@@ -66,14 +66,14 @@ strings: dict = {
     "taboo_detail_affected": "{total} carta(s) afetada(s)\n",
     "taboo_category_page": "<b>{label}</b> — {total} carta(s) — página {page}/{total_pages}:",
 
-    # ── taboo restriction labels ──────────────────────────────────────────────
+    # taboo restriction labels
     "taboo_label_banned": "Banida",
     "taboo_label_limit": "Limite {n}/deck",
     "taboo_label_exceptional": "Exceptional",
     "taboo_label_errata": "Errata",
     "taboo_label_restricted": "Restrita",
 
-    # ── taboo category labels ─────────────────────────────────────────────────
+    # taboo category labels
     "taboo_cat_forbidden": "Banidas",
     "taboo_cat_xp_up": "+XP (mais cara)",
     "taboo_cat_xp_down": "−XP (mais barata)",
@@ -81,7 +81,7 @@ strings: dict = {
     "taboo_cat_errata": "Errata de texto",
     "taboo_cat_other": "Outras restrições",
 
-    # ── /decklist ─────────────────────────────────────────────────────────────
+    # /decklist
     "decklist_usage": "Uso: /decklist <decklist_id>",
     "decklist_invalid_id": "ID de decklist inválido.",
     "decklist_text": "Decklist: {name}\nInvestigador: {investigator}\nCartas: {slots}\nhttps://arkhamdb.com/decklist/view/{decklist_id}",
@@ -89,7 +89,7 @@ strings: dict = {
     "decklist_untitled": "Decklist sem título",
     "decklist_unknown_investigator": "Investigador desconhecido",
 
-    # ── /search ───────────────────────────────────────────────────────────────
+    # /search
     "search_prompt": "🔍 Digite o nome ou código da carta:",
     "search_btn_cancel": "❌ Cancelar",
     "search_empty_query": "Digite algo para buscar.",
@@ -106,7 +106,7 @@ strings: dict = {
     "search_card_not_found_code": "Carta <code>{code}</code> não encontrada.",
     "search_spoiler_warning": "⚠️ <b>Atenção: esta carta contém spoiler!</b>",
 
-    # ── /sets ─────────────────────────────────────────────────────────────────
+    # /sets
     "sets_no_sets": "Nenhum set disponível.",
     "sets_choose": "📦 Escolha um set para ver as cartas:",
     "sets_error": "Erro ao carregar sets.",
@@ -115,7 +115,7 @@ strings: dict = {
     "sets_pack_error": "Erro ao carregar cartas do set.",
     "sets_btn_back": "« Voltar aos sets",
 
-    # ── /cotd ─────────────────────────────────────────────────────────────────
+    # /cotd
     "cotd_no_cards": "Nenhuma carta do dia encontrada.",
     "cotd_select_year": "Selecione o ano:",
     "cotd_no_year": "Nenhuma carta encontrada para este ano.",
@@ -124,14 +124,14 @@ strings: dict = {
     "cotd_month_title": "<b>Cartas do Dia - {month_name}/{year}</b>",
     "cotd_btn_back": "« Voltar",
 
-    # ── daily_card.py ─────────────────────────────────────────────────────────
+    # daily_card.py
     "daily_cycle_reset": (
         "🔄 <b>Ciclo concluído!</b>\n"
         "Todas as cartas da seleção atual já foram postadas.\n"
         "O ciclo foi reiniciado automaticamente."
     ),
 
-    # ── text_formatters.py ────────────────────────────────────────────────────
+    # text_formatters.py
     "fmt_exceptional": "⚡ Exceptional",
     "fmt_permanent": "Permanent.",
     "fmt_myriad": "Myriad.",
@@ -149,7 +149,7 @@ strings: dict = {
     "fmt_view_arkhamdb": "🔗 <a href='https://arkhamdb.com/card/{code}'>Ver no ArkhamDB</a>",
     "fmt_taboo_label": "<b>Taboo:</b> {restriction}",
 
-    # card stat labels (kept in English — these are game terms)
+    # card stat labels (kept in English — game terms)
     "stat_will": "Will",
     "stat_int": "Int",
     "stat_combat": "Combat",
