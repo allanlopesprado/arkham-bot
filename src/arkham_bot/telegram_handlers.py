@@ -883,7 +883,12 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         text, markup = _taboo_list_menu_text_and_buttons(sorted_lists, name_map)
-        await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+        await update.message.reply_text(
+            text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=markup,
+            reply_parameters=ReplyParameters(message_id=update.message.message_id),
+        )
 
     except Exception as exc:
         logger.error(f"taboo_command_failed: {exc}", exc_info=True)
@@ -1017,7 +1022,24 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not entry:
         await query.answer("Card not found in taboo list.", show_alert=True)
         return
-    await _send_taboo_card(update, code, entry, name_map)
+
+    card, _ = await get_card_async(code)
+    name = _taboo_name(name_map, code) or (card.get('name') if card else code)
+    restriction = _taboo_restriction_label(entry)
+    text_note = entry.get('text') or entry.get('replacement_text') or ''
+
+    lines = [f"<b>{escape(name)}</b> (<code>{code}</code>)"]
+    if card:
+        pack = card.get('pack_name', '')
+        position = card.get('position', '')
+        if pack:
+            lines.append(f"Pack: {escape(pack)}{f' #{position}' if position else ''}")
+    lines.append(f"\n<b>Taboo:</b> {escape(restriction)}")
+    if text_note:
+        lines.append(f"<i>{escape(text_note)}</i>")
+
+    markup = InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="TABOO_BACK")]])
+    await query.edit_message_text("\n".join(lines), parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
 async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
