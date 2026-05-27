@@ -301,7 +301,7 @@ def _format_day_config_lines(day_config: dict) -> list[str]:
 
 def _format_status(payload: dict) -> str:
     lines = [
-        "<b>Arkham Bot — Online</b>",
+        "<b>Arkham Bot - Online</b>",
         f"Uptime: {payload['uptime']}",
         f"Cartas: {payload['cards_count']}",
     ]
