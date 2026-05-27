@@ -591,6 +591,9 @@ input, select { outline: none; }
   outline: none;
   min-width: 0;
 }
+.time-add-input::-webkit-calendar-picker-indicator {
+  display: none;
+}
 
 .time-add-btn {
   flex-shrink: 0;
