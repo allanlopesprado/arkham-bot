@@ -1159,6 +1159,14 @@ function App() {
   // Ref always holds the latest settingsDirty — safe to read inside stale async closures
   const settingsDirtyRef = useRef(false);
   settingsDirtyRef.current = settingsDirty;
+
+  // Enable closing confirmation when settings are dirty to prevent accidental data loss
+  useEffect(() => {
+    const app = tg();
+    if (!app) return;
+    if (settingsDirty) app.enableClosingConfirmation?.();
+    else app.disableClosingConfirmation?.();
+  }, [settingsDirty]);
   // Ref keeps the latest saveSettings for the MainButton handler (stale closure guard)
   const saveSettingsRef = useRef(null);
 
@@ -1182,9 +1190,9 @@ function App() {
     app.onEvent?.('themeChanged', applyColors);
     app.onEvent?.('viewportChanged', onViewportChanged);
 
-    // Fullscreen: only supported on mobile. Exit immediately on desktop, and on runtime failure.
+    // Fullscreen: only supported on mobile (Bot API 8.0+). Exit on desktop or failure.
     const mobileOnly = ['android', 'ios'];
-    if (!mobileOnly.includes(app.platform)) {
+    if (app.isVersionAtLeast?.('8.0') && !mobileOnly.includes(app.platform)) {
       try { app.exitFullscreen?.(); } catch {}
     }
     const onFullscreenFailed = ({ error } = {}) => {
@@ -1212,15 +1220,13 @@ function App() {
     };
   }, []);
 
-  // ── Refresh on visibility change (user returns to app) ─────────────────────
+  // ── Refresh when user returns to app (Telegram activated/deactivated events) ─
   useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      fetchOverview();
-      fetchCommands();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    const app = tg();
+    if (!app) return;
+    const onActivated = () => { fetchOverview(); fetchCommands(); };
+    app.onEvent?.('activated', onActivated);
+    return () => app.offEvent?.('activated', onActivated);
   }, []);
 
   // ── MainButton: shows "Save" when settings are dirty ───────────────────────
