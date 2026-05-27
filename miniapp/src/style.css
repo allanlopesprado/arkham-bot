@@ -296,6 +296,17 @@ input, select { outline: none; }
 .row-action > .row-label,
 .toggle-row > .row-label { flex: 1; display: flex; align-items: center; gap: 4px; }
 
+.row-label-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
+.row-label-wrap .row-label { white-space: normal; overflow: visible; text-overflow: unset; }
+.row-label-wrap .row-caption { white-space: normal; overflow: visible; text-overflow: unset; }
+
 .section-note {
   margin: 0;
   padding: 4px 16px 12px;

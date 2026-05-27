@@ -283,6 +283,10 @@ const I18N = {
     // maintenance
     syncArkhamDB: 'Sincronizar ArkhamDB',
     syncCaption: 'Atualiza cartas e pacotes do banco de dados',
+    refreshStatus: 'Atualizar status',
+    syncScheduleTitle: 'Agendamento',
+    dbStatusStale: 'desatualizado',
+    dbStatusFresh: 'atualizado',
     lastSyncAt: 'Último sincronismo',
     neverSynced: 'Nunca sincronizado',
     syncSuccess: 'bem-sucedido',
@@ -520,6 +524,10 @@ const I18N = {
     },
     syncArkhamDB: 'Sync ArkhamDB',
     syncCaption: 'Updates cards and packs from the database',
+    refreshStatus: 'Refresh status',
+    syncScheduleTitle: 'Schedule',
+    dbStatusStale: 'outdated',
+    dbStatusFresh: 'up to date',
     lastSyncAt: 'Last sync',
     neverSynced: 'Never synced',
     syncSuccess: 'successful',
@@ -887,11 +895,14 @@ function Row({ icon, label, value, badgeTone = '', caption, mono = false, onClic
   );
 }
 
-function MenuRow({ icon, label, value, onClick, disabled, loading }) {
+function MenuRow({ icon, label, caption, value, onClick, disabled, loading }) {
   return (
     <button className="row row-action" onClick={onClick} disabled={disabled || loading} type="button">
       {icon && <Icon name={icon} />}
-      <span className="row-label">{label}</span>
+      <span className="row-label-wrap">
+        <span className="row-label">{label}</span>
+        {caption && <span className="row-caption">{caption}</span>}
+      </span>
       {value !== undefined && <span className="row-value">{value}</span>}
       {loading ? <Spinner /> : <Icon name="chevron" className="chevron" />}
     </button>
@@ -1933,61 +1944,57 @@ function App() {
       {/* ── DATABASE ── */}
       {activeTab === 'database' && (() => {
         const lang = language === 'pt' ? 'pt' : 'en';
+        const syncDate = overview?.last_sync || sysStatus?.last_sync;
+        const daysSinceSync = syncDate ? (Date.now() - new Date(syncDate).getTime()) / 86400000 : null;
+        const isStale = daysSinceSync === null || daysSinceSync > 7;
         return (
           <>
-            <Section title={copy.syncArkhamDB} footer={copy.syncCaption}>
-              <MenuRow icon="sync" label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+            <Section title={copy.syncArkhamDB}>
+              <MenuRow icon="sync"    label={copy.syncArkhamDB} caption={copy.syncCaption} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+              <MenuRow icon="refresh" label={copy.refreshStatus} loading={loadingOverview || loadingStatus} disabled={!apiConfigured} onClick={() => { fetchOverview(); fetchStatus(); }} />
             </Section>
 
             <Section title={copy.databaseStatus}>
-              {(() => {
-                const syncDate = overview?.last_sync || sysStatus?.last_sync;
-                return (
-                  <>
-                    <Row icon="clock" label={copy.lastSyncAt} value={syncDate ? new Date(syncDate).toLocaleString(copy.locale) : copy.neverSynced} mono={!!syncDate} />
-                    <Row icon="cards" label={copy.cards}      value={loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-')} />
-                    <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
-                  </>
-                );
-              })()}
+              <Row icon="clock" label={copy.lastSyncAt} value={syncDate ? new Date(syncDate).toLocaleString(copy.locale) : copy.neverSynced} mono={!!syncDate} badgeTone={isStale ? 'warn' : 'ok'} />
+              <Row icon="cards" label={copy.cards}      value={loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-')} />
+              <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
             </Section>
 
-            <Section title={copy.syncSchedule}>
+            <Section title={copy.syncSchedule} footer={settings.sync_schedule_enabled ? copy.syncScheduleEnabledCaption : undefined}>
               <ToggleRow
                 label={copy.syncScheduleEnabled}
                 checked={settings.sync_schedule_enabled}
                 onChange={(v) => updateSetting('sync_schedule_enabled', v)}
               />
-              {settings.sync_schedule_enabled && (
-                <>
-                  <p className="section-note">{copy.syncScheduleEnabledCaption}</p>
-                  <div className="section-title" style={{ paddingTop: 8 }}>{copy.syncScheduleDays}</div>
-                  {WEEKDAYS.map((day) => (
-                    <ToggleRow
-                      key={day.code}
-                      label={day[lang]}
-                      checked={settings.sync_schedule_days.includes(day.code)}
-                      onChange={(checked) => {
-                        const next = checked
-                          ? [...new Set([...settings.sync_schedule_days, day.code])]
-                          : settings.sync_schedule_days.filter((d) => d !== day.code);
-                        updateSetting('sync_schedule_days', next.length ? next : [day.code]);
-                      }}
-                    />
-                  ))}
-                  <div className="time-add-row" style={{ paddingTop: 8 }}>
-                    <Icon name="clock" />
-                    <span className="row-label" style={{ marginRight: 8 }}>{copy.syncScheduleTime}</span>
-                    <input
-                      className="time-add-input"
-                      type="time"
-                      value={settings.sync_schedule_time}
-                      onChange={(e) => updateSetting('sync_schedule_time', e.target.value.slice(0, 5))}
-                    />
-                  </div>
-                </>
-              )}
             </Section>
+
+            {settings.sync_schedule_enabled && (
+              <Section title={copy.syncScheduleTitle}>
+                {WEEKDAYS.map((day) => (
+                  <ToggleRow
+                    key={day.code}
+                    label={day[lang]}
+                    checked={settings.sync_schedule_days.includes(day.code)}
+                    onChange={(checked) => {
+                      const next = checked
+                        ? [...new Set([...settings.sync_schedule_days, day.code])]
+                        : settings.sync_schedule_days.filter((d) => d !== day.code);
+                      updateSetting('sync_schedule_days', next.length ? next : [day.code]);
+                    }}
+                  />
+                ))}
+                <div className="time-add-row">
+                  <Icon name="clock" />
+                  <span className="row-label" style={{ marginRight: 8 }}>{copy.syncScheduleTime}</span>
+                  <input
+                    className="time-add-input"
+                    type="time"
+                    value={settings.sync_schedule_time}
+                    onChange={(e) => updateSetting('sync_schedule_time', e.target.value.slice(0, 5))}
+                  />
+                </div>
+              </Section>
+            )}
 
             {settingsResult && (
               <Section>
