@@ -5,31 +5,15 @@ from arkham_bot import telegram_handlers
 
 def test_format_status_includes_key_fields():
     payload = {
-        "daily_post_enabled": True,
-        "next_post": "em 2h",
+        "uptime": "2h 3m",
         "cards_count": "1234",
-        "packs_count": "42",
     }
 
     text = telegram_handlers._format_status(payload)
 
     assert "Online" in text
+    assert "2h 3m" in text
     assert "1234" in text
-    assert "42" in text
-    assert "em 2h" in text
-
-
-def test_format_status_inactive():
-    payload = {
-        "daily_post_enabled": False,
-        "next_post": "inactive",
-        "cards_count": "1234",
-        "packs_count": "42",
-    }
-
-    text = telegram_handlers._format_status(payload)
-
-    assert "inativa" in text
 
 
 def test_format_uptime_is_compact(monkeypatch):

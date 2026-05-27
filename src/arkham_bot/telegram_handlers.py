@@ -300,17 +300,10 @@ def _format_day_config_lines(day_config: dict) -> list[str]:
 
 
 def _format_status(payload: dict) -> str:
-    daily_enabled = payload['daily_post_enabled']
-    next_post = payload.get('next_post', '-')
-    post_line = f"📅 Carta do dia: {'ativa' if daily_enabled else 'inativa'}"
-    if daily_enabled and next_post not in ('-', 'inactive', 'not scheduled'):
-        post_line += f" · {next_post}"
     lines = [
-        "🟢 <b>Arkham Bot — Online</b>",
-        "",
-        post_line,
-        f"🃏 Cartas: <b>{payload['cards_count']}</b>",
-        f"📦 Pacotes: <b>{payload['packs_count']}</b>",
+        "<b>Arkham Bot — Online</b>",
+        f"Uptime: {payload['uptime']}",
+        f"Cartas: {payload['cards_count']}",
     ]
     return "\n".join(lines)
 
