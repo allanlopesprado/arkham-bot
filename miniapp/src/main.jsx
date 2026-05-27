@@ -921,8 +921,10 @@ function InfoTooltip({ text }) {
 function ToggleRow({ label, checked, onChange, disabled = false, info }) {
   return (
     <label className="toggle-row">
-      <span className="row-label">{label}</span>
-      {info && <InfoTooltip text={info} />}
+      <span className="row-label">
+        {label}
+        {info && <InfoTooltip text={info} />}
+      </span>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => { haptic('selection'); onChange(e.target.checked); }} />
       <span className="toggle" aria-hidden="true" />
     </label>

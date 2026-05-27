@@ -291,7 +291,7 @@ input, select { outline: none; }
 }
 
 .row-action > .row-label,
-.toggle-row > .row-label { flex: 1; }
+.toggle-row > .row-label { flex: 1; display: flex; align-items: center; gap: 4px; }
 
 .section-note {
   margin: 0;
