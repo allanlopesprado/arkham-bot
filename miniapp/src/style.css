@@ -584,6 +584,8 @@ input, select { outline: none; }
 
 .time-add-input {
   position: relative;
+  flex-shrink: 0;
+  width: 5ch;
   background: none;
   border: none;
   color: var(--hint);
