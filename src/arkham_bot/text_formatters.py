@@ -121,7 +121,7 @@ def _fmt_faction_stats(card: dict) -> str:
     factions = list(dict.fromkeys(factions))
     if not factions or all(f.lower() in _ENCOUNTER_FACTION for f in factions):
         return ''
-    return ' / '.join(f"{FACTION_ICONS_MAP.get(f, '⚪')} {f}" for f in factions)
+    return '. '.join(f"{FACTION_ICONS_MAP.get(f, '⚪')} {f}" for f in factions) + '.'
 
 
 def _fmt_skills_text(card: dict) -> str:
