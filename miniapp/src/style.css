@@ -581,15 +581,17 @@ input, select { outline: none; }
 }
 
 .time-add-input {
-  flex: 1;
+  margin-left: auto;
   background: none;
   border: none;
-  color: var(--text);
-  font-size: 16px;
+  color: var(--hint);
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
   font-family: inherit;
   outline: none;
-  min-width: 0;
+  text-align: right;
+  color-scheme: dark;
+  cursor: pointer;
 }
 .time-add-input::-webkit-calendar-picker-indicator {
   display: none;
