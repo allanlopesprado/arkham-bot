@@ -936,12 +936,18 @@ def _taboo_name(name_map: dict, code: str) -> str:
     return v.get('name', code) if isinstance(v, dict) else str(v)
 
 
-async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dict) -> None:
+async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dict, reply_to=None) -> None:
     """Sends a card image with its taboo restriction info."""
     card, _ = await get_card_async(code)
     name = _taboo_name(name_map, code) or (card.get('name') if card else code)
     restriction = _taboo_restriction_label(entry)
     text_note = entry.get('text') or entry.get('replacement_text') or ''
+
+    target = reply_to or update.message or (update.callback_query.message if update.callback_query else None)
+    if not target:
+        return
+
+    reply_params = ReplyParameters(message_id=target.message_id)
 
     if card:
         caption, is_spoiler = _spoiler_caption(card)
@@ -951,19 +957,15 @@ async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dic
         caption = caption + taboo_block
         image_src = card.get('imagesrc') or card.get('image_src')
         img = await _fetch_card_image(code, image_src)
-        target = update.message or (update.callback_query.message if update.callback_query else None)
-        if target:
-            if img:
-                await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler)
-            else:
-                await target.reply_text(caption, parse_mode=ParseMode.HTML)
+        if img:
+            await target.reply_photo(photo=img, caption=caption, parse_mode=ParseMode.HTML, has_spoiler=is_spoiler, reply_parameters=reply_params)
+        else:
+            await target.reply_text(caption, parse_mode=ParseMode.HTML, reply_parameters=reply_params)
     else:
         text = f"<b>{escape(name)}</b> (<code>{code}</code>)\n<b>Taboo:</b> {escape(restriction)}"
         if text_note:
             text += f"\n<i>{escape(text_note)}</i>"
-        target = update.message or (update.callback_query.message if update.callback_query else None)
-        if target:
-            await target.reply_text(text, parse_mode=ParseMode.HTML)
+        await target.reply_text(text, parse_mode=ParseMode.HTML, reply_parameters=reply_params)
 
 
 async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1023,23 +1025,7 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("Card not found in taboo list.", show_alert=True)
         return
 
-    card, _ = await get_card_async(code)
-    name = _taboo_name(name_map, code) or (card.get('name') if card else code)
-    restriction = _taboo_restriction_label(entry)
-    text_note = entry.get('text') or entry.get('replacement_text') or ''
-
-    lines = [f"<b>{escape(name)}</b> (<code>{code}</code>)"]
-    if card:
-        pack = card.get('pack_name', '')
-        position = card.get('position', '')
-        if pack:
-            lines.append(f"Pack: {escape(pack)}{f' #{position}' if position else ''}")
-    lines.append(f"\n<b>Taboo:</b> {escape(restriction)}")
-    if text_note:
-        lines.append(f"<i>{escape(text_note)}</i>")
-
-    markup = InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="TABOO_BACK")]])
-    await query.edit_message_text("\n".join(lines), parse_mode=ParseMode.HTML, reply_markup=markup)
+    await _send_taboo_card(update, code, entry, name_map, reply_to=query.message)
 
 
 async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
