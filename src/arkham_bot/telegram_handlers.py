@@ -280,15 +280,13 @@ def _format_status(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_help_report(_is_admin: bool = False) -> str:
+def _format_help_report() -> str:
     lines = [
         "<b>Arkham Bot</b>",
-        "<code>Comandos disponiveis</code>",
         "",
         "<b>Cartas</b>",
         "- <code>/card</code> - busca guiada por ciclo/pacote",
         "- <code>/sets</code> - navega cartas por set/expansao",
-        "- <code>/random</code> - carta aleatoria",
         "- <code>/search &lt;texto&gt;</code> - busca por nome/texto",
         "",
         "<b>Regras e referencias</b>",
@@ -296,10 +294,11 @@ def _format_help_report(_is_admin: bool = False) -> str:
         "- <code>/taboo</code> - lista taboo",
         "- <code>/decklist &lt;id&gt;</code> - decklist do ArkhamDB",
         "",
+        "<b>Historico</b>",
+        "- <code>/cotd</code> - cartas do dia por mes",
+        "",
         "<b>Bot</b>",
         "- <code>/status</code> - status operacional",
-        "- <code>/menu</code> - mostra este menu",
-        "- <code>/cancel</code> - cancela uma busca em andamento",
     ]
     return "\n".join(lines)
 
@@ -429,7 +428,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await menu_command(update, context)
+    if not await _check_rate_limit(update):
+        return
+    await update.message.reply_text(_format_help_report(), parse_mode=ParseMode.HTML)
 
 
 async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
