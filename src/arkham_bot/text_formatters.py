@@ -285,8 +285,7 @@ def format_card_caption(card, is_interactive=False):
         cost_parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
             cost_parts.append(f"⭐️ XP: {xp}")
-        if card.get('permanent'):
-            cost_parts.append("Permanent")
+
         lines.append(" | ".join(cost_parts))
 
         health = card.get('health')
