@@ -580,9 +580,10 @@ input, select { outline: none; }
   border-top: 1px solid var(--sep);
 }
 
+.time-add-row .row-label { flex: 1; }
+
 .time-add-input {
   position: relative;
-  margin-left: auto;
   background: none;
   border: none;
   color: var(--hint);
