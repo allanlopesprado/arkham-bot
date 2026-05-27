@@ -282,18 +282,24 @@ def format_card_caption(card, is_interactive=False):
     elif tc == 'asset':
         xp = card.get('xp')
         slot_raw = card.get('slot', '')
-        parts = [f"💰 Cost: {_fmt_cost(card)}"]
+        cost_parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
-            parts.append(f"⭐️ XP: {xp}")
-        slot_disp = _slot_display(slot_raw)
-        if slot_disp:
-            parts.append(slot_disp)
-        lines.append(" | ".join(parts))
+            cost_parts.append(f"⭐️ XP: {xp}")
+        lines.append(" | ".join(cost_parts))
 
         health = card.get('health')
         sanity = card.get('sanity')
-        if health or sanity:
-            lines.append(f"❤️ Health: {_fmt_stat(health, '0')} | 🧠 Sanity: {_fmt_stat(sanity, '0')}")
+        hs_parts = []
+        if health is not None or sanity is not None:
+            hs_parts.append(f"❤️ Health: {_fmt_stat(health, '0')} | 🧠 Sanity: {_fmt_stat(sanity, '0')}")
+        slot_disp = _slot_display(slot_raw)
+        if slot_disp:
+            if hs_parts:
+                lines.append(f"{hs_parts[0]} | {slot_disp}")
+            else:
+                lines.append(slot_disp)
+        elif hs_parts:
+            lines.append(hs_parts[0])
 
         dl = _deck_limit_display(card.get('deck_limit'))
         if dl:
