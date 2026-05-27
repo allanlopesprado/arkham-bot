@@ -1,22 +1,105 @@
-# Mini App e Worker — hardening, validação e refatoração
+# Mini App e Worker — hardening, validação, menus e refatoração
 
-Este arquivo descreve tudo que deve ser feito para corrigir, validar e melhorar o Mini App administrativo e o Worker do Arkham Bot, incluindo o ajuste no `main.jsx` e a refatoração posterior em módulos.
+Este arquivo é o plano operacional para corrigir, validar e evoluir o Mini App administrativo e o Worker do Arkham Bot. Ele inclui ajustes no `main.jsx`, validação das correções já feitas, hardening de segurança, melhorias de UX, novos menus administrativos, itens a remover/migrar e a refatoração completa do Mini App em módulos.
 
 ## Objetivo
 
-Aplicar correções de segurança e consistência no Mini App e no Worker sem quebrar o bot Python. Depois, separar o `miniapp/src/main.jsx` em módulos menores, preservando comportamento visual e funcional.
+Transformar o Mini App em um painel administrativo estável, seguro e sustentável, sem quebrar o bot Python. A execução deve ser feita em fases pequenas, com build e validação após cada fase.
 
 ## Regras obrigatórias
 
 - Não alterar secrets, tokens, `.env`, chaves ou credenciais.
-- Não imprimir secrets ou payloads sensíveis em logs.
+- Não imprimir secrets, headers de autenticação, `x-telegram-init-data` ou payloads sensíveis em logs.
 - Não alterar migrations/banco sem autorização explícita.
-- Não alterar backend Python, exceto para corrigir import quebrado diretamente relacionado a `/status` ou `/cotd`.
+- Não alterar backend Python, exceto para corrigir import quebrado diretamente relacionado a `/status`, `/cotd` ou processamento de comandos do Mini App.
 - Não recriar documentação antiga.
-- Não refatorar arquitetura fora das fases abaixo.
+- Não alterar README nesta tarefa, salvo autorização explícita.
 - Não fazer commit automático antes de validar.
 - Fazer alterações pequenas, reversíveis e testáveis.
 - Rodar validações após cada fase.
+- Se uma fase quebrar build, reverter somente a última alteração.
+
+## Visão alvo do Mini App
+
+O Mini App deve ser um painel administrativo real, não apenas informativo. A estrutura ideal de menus é:
+
+```text
+Home
+├── Postagem
+│   ├── Postar carta agora
+│   ├── Repostar carta
+│   ├── Pular carta do ciclo
+│   ├── Buscar carta
+│   └── Escolher destino/tópico
+├── Agenda
+│   ├── Postagem automática
+│   ├── Todos os dias
+│   ├── Configuração por dia da semana
+│   ├── Horários por dia
+│   ├── Filtros por ciclo/pack
+│   └── Filtros por tipo de carta
+├── IA
+│   ├── Ativar/desativar IA
+│   ├── Provedor/modelo
+│   ├── Idioma
+│   ├── Tom narrativo
+│   ├── Criatividade
+│   ├── Mensagem antes da carta
+│   ├── Pergunta após a carta
+│   └── Teste de geração
+├── Banco de Dados
+│   ├── Status do banco
+│   ├── Sincronizar ArkhamDB
+│   ├── Agendamento de sincronização
+│   ├── Cartas sincronizadas
+│   ├── Packs/ciclos sincronizados
+│   └── Último erro de sync
+├── Fila
+│   ├── Pendentes
+│   ├── Processando
+│   ├── Falhas
+│   ├── Executados recentes
+│   ├── Cancelar comando
+│   └── Reenfileirar falhas
+├── Histórico
+│   ├── Postagens recentes
+│   ├── Filtro por data
+│   ├── Filtro por carta
+│   ├── Origem manual/automática
+│   └── Link para mensagem Telegram quando existir
+├── Destinos
+│   ├── Grupos/canais configurados
+│   ├── Tópicos Telegram
+│   ├── Chat ID
+│   ├── Message Thread ID
+│   ├── Destino padrão
+│   └── Teste de envio
+├── Administradores
+│   ├── Listar admins
+│   ├── Adicionar admin
+│   ├── Remover admin
+│   └── Alterar role
+├── Manutenção
+│   ├── Resetar ciclo de cartas
+│   ├── Limpar fila
+│   ├── Reprocessar falhas
+│   ├── Limpar cache
+│   └── Executar diagnóstico
+├── Saúde
+│   ├── Worker
+│   ├── Supabase
+│   ├── Bot Python
+│   ├── Scheduler
+│   ├── Próxima postagem
+│   ├── Último heartbeat
+│   ├── Último erro
+│   └── Versão/commit em execução
+└── Aplicativo
+    ├── Idioma do app
+    ├── Tema Telegram
+    ├── Informações da sessão
+    └── Diagnóstico técnico
+```
 
 ## Fase 0 — Validar correções já feitas nos handlers Python
 
@@ -151,7 +234,7 @@ console.error('[saveSettings] error:', ...)
 console.log('[saveSettings] returned day_config:', ...)
 ```
 
-Preferência: remover completamente. Alternativa aceitável: proteger por ambiente de desenvolvimento:
+Preferência: remover completamente. Alternativa aceitável:
 
 ```javascript
 if (import.meta.env.DEV) {
@@ -166,17 +249,24 @@ Não deixar em produção logs com:
 - payload completo de settings
 - dados operacionais sensíveis
 
-### 1.3 Não refatorar o `main.jsx` nesta fase
+### 1.3 Melhorar estado de erro de API
 
-Nesta fase, fazer apenas as alterações pontuais acima. A separação em módulos fica para a Fase 4.
+Adicionar estados visuais claros para:
+
+- Worker não configurado.
+- Worker fora do ar.
+- CORS/origin não autorizado.
+- Sessão Telegram ausente.
+- Sessão Telegram expirada.
+- Usuário autenticado, mas não admin.
+
+Não liberar painel em nenhum desses casos.
+
+### 1.4 Não refatorar `main.jsx` nesta fase
+
+Nesta fase, fazer apenas alterações pontuais. A separação em módulos fica para a Fase 4.
 
 ## Fase 2 — Ajustar `miniapp/package.json`
-
-Arquivo:
-
-```text
-miniapp/package.json
-```
 
 Adicionar script:
 
@@ -206,11 +296,6 @@ npm run build
 npm run check
 ```
 
-Critério de aceite:
-
-- Build deve passar.
-- Check deve passar.
-
 ## Fase 3 — Hardening do Worker
 
 Arquivo:
@@ -227,15 +312,7 @@ Localizar rota:
 if (pathname === '/status' && request.method === 'GET') {
 ```
 
-Se estiver assim:
-
-```javascript
-const auth = await requireAuth(request, env, ao, '/status');
-if (auth.response) return auth.response;
-return handleStatus(request, env, ao);
-```
-
-Trocar para:
+Trocar `requireAuth` por `requireAdmin`:
 
 ```javascript
 const auth = await requireAdmin(request, env, ao, '/status');
@@ -245,9 +322,9 @@ return handleStatus(request, env, ao);
 
 Critério de aceite:
 
-- `/status` só deve responder para admin autorizado.
-- Usuário não admin deve receber `unauthorized`.
-- Admin deve continuar recebendo status normalmente.
+- `/status` só responde para admin autorizado.
+- Usuário não admin recebe `unauthorized`.
+- Admin continua recebendo status normalmente.
 
 ### 3.2 Alterar `/packs` para preferir Supabase com fallback ArkhamDB
 
@@ -257,13 +334,7 @@ Localizar função:
 handleGetPacks
 ```
 
-Hoje ela busca ArkhamDB pública:
-
-```javascript
-https://arkhamdb.com/api/public/packs/
-```
-
-Antes desse fallback, implementar tentativa de leitura do Supabase quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` existirem.
+Antes de buscar ArkhamDB pública, tentar ler do Supabase quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` existirem.
 
 Tabela:
 
@@ -283,7 +354,7 @@ Query sugerida:
 /rest/v1/arkham_packs?select=code,name,cycle_position,position,chapter,total&order=cycle_position.asc,position.asc&limit=500
 ```
 
-Formato de resposta quando o Supabase retornar dados válidos:
+Resposta quando houver dados válidos:
 
 ```javascript
 {
@@ -293,34 +364,30 @@ Formato de resposta quando o Supabase retornar dados válidos:
 }
 ```
 
-Formato de cada pack:
+Fallback obrigatório: se Supabase falhar, estiver vazio ou não configurado, manter fallback atual para:
 
-```javascript
-{
-  code: p.code,
-  name: p.name || p.code,
-  cycle_position: p.cycle_position ?? null,
-  position: p.position ?? null,
-  chapter: p.chapter ?? 1,
-  total: p.total ?? 0
-}
+```text
+https://arkhamdb.com/api/public/packs/
 ```
 
-Regras:
+### 3.3 Melhorar validação de comandos
 
-- Se Supabase falhar, estiver vazio ou não estiver configurado, manter fallback atual para ArkhamDB pública.
-- Não remover cache atual.
-- Não cachear falha.
-- Pode cachear payload vindo do Supabase.
-- Não imprimir `SUPABASE_SERVICE_ROLE_KEY`, headers Authorization ou tokens em logs.
+Validar no Worker, antes de inserir em `bot_commands`:
 
-Critério de aceite:
+- `post_now` aceita payload vazio ou `{ card_code }` válido.
+- `repost_card` exige `card_code`.
+- `skip_card` exige `card_code`.
+- `sync_arkhamdb` aceita opções controladas, como `sync_faq` boolean.
+- `reset_cycle` não precisa de payload.
+- `clear_queue` não precisa de payload.
 
-- `/packs` retorna `source: 'supabase'` quando `arkham_packs` tem dados.
-- `/packs` continua funcionando com ArkhamDB se Supabase falhar.
-- UI de ciclos reflete banco local quando disponível.
+Se payload inválido, retornar:
 
-### 3.3 Validar Worker
+```json
+{ "error": "invalid_command_payload" }
+```
+
+### 3.4 Validar Worker
 
 Rodar:
 
@@ -330,26 +397,291 @@ npm install
 npm run dry-run
 ```
 
-Critério de aceite:
+## Fase 4 — Ajustar e organizar menus do Mini App
 
-- `dry-run` deve passar.
+Antes da refatoração estrutural, validar se a navegação atual atende ao fluxo administrativo.
 
-## Fase 4 — Refatorar `miniapp/src/main.jsx` em módulos
+### 4.1 Menu Home
 
-Executar somente depois que Fases 1, 2 e 3 estiverem validadas.
+Manter Home como hub principal. Itens recomendados:
+
+```text
+Postagem
+Agenda
+IA
+Banco de Dados
+Fila
+Histórico
+Destinos
+Administradores
+Manutenção
+Saúde
+Aplicativo/Idioma
+```
+
+Se a tela ficar grande demais, agrupar em seções:
+
+```text
+Operação
+- Postagem
+- Agenda
+- Fila
+- Histórico
+
+Configuração
+- IA
+- Banco de Dados
+- Destinos
+- Administradores
+
+Sistema
+- Manutenção
+- Saúde
+- Aplicativo
+```
+
+### 4.2 Menu Postagem
+
+Deve conter:
+
+- Busca de carta por código/nome.
+- Preview mínimo da carta selecionada.
+- Destino selecionável.
+- Botão `Postar agora`.
+- Botão `Repostar carta`.
+- Botão `Pular carta`.
+- Resultado da ação enfileirada.
+
+Melhoria recomendada:
+
+- Mostrar se a carta já foi postada.
+- Mostrar pack/ciclo/tipo da carta.
+- Mostrar aviso quando `ai_auto_only=true` e a postagem manual não usará IA.
+
+### 4.3 Menu Agenda
+
+Migrar a configuração semanal para um menu próprio chamado `Agenda`, em vez de ficar misturada em `Configurações`.
+
+Deve conter:
+
+- Toggle `Postagem automática`.
+- Fuso horário.
+- Modo `Todos os dias`.
+- Lista dos dias da semana.
+- Horários por dia.
+- Filtros por ciclo/pack.
+- Filtros por tipo.
+- Botão salvar via MainButton ou botão visível.
+
+Regra de negócio:
+
+- Se `Todos os dias` estiver ativo, ele é a regra principal.
+- Se `Todos os dias` estiver inativo, respeitar a configuração individual de cada dia.
+- Nunca permitir salvar sem nenhum dia ativo quando postagem automática estiver ligada.
+- Nunca permitir horário inválido.
+
+### 4.4 Menu IA
+
+Deve conter:
+
+- IA habilitada.
+- IA apenas em posts automáticos.
+- Idioma da IA.
+- Tom narrativo.
+- Provedor.
+- Modelo.
+- Criatividade.
+- Mensagem de abertura.
+- Delay antes da carta.
+- Pergunta pós-carta.
+- Delay após a carta.
+- Teste de geração com carta selecionada.
+
+Melhoria importante:
+
+- Migrar lista de modelos hardcoded para endpoint `/ai-models` no Worker.
+- Worker deve retornar apenas modelos aceitos pelo backend real.
+- Front deve consumir `/ai-models` e parar de duplicar whitelist.
+
+### 4.5 Menu Banco de Dados
+
+Deve conter:
+
+- Total de cartas.
+- Total de packs.
+- Última sincronização.
+- Status atualizado/desatualizado.
+- Botão `Sincronizar ArkhamDB`.
+- Agendamento de sync.
+- Último erro de sync.
+- Resultado do último comando `sync_arkhamdb`.
+
+Migrar para Worker/Supabase:
+
+- `/packs` deve vir preferencialmente de `arkham_packs`.
+- `last_sync` deve vir de tabela/registro confiável, não só do último comando criado.
+
+### 4.6 Menu Fila
+
+Deve conter abas ou filtros:
+
+- Pendentes.
+- Processando.
+- Retrying.
+- Falhas.
+- Executados recentes.
+- Cancelados.
+
+Ações:
+
+- Cancelar comando pendente.
+- Reenfileirar falha.
+- Limpar pendentes.
+- Ver erro completo.
+
+Migrar/remover:
+
+- Não mostrar JSON bruto por padrão.
+- JSON técnico deve ficar dentro de `details` ou modo diagnóstico.
+
+### 4.7 Menu Histórico
+
+Deve conter:
+
+- Data.
+- Código da carta.
+- Nome da carta.
+- Status.
+- Origem: manual/automática.
+- Mensagem Telegram, se existir.
+- Filtro por data.
+- Busca por código/nome.
+- Paginação.
+
+Melhorias:
+
+- Link para ArkhamDB.
+- Link para mensagem Telegram quando possível.
+- Badge para falha/sucesso.
+
+### 4.8 Menu Destinos
+
+Novo menu recomendado.
+
+Objetivo: gerenciar grupos, canais e tópicos Telegram.
+
+Dados esperados:
+
+- `chat_id`
+- `title`
+- `message_thread_id`
+- `enabled`
+- `is_default`
+- `description`
+- `created_at`
+- `updated_at`
+
+Funcionalidades:
+
+- Listar destinos.
+- Criar destino.
+- Editar título amigável.
+- Ativar/desativar.
+- Definir padrão.
+- Informar `message_thread_id` para tópicos.
+- Enviar mensagem de teste.
+
+Regra:
+
+- Postagem manual deve permitir escolher destino.
+- Postagem automática deve usar destino padrão ou configuração do agendamento.
+
+### 4.9 Menu Administradores
+
+Novo menu recomendado, restrito a role `owner`.
+
+Funcionalidades:
+
+- Listar admins.
+- Adicionar Telegram user id.
+- Definir role `owner` ou `admin`.
+- Ativar/desativar admin.
+- Remover admin.
+- Mostrar origem da permissão.
+
+Regras:
+
+- Apenas `owner` pode gerenciar admins.
+- Um `admin` comum não pode promover outro usuário.
+- Não permitir remover o último `owner`.
+
+### 4.10 Menu Manutenção
+
+Deve conter:
+
+- Resetar ciclo.
+- Limpar fila.
+- Reprocessar falhas.
+- Limpar cache local do bot, se existir comando seguro.
+- Rodar diagnóstico.
+
+Ações destrutivas devem usar confirmação Telegram `showPopup` com botão destrutivo.
+
+### 4.11 Menu Saúde
+
+Deve conter:
+
+- Worker online.
+- Supabase online.
+- Bot Python online.
+- Polling/command worker ativo.
+- Scheduler ativo.
+- Próxima postagem calculada.
+- Última postagem.
+- Último erro.
+- Último heartbeat.
+- Versão/commit em execução.
+- Ambiente: produção/desenvolvimento.
+
+Dados recomendados a expor via Worker:
+
+```text
+/status
+/health/deep
+/bot-runtime
+```
+
+Não expor secrets.
+
+### 4.12 Menu Aplicativo
+
+Deve conter:
+
+- Idioma do app.
+- Idioma da IA, se ainda estiver acoplado.
+- Sessão Telegram ativa.
+- Usuário atual.
+- Role atual.
+- Origem da permissão.
+- Endpoint do Worker.
+- Versão do Mini App.
+
+## Fase 5 — Refatorar `miniapp/src/main.jsx` em módulos
+
+Executar somente depois que Fases 1 a 4 estiverem validadas.
 
 Objetivo: reduzir o tamanho de `main.jsx` sem mudar comportamento.
 
 Regras:
 
-- Não mudar UX.
+- Não mudar UX durante a refatoração.
 - Não mudar textos.
 - Não mudar endpoints.
 - Não mudar payloads.
 - Não mudar nomes de settings.
 - Não mudar autenticação já corrigida.
-- Não alterar Worker.
-- Não alterar backend Python.
+- Não alterar Worker nesta fase.
+- Não alterar backend Python nesta fase.
 - Não refatorar CSS agora, salvo imports necessários.
 - Fazer extração incremental.
 - Rodar `npm run build` após cada grupo de extração.
@@ -385,18 +717,22 @@ miniapp/src/
   screens/
     HomeScreen.jsx
     PostScreen.jsx
+    ScheduleScreen.jsx
     SettingsScreen.jsx
     DayDetailScreen.jsx
     AiScreen.jsx
     DatabaseScreen.jsx
-    MaintenanceScreen.jsx
     QueueScreen.jsx
     HistoryScreen.jsx
+    DestinationsScreen.jsx
+    AdminsScreen.jsx
+    MaintenanceScreen.jsx
     HealthScreen.jsx
+    AppSettingsScreen.jsx
     LanguageScreen.jsx
 ```
 
-### 4.1 Extrair helpers Telegram
+### 5.1 Extrair helpers Telegram
 
 Criar:
 
@@ -404,15 +740,13 @@ Criar:
 miniapp/src/telegram.js
 ```
 
-Mover funções:
+Mover:
 
 - `tg`
 - `initData`
 - `tgUser`
 - `haptic`
 - `tgShowPopup`
-
-Atualizar imports em `App.jsx` ou `main.jsx`.
 
 Rodar:
 
@@ -421,7 +755,7 @@ cd miniapp
 npm run build
 ```
 
-### 4.2 Extrair API client
+### 5.2 Extrair API client
 
 Criar:
 
@@ -429,7 +763,7 @@ Criar:
 miniapp/src/api.js
 ```
 
-Mover funções:
+Mover:
 
 - `getBotPhotoUrl`
 - `getApiBase`
@@ -439,13 +773,7 @@ Mover funções:
 
 Atenção: `authHeaders` depende de `initData`; importar de `telegram.js`.
 
-Rodar:
-
-```bash
-npm run build
-```
-
-### 4.3 Extrair i18n
+### 5.3 Extrair i18n
 
 Criar:
 
@@ -461,15 +789,7 @@ Mover:
 - `writeLangStorage`
 - `getInitialLanguage`
 
-Atenção: `readLangStorage` e `writeLangStorage` dependem de `tg`; importar de `telegram.js`.
-
-Rodar:
-
-```bash
-npm run build
-```
-
-### 4.4 Extrair constantes e settings
+### 5.4 Extrair constantes e settings
 
 Criar:
 
@@ -500,15 +820,7 @@ Mover para `settings.js`:
 - `settingsEqual`
 - `deriveCycles`
 
-Atenção: `settings.js` pode depender de constantes de `constants.js`.
-
-Rodar:
-
-```bash
-npm run build
-```
-
-### 4.5 Extrair ícones
+### 5.5 Extrair ícones
 
 Criar:
 
@@ -521,21 +833,15 @@ Mover:
 - `ICON_PATHS`
 - `Icon`
 
-Rodar:
+### 5.6 Extrair componentes reutilizáveis
 
-```bash
-npm run build
-```
-
-### 4.6 Extrair componentes reutilizáveis
-
-Criar pasta:
+Criar:
 
 ```text
 miniapp/src/components/
 ```
 
-Extrair primeiro componentes simples:
+Extrair primeiro:
 
 - `Spinner.jsx`
 - `Badge.jsx`
@@ -545,7 +851,7 @@ Extrair primeiro componentes simples:
 - `MenuRow.jsx`
 - `DangerRow.jsx`
 
-Depois extrair componentes com mais dependências:
+Depois:
 
 - `InfoTooltip.jsx`
 - `ToggleRow.jsx`
@@ -561,34 +867,30 @@ Criar opcionalmente:
 miniapp/src/components/index.js
 ```
 
-para exportar todos.
+### 5.7 Extrair telas
 
-Rodar após cada grupo:
-
-```bash
-npm run build
-```
-
-### 4.7 Extrair telas
-
-Criar pasta:
+Criar:
 
 ```text
 miniapp/src/screens/
 ```
 
-Extrair telas uma por vez:
+Extrair uma por vez:
 
 - `HomeScreen.jsx`
 - `PostScreen.jsx`
+- `ScheduleScreen.jsx`
 - `SettingsScreen.jsx`
 - `DayDetailScreen.jsx`
 - `AiScreen.jsx`
 - `DatabaseScreen.jsx`
-- `MaintenanceScreen.jsx`
 - `QueueScreen.jsx`
 - `HistoryScreen.jsx`
+- `DestinationsScreen.jsx`
+- `AdminsScreen.jsx`
+- `MaintenanceScreen.jsx`
 - `HealthScreen.jsx`
+- `AppSettingsScreen.jsx`
 - `LanguageScreen.jsx`
 
 Regra para telas:
@@ -598,13 +900,7 @@ Regra para telas:
 - Não mudar nomes de callbacks.
 - Não mudar payloads enviados ao Worker.
 
-Rodar após cada tela ou grupo pequeno:
-
-```bash
-npm run build
-```
-
-### 4.8 Simplificar `main.jsx`
+### 5.8 Simplificar `main.jsx`
 
 Após extrair `App.jsx`, deixar `main.jsx` somente como bootstrap:
 
@@ -617,27 +913,101 @@ import './style.css';
 createRoot(document.getElementById('root')).render(<App />);
 ```
 
-Rodar:
+## Fase 6 — O que remover, migrar ou manter
 
-```bash
-npm run build
-npm run check
+### Remover
+
+- Logs de produção em `saveSettings`.
+- Qualquer fallback que libere painel sem autenticação admin confirmada.
+- JSON bruto visível por padrão para usuário comum/admin comum.
+- Lista duplicada de modelos de IA no front, depois que `/ai-models` existir.
+- Busca de packs diretamente na ArkhamDB, quando o Supabase local estiver populado.
+
+### Migrar
+
+- Configuração semanal para menu `Agenda`.
+- Gestão de destinos para menu próprio `Destinos`.
+- Gestão de admins para menu próprio `Administradores`.
+- Lista de modelos de IA para endpoint do Worker.
+- Diagnóstico operacional do bot Python para endpoint dedicado.
+- Status de sync para fonte confiável no banco, não apenas último comando criado.
+
+### Manter
+
+- Telegram theme variables no CSS.
+- Safe area handling do Telegram.
+- Haptic feedback.
+- MainButton para salvar quando houver alteração pendente.
+- BackButton do Telegram.
+- Fallback ArkhamDB para packs enquanto banco local pode estar vazio.
+- Worker como camada de proteção entre Mini App e Supabase.
+
+## Fase 7 — Endpoints recomendados no Worker
+
+Endpoints atuais a manter:
+
+```text
+/me
+/status
+/overview
+/settings
+/commands
+/commands/:id
+/cards
+/packs
+/history
+/bot-info
+/bot-command
+/health
 ```
 
-Critério de aceite da Fase 4:
+Endpoints novos recomendados:
 
-- Build passa.
-- UI abre.
-- Navegação entre telas funciona.
-- Configurações carregam e salvam.
-- Postar carta enfileira comando.
-- Histórico carrega.
-- Banco carrega packs.
-- Saúde carrega status.
-- Idioma alterna.
-- Não houve alteração de comportamento funcional.
+```text
+/ai-models
+/destinations
+/destinations/:id
+/admins
+/admins/:id
+/health/deep
+/bot-runtime
+/test-message
+/commands/:id/retry
+```
 
-## Fase 5 — Validação final completa
+Regras:
+
+- Todos os endpoints administrativos devem usar `requireAdmin`.
+- Endpoints de gestão de admins devem exigir role `owner`.
+- Nenhum endpoint deve expor secrets.
+- Toda ação destrutiva deve exigir confirmação no front e validação no Worker.
+
+## Fase 8 — Diagnóstico avançado do bot Python
+
+Recomendado criar futuramente um registro de runtime/heartbeat no banco.
+
+Dados úteis:
+
+```text
+bot_runtime_status
+- id
+- process_name
+- status
+- last_heartbeat_at
+- version
+- git_commit
+- scheduler_enabled
+- next_post_at
+- last_post_at
+- last_error
+- updated_at
+```
+
+O bot Python atualizaria heartbeat periodicamente. O Worker leria isso em `/bot-runtime` ou `/health/deep`.
+
+Não implementar sem autorização para migration.
+
+## Fase 9 — Validação final completa
 
 Na raiz:
 
@@ -671,7 +1041,7 @@ grep -R "handleGetPacks" -n worker/src/index.js
 grep -R "from \.supabase_client\|from \.config\|from \.local_storage\|from \.scheduler" -n src/arkham_bot/handlers/telegram_handlers.py || true
 ```
 
-Validação manual no Telegram/Mini App:
+Validação manual no Telegram:
 
 ```text
 /status
@@ -680,7 +1050,7 @@ Validação manual no Telegram/Mini App:
 /faq 01001
 ```
 
-No Mini App:
+Validação manual no Mini App:
 
 - Abrir como admin.
 - Confirmar que não admin é bloqueado.
@@ -688,25 +1058,55 @@ No Mini App:
 - Abrir Postagem.
 - Buscar carta.
 - Enfileirar `post_now`.
-- Abrir Configurações.
+- Abrir Agenda.
+- Alterar dia/horário/filtro.
 - Salvar configuração.
+- Abrir IA.
+- Alterar modelo/tom/idioma.
 - Abrir Banco de Dados.
 - Confirmar packs/ciclos.
+- Abrir Fila.
+- Cancelar comando pendente de teste.
 - Abrir Histórico.
+- Filtrar por data.
 - Abrir Saúde.
 - Alternar idioma.
 
-## Pendências futuras fora deste escopo
+## Prioridade de execução
 
-Estas melhorias são recomendadas, mas não devem ser feitas nesta tarefa:
+Executar nesta ordem:
 
-- Tela de gestão de administradores.
-- Tela de gerenciamento de destinos/tópicos Telegram.
-- Endpoint `/ai-models` para o Worker servir modelos válidos dinamicamente.
-- Diagnóstico avançado do bot Python com heartbeat, commit em execução, scheduler e próximo post.
-- Testes automatizados de UI.
-- Lint/ESLint formal.
-- Migrações adicionais.
+```text
+P0 — Obrigatório imediato
+1. Validar wrappers Python.
+2. Corrigir fail-open do Mini App.
+3. Remover/proteger logs sensíveis.
+4. Tornar /status admin-only.
+5. /packs via Supabase com fallback.
+6. Build/check/dry-run.
+
+P1 — Organização funcional
+7. Separar Agenda de Configurações.
+8. Criar/organizar menu Destinos.
+9. Melhorar Fila e Histórico.
+10. Melhorar Saúde.
+
+P2 — Refatoração técnica
+11. Extrair telegram.js.
+12. Extrair api.js.
+13. Extrair i18n.js.
+14. Extrair constants/settings/icons.
+15. Extrair components.
+16. Extrair screens.
+17. Reduzir main.jsx para bootstrap.
+
+P3 — Evolução futura
+18. Gestão de admins.
+19. /ai-models.
+20. Heartbeat/runtime do bot Python.
+21. Health deep.
+22. Testes automatizados.
+```
 
 ## Formato de resposta obrigatório da IA executora
 
