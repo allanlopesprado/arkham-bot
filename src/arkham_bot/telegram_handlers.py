@@ -1650,7 +1650,7 @@ async def cotd_year_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    _, _, _, year_str, month_str = query.data.split('_')
+    year_str, month_str = query.data.replace('COTD_MONTH_', '').split('_')
     year, month = int(year_str), int(month_str)
     cards = await asyncio.to_thread(_cotd_fetch_cards, year, month)
     if not cards:
