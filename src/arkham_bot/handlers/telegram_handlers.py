@@ -647,6 +647,9 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
         await _delete_status()
         message = None
 
+        if is_spoiler:
+            await update.message.reply_text(get_strings()["search_spoiler_warning"], parse_mode=ParseMode.HTML, reply_parameters=user_reply)
+
         if card_image_bytes is None:
             message = await update.message.reply_text(
                 caption,
