@@ -1462,6 +1462,122 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 
+MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+
+def _cotd_fetch_years() -> list[int]:
+    from .supabase_client import get_supabase_client
+    client = get_supabase_client()
+    if not client:
+        return []
+    rows = client.get('bot_posting_history', {
+        'select': 'created_at',
+        'source': 'eq.scheduled',
+        'order': 'created_at.asc',
+    })
+    years = sorted({datetime.fromisoformat(r['created_at']).year for r in rows if r.get('created_at')})
+    return years
+
+
+def _cotd_fetch_months(year: int) -> list[int]:
+    from .supabase_client import get_supabase_client
+    client = get_supabase_client()
+    if not client:
+        return []
+    rows = client.get('bot_posting_history', [
+        ('select', 'created_at'),
+        ('source', 'eq.scheduled'),
+        ('created_at', f'gte.{year}-01-01T00:00:00Z'),
+        ('created_at', f'lt.{year + 1}-01-01T00:00:00Z'),
+        ('order', 'created_at.asc'),
+    ])
+    months = sorted({datetime.fromisoformat(r['created_at']).month for r in rows if r.get('created_at')})
+    return months
+
+
+def _cotd_fetch_cards(year: int, month: int, tz_name: str = 'America/Sao_Paulo') -> list[dict]:
+    from zoneinfo import ZoneInfo
+    from .supabase_client import get_supabase_client
+    client = get_supabase_client()
+    if not client:
+        return []
+    start = f'{year}-{month:02d}-01T00:00:00Z'
+    end_month = month + 1 if month < 12 else 1
+    end_year = year if month < 12 else year + 1
+    end = f'{end_year}-{end_month:02d}-01T00:00:00Z'
+    rows = client.get('bot_posting_history', [
+        ('select', 'card_code,card_name,created_at'),
+        ('source', 'eq.scheduled'),
+        ('created_at', f'gte.{start}'),
+        ('created_at', f'lt.{end}'),
+        ('order', 'created_at.asc'),
+    ])
+    tz = ZoneInfo(tz_name)
+    result = []
+    for r in rows:
+        if not r.get('created_at'):
+            continue
+        dt = datetime.fromisoformat(r['created_at']).astimezone(tz)
+        result.append({'code': r['card_code'], 'name': r['card_name'], 'day': dt.day})
+    return result
+
+
+async def cotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _check_rate_limit(update):
+        return
+    years = await asyncio.to_thread(_cotd_fetch_years)
+    if not years:
+        await update.message.reply_text("Nenhuma carta do dia encontrada.")
+        return
+    buttons = [[InlineKeyboardButton(str(y), callback_data=f"COTD_YEAR_{y}")] for y in years]
+    await update.message.reply_text("Selecione o ano:", reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def cotd_year_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    year = int(query.data.split('_')[-1])
+    months = await asyncio.to_thread(_cotd_fetch_months, year)
+    if not months:
+        await query.edit_message_text("Nenhuma carta encontrada para este ano.")
+        return
+    rows = [months[i:i+4] for i in range(0, len(months), 4)]
+    buttons = [
+        [InlineKeyboardButton(MONTHS_PT[m - 1], callback_data=f"COTD_MONTH_{year}_{m}") for m in row]
+        for row in rows
+    ]
+    buttons.append([InlineKeyboardButton("« Voltar", callback_data="COTD_BACK")])
+    await query.edit_message_text(f"Selecione o mês ({year}):", reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    _, _, _, year_str, month_str = query.data.split('_')
+    year, month = int(year_str), int(month_str)
+    cards = await asyncio.to_thread(_cotd_fetch_cards, year, month)
+    if not cards:
+        await query.edit_message_text("Nenhuma carta encontrada para este mês.")
+        return
+    month_name = MONTHS_PT[month - 1]
+    lines = [f"<b>Cartas do dia - {month_name}/{year}</b>", ""]
+    for c in cards:
+        name = escape(c['name'] or c['code'])
+        url = f"https://arkhamdb.com/card/{c['code']}"
+        lines.append(f"{c['day']:02d}/{month:02d} - <a href='{url}'>{name}</a>")
+    text = "\n".join(lines)
+    back = InlineKeyboardMarkup([[InlineKeyboardButton("« Voltar", callback_data=f"COTD_YEAR_{year}")]])
+    await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=back)
+
+
+async def cotd_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    years = await asyncio.to_thread(_cotd_fetch_years)
+    buttons = [[InlineKeyboardButton(str(y), callback_data=f"COTD_YEAR_{y}")] for y in years]
+    await query.edit_message_text("Selecione o ano:", reply_markup=InlineKeyboardMarkup(buttons))
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Logs unhandled Telegram handler errors without exposing details to users."""
     logger.exception("Unhandled Telegram handler error", exc_info=context.error)
@@ -1516,6 +1632,10 @@ def register_handlers(application):
     application.add_handler(CommandHandler("sets", sets_command))
     application.add_handler(CallbackQueryHandler(set_browse_callback, pattern=r'^SET_BROWSE_'))
     application.add_handler(CallbackQueryHandler(sets_back_callback, pattern=r'^SETS_BACK$'))
+    application.add_handler(CommandHandler("cotd", cotd_command))
+    application.add_handler(CallbackQueryHandler(cotd_year_callback, pattern=r'^COTD_YEAR_\d+$'))
+    application.add_handler(CallbackQueryHandler(cotd_month_callback, pattern=r'^COTD_MONTH_\d+_\d+$'))
+    application.add_handler(CallbackQueryHandler(cotd_back_callback, pattern=r'^COTD_BACK$'))
     application.add_handler(card_conv_handler)
     application.add_handler(CommandHandler("cancel", cancel_conversation))
     application.add_handler(CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"))
