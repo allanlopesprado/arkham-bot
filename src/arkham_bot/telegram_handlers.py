@@ -66,34 +66,6 @@ async def _fetch_all_taboos() -> list[dict]:
     return await asyncio.to_thread(fetch_taboos_sync)
 
 
-async def _fetch_all_packs() -> list[dict]:
-    """DB-first packs fetch with API fallback."""
-    from .repositories.packs_repo import get_all_packs
-    from .arkhamdb_client import fetch_packs_sync
-    try:
-        packs = await asyncio.to_thread(get_all_packs)
-        if packs:
-            return packs
-    except Exception as exc:
-        logger.warning(f"DB get_all_packs failed: {exc}")
-    logger.info("Falling back to ArkhamDB API for packs")
-    return await asyncio.to_thread(fetch_packs_sync)
-
-
-async def _fetch_all_factions() -> list[dict]:
-    """DB-first factions fetch with API fallback."""
-    from .repositories.factions_repo import get_all_factions
-    from .arkhamdb_client import fetch_factions_sync
-    try:
-        factions = await asyncio.to_thread(get_all_factions)
-        if factions:
-            return factions
-    except Exception as exc:
-        logger.warning(f"DB get_all_factions failed: {exc}")
-    logger.info("Falling back to ArkhamDB API for factions")
-    return await asyncio.to_thread(fetch_factions_sync)
-
-
 async def _fetch_faq(card_code: str) -> list | None:
     """DB-first FAQ fetch with API fallback."""
     from .repositories.faq_repo import get_faq_by_code
@@ -192,10 +164,6 @@ async def _require_admin(update: Update) -> bool:
         return True
     await update.message.reply_text("Administrative command restricted.")
     return False
-
-
-def _card_line(card: dict) -> str:
-    return f"{card.get('code')} — {card.get('name') or card.get('real_name') or 'Unnamed'}"
 
 
 def _chunks(text: str, size: int = 3900) -> list[str]:
@@ -1540,75 +1508,6 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text("Erro ao carregar sets.")
 
 
-async def pack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    try:
-        if not context.args:
-            packs = await _fetch_all_packs()
-            text = "Packs:\n" + "\n".join(f"{p.get('code')} — {p.get('name')}" for p in packs[:80])
-            await _send_long_or_private(update, text)
-            return
-        pack_code = context.args[0].strip()
-        all_cards = await _fetch_all_cards(include_encounter=True)
-        cards = [c for c in all_cards if c.get('pack_code') == pack_code]
-        text = f"Cards in pack {pack_code}:\n" + "\n".join(_card_line(c) for c in cards[:80])
-        await _send_long_or_private(update, text)
-    except Exception as exc:
-        logger.error(f"pack_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch pack data right now.")
-
-
-async def faction_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    try:
-        if not context.args:
-            factions = await _fetch_all_factions()
-            await update.message.reply_text("Factions:\n" + "\n".join(f"{f.get('code')} — {f.get('name')}" for f in factions))
-            return
-        faction_code = context.args[0].strip().lower()
-        cards = await _fetch_all_cards()
-        results = [c for c in cards if str(c.get('faction_code') or '').lower() == faction_code][:80]
-        text = f"Cards for faction {faction_code}:\n" + "\n".join(_card_line(c) for c in results)
-        await _send_long_or_private(update, text)
-    except Exception as exc:
-        logger.error(f"faction_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch faction data right now.")
-
-
-async def type_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    if not context.args:
-        await update.message.reply_text("Usage: /type <type_code>")
-        return
-    type_code = context.args[0].strip().lower()
-    try:
-        cards = await _fetch_all_cards(include_encounter=True)
-        results = [c for c in cards if str(c.get('type_code') or '').lower() == type_code][:80]
-        text = f"Cards of type {type_code}:\n" + "\n".join(_card_line(c) for c in results)
-        await _send_long_or_private(update, text)
-    except Exception as exc:
-        logger.error(f"type_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch type data right now.")
-
-
-async def xp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _check_rate_limit(update):
-        return
-    if not context.args or not context.args[0].isdigit():
-        await update.message.reply_text("Usage: /xp <number>")
-        return
-    xp_value = int(context.args[0])
-    try:
-        cards = await _fetch_all_cards()
-        results = [c for c in cards if c.get('xp') == xp_value][:80]
-        text = f"Cards with XP {xp_value}:\n" + "\n".join(_card_line(c) for c in results)
-        await _send_long_or_private(update, text)
-    except Exception as exc:
-        logger.error(f"xp_command_failed: {exc}", exc_info=True)
-        await update.message.reply_text("Could not fetch XP data right now.")
 
 
 
@@ -1669,10 +1568,6 @@ def register_handlers(application):
     application.add_handler(CommandHandler("sets", sets_command))
     application.add_handler(CallbackQueryHandler(set_browse_callback, pattern=r'^SET_BROWSE_'))
     application.add_handler(CallbackQueryHandler(sets_back_callback, pattern=r'^SETS_BACK$'))
-    application.add_handler(CommandHandler("pack", pack_command))
-    application.add_handler(CommandHandler("faction", faction_command))
-    application.add_handler(CommandHandler("type", type_command))
-    application.add_handler(CommandHandler("xp", xp_command))
     application.add_handler(card_conv_handler)
     application.add_handler(CommandHandler("cancel", cancel_conversation))
     application.add_handler(CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"))

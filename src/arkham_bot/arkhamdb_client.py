@@ -9,9 +9,7 @@ from .arkhamdb_models import (
     validate_card_payload,
     validate_cards_payload,
     validate_decklist_payload,
-    validate_factions_payload,
     validate_faq_payload,
-    validate_packs_payload,
     validate_taboos_payload,
 )
 from .config import (
@@ -75,14 +73,6 @@ def _card_url(card_code: str) -> str:
     return f"{ARKHAM_CARD_API_URL}{card_code}"
 
 
-def _packs_url() -> str:
-    return f"{BASE_URL}api/public/packs/"
-
-
-def _factions_url() -> str:
-    return f"{BASE_URL}api/public/factions/"
-
-
 def _faq_url(card_code: str) -> str:
     return f"{BASE_URL}api/public/faq/{card_code}"
 
@@ -115,16 +105,6 @@ def fetch_card_by_code_sync(card_code: str) -> dict:
             raise ArkhamDBHTTPError(f"ArkhamDB returned an empty card list for {card_code}.")
         payload = payload[0]
     return validate_card_payload(payload, f"card {card_code}")
-
-
-@network_retry_sync
-def fetch_packs_sync() -> list[dict]:
-    return validate_packs_payload(_request_json_sync(_packs_url(), "packs"), "packs")
-
-
-@network_retry_sync
-def fetch_factions_sync() -> list[dict]:
-    return validate_factions_payload(_request_json_sync(_factions_url(), "factions"), "factions")
 
 
 @network_retry_sync
