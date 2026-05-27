@@ -1285,7 +1285,7 @@ function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', language: 'home', database: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'home', language: 'home', database: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
