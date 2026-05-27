@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from arkham_bot import telegram_handlers
+from arkham_bot.handlers import telegram_handlers
 
 
 def test_format_status_includes_key_fields():

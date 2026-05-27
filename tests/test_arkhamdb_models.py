@@ -1,6 +1,6 @@
 import pytest
 
-from arkham_bot.arkhamdb_models import validate_card_payload, validate_pack_payload, validate_faction_payload, validate_decklist_payload
+from arkham_bot.clients.arkhamdb_models import validate_card_payload, validate_pack_payload, validate_faction_payload, validate_decklist_payload
 
 
 def test_validate_card_payload_minimal_ok():

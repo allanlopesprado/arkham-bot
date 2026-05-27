@@ -1,15 +1,15 @@
-# ─── Environment / secrets ───────────────────────────────────────────────────
+# Environment / secrets
 .env
 .env.*
 !.env.example
 
-# ─── Python environments ─────────────────────────────────────────────────────
+# Python environments
 venv/
 .venv/
 ENV/
 env/
 
-# ─── Python build / cache ────────────────────────────────────────────────────
+# Python build / cache
 __pycache__/
 *.py[cod]
 *$py.class
@@ -18,52 +18,38 @@ __pycache__/
 build/
 .eggs/
 
-# ─── Runtime state ───────────────────────────────────────────────────────────
+# Runtime state
 logs/
 debug_logs/
 *.log
 backups/
 backups/local/
-data/posted_cards.txt
-data/posted_cards.txt.lock
-data/card_cache.json
-data/card_cache.json.lock
-data/daily_scheduler_state.json
-data/last_pinned_daily_card.json
-posted_cards.txt
-posted_cards.txt.lock
-card_cache.json
-card_cache.json.lock
-main_process.lock
+data/
+*.lock
 
-# ─── Archives ────────────────────────────────────────────────────────────────
+# Archives
 *.zip
 *.tar
 *.tar.gz
 *.7z
 
-# ─── Node / frontend ─────────────────────────────────────────────────────────
+# Node / frontend
 node_modules/
-miniapp/node_modules/
-miniapp/dist/
-worker/node_modules/
-worker/dist/
-
-# ─── Wrangler ────────────────────────────────────────────────────────────────
-.wrangler/
-worker/.wrangler/
-
-# ─── Build output (genérico) ─────────────────────────────────────────────────
 dist/
+
+# Wrangler
+.wrangler/
+
+# Build output
 build/
 
-# ─── Backup artifacts ────────────────────────────────────────────────────────
+# Backup artifacts
 *.backup*
 *.backup-*.py
 *.dump
 *.sql.gz
 
-# ─── IDE / OS ────────────────────────────────────────────────────────────────
+# IDE / OS
 .vscode/
 .idea/
 .DS_Store

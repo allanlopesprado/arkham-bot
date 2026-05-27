@@ -1,6 +1,6 @@
 import logging
 
-from arkham_bot import logging_config
+from arkham_bot.core import logging_config
 
 
 def test_mask_secrets_redacts_telegram_bot_url_and_secret_names(monkeypatch):

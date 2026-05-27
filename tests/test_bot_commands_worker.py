@@ -1,7 +1,7 @@
 import asyncio
 
-from arkham_bot import bot_commands_worker
-from arkham_bot.daily_card import DailyPostResult
+from arkham_bot.handlers import bot_commands_worker
+from arkham_bot.services.daily_card import DailyPostResult
 
 
 def test_post_command_uses_target_chat_id(monkeypatch):

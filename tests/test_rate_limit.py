@@ -1,5 +1,5 @@
-from arkham_bot.rate_limit import InMemoryRateLimiter
-from arkham_bot.config import RATE_LIMIT_PER_USER_MAX_REQUESTS, RATE_LIMIT_PER_CHAT_MAX_REQUESTS
+from arkham_bot.core.rate_limit import InMemoryRateLimiter
+from arkham_bot.core.config import RATE_LIMIT_PER_USER_MAX_REQUESTS, RATE_LIMIT_PER_CHAT_MAX_REQUESTS
 
 
 def test_rate_limiter_blocks_user_after_limit():

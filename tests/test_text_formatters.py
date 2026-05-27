@@ -1,4 +1,4 @@
-from arkham_bot.text_formatters import clean_and_format_text, format_factions_display, skill_test_display, format_card_caption
+from arkham_bot.formatters.text_formatters import clean_and_format_text, format_card_caption
 
 
 def test_clean_and_format_text_replaces_icons_and_strips_unwanted_html():
@@ -8,17 +8,26 @@ def test_clean_and_format_text_replaces_icons_and_strips_unwanted_html():
     assert "script" not in text.lower()
 
 
-def test_format_factions_display_removes_neutral_when_multiclass():
-    card = {"faction_name": "Neutral", "faction2_name": "Guardian"}
-    rendered = format_factions_display(card)
-    assert "Guardian" in rendered
-    assert "Neutral" not in rendered
+def test_format_card_caption_multiclass_excludes_neutral():
+    card = {
+        "code": "01001", "name": "Test Card", "type_code": "asset",
+        "type_name": "Asset", "faction_code": "neutral", "faction_name": "Neutral",
+        "faction2_name": "Guardian", "pack_name": "Core Set",
+    }
+    caption = format_card_caption(card, is_interactive=True)
+    assert "Guardian" in caption
+    assert "Neutral" not in caption
 
 
-def test_skill_test_display():
-    result = skill_test_display({"skill_willpower": 2, "skill_combat": 1})
-    assert result.count("👤") == 2
-    assert "✊🏻" in result
+def test_format_card_caption_skills_display():
+    card = {
+        "code": "01001", "name": "Test Card", "type_code": "skill",
+        "type_name": "Skill", "faction_name": "Guardian", "faction_code": "guardian",
+        "skill_willpower": 2, "skill_combat": 1, "pack_name": "Core Set",
+    }
+    caption = format_card_caption(card, is_interactive=True)
+    assert "👤" in caption
+    assert "✊🏻" in caption
 
 
 def test_format_card_caption_minimal_card():

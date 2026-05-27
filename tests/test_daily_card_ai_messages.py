@@ -1,4 +1,4 @@
-from arkham_bot.daily_card import _telegram_html_text
+from arkham_bot.services.daily_card import _telegram_html_text
 
 
 def test_telegram_html_text_escapes_ai_content():
