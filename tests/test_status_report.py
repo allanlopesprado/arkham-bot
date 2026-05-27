@@ -3,70 +3,33 @@ from datetime import UTC, datetime, timedelta
 from arkham_bot import telegram_handlers
 
 
-def test_format_status_report_includes_operational_fields():
+def test_format_status_includes_key_fields():
     payload = {
-        "bot": "online",
-        "uptime": "2h 3m",
-        "local_time": "2026-05-25 10:00:00 -03",
-        "telegram_chat_configured": True,
-        "telegram_user_id": 206091852,
         "daily_post_enabled": True,
-        "daily_post_times": ["08:00"],
-        "daily_post_days": ["mon", "tue"],
-        "last_daily_post_status": "success",
-        "last_daily_post_card_code": "01001",
-        "supabase_configured": True,
-        "supabase_status": "ok",
+        "next_post": "em 2h",
         "cards_count": "1234",
         "packs_count": "42",
-        "ai_daily_card_enabled": True,
-        "ai_model": "gpt-4.1-mini",
-        "bot_commands_enabled": True,
-        "is_admin": True,
-        "admin_source": "owner",
-        "pending_commands": "0",
     }
 
-    text = telegram_handlers._format_status_report(payload)
+    text = telegram_handlers._format_status(payload)
 
-    assert "<b>Arkham Bot</b>" in text
-    assert "<code>Operational status</code>" in text
-    assert "Scheduling" in text
-    assert "Supabase: <b>ok</b>" in text
-    assert "Cards: <code>1234</code>" in text
-    assert "AI daily: <b>ativo</b>" in text
-    assert "Pending/retry queue: <code>0</code>" in text
+    assert "Online" in text
+    assert "1234" in text
+    assert "42" in text
+    assert "em 2h" in text
 
 
-def test_format_status_report_escapes_values():
+def test_format_status_inactive():
     payload = {
-        "bot": "online<script>",
-        "uptime": "0m",
-        "local_time": "now",
-        "telegram_chat_configured": False,
-        "telegram_user_id": "<id>",
         "daily_post_enabled": False,
-        "daily_post_times": ["<08:00>"],
-        "daily_post_days": ["mon"],
-        "last_daily_post_status": "<failed>",
-        "last_daily_post_card_code": "01001",
-        "supabase_configured": False,
-        "supabase_status": "nao configurado",
-        "cards_count": "-",
-        "packs_count": "-",
-        "ai_daily_card_enabled": False,
-        "ai_model": "sem OPENAI_API_KEY",
-        "bot_commands_enabled": False,
-        "is_admin": False,
-        "admin_source": "none",
-        "pending_commands": "-",
+        "next_post": "inactive",
+        "cards_count": "1234",
+        "packs_count": "42",
     }
 
-    text = telegram_handlers._format_status_report(payload)
+    text = telegram_handlers._format_status(payload)
 
-    assert "online&lt;script&gt;" in text
-    assert "&lt;id&gt;" in text
-    assert "<failed>" not in text
+    assert "inativa" in text
 
 
 def test_format_uptime_is_compact(monkeypatch):

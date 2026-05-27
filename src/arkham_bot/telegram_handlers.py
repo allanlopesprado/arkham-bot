@@ -299,60 +299,18 @@ def _format_day_config_lines(day_config: dict) -> list[str]:
     return lines if len(lines) > 2 else []
 
 
-def _format_public_status(payload: dict) -> str:
-    """Clean status for group members."""
+def _format_status(payload: dict) -> str:
     daily_enabled = payload['daily_post_enabled']
     next_post = payload.get('next_post', '-')
-    post_line = f"📅 Daily post: {'active' if daily_enabled else 'inactive'}"
+    post_line = f"📅 Carta do dia: {'ativa' if daily_enabled else 'inativa'}"
     if daily_enabled and next_post not in ('-', 'inactive', 'not scheduled'):
         post_line += f" · {next_post}"
     lines = [
         "🟢 <b>Arkham Bot — Online</b>",
         "",
         post_line,
-        f"🃏 Cards: <b>{payload['cards_count']}</b>",
-        f"📦 Packs: <b>{payload['packs_count']}</b>",
-        f"⚠️ Taboo lists: <b>{payload.get('taboo_count', '-')}</b>",
-    ]
-    return "\n".join(lines)
-
-
-def _format_status_report(payload: dict) -> str:
-    """Full status for admins."""
-    lines = [
-        "<b>Arkham Bot</b>",
-        "<code>Operational status</code>",
-        "",
-        "<b>Summary</b>",
-        f"- Bot: {_bold(payload['bot'])}",
-        f"- Uptime: {_code(payload['uptime'])}",
-        f"- Local time: {_code(payload['local_time'])}",
-        "",
-        "<b>Telegram</b>",
-        f"- Chat configured: {_bold(_yes_no(payload['telegram_chat_configured']))}",
-        f"- User ID: {_code(payload['telegram_user_id'])}",
-        "",
-        "<b>Scheduling</b>",
-        f"- Daily post: {_bold(_active_inactive(payload['daily_post_enabled']))}",
-        f"- Times: {_code(_format_list(payload['daily_post_times']))}",
-        f"- Days: {_code(_format_days(payload['daily_post_days']))}",
-        f"- Next post: {_code(payload.get('next_post', '-'))}",
-        f"- Last result: {_code(payload['last_daily_post_status'])}",
-        *_format_day_config_lines(payload.get('day_config', {})),
-        f"- Last card: {_code(payload['last_daily_post_card_code'])}",
-        "",
-        "<b>Data</b>",
-        f"- Supabase: {_bold(payload['supabase_status'])}",
-        f"- Cards: {_code(payload['cards_count'])}",
-        f"- Packs: {_code(payload['packs_count'])}",
-        f"- Taboo lists: {_code(payload.get('taboo_count', '-'))}",
-        f"- AI daily: {_bold(_active_inactive(payload['ai_daily_card_enabled']))}",
-        f"- AI model: {_code(payload['ai_model'])}",
-        f"- Command worker: {_bold(_active_inactive(payload['bot_commands_enabled']))}",
-        "",
-        "<b>Admin</b>",
-        f"- Access: {_code(payload['admin_source'])}",
-        f"- Pending/retry queue: {_code(payload['pending_commands'])}",
+        f"🃏 Cartas: <b>{payload['cards_count']}</b>",
+        f"📦 Pacotes: <b>{payload['packs_count']}</b>",
     ]
     return "\n".join(lines)
 
@@ -502,8 +460,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     payload = _collect_status_payload(update)
-    formatter = _format_status_report if payload["is_admin"] else _format_public_status
-    await update.message.reply_text(formatter(payload), parse_mode=ParseMode.HTML)
+    await update.message.reply_text(_format_status(payload), parse_mode=ParseMode.HTML)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
