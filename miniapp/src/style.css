@@ -120,7 +120,7 @@ input, select { outline: none; }
 .section {
   display: flex;
   flex-direction: column;
-  padding-bottom: 4px;
+  padding-bottom: 12px;
 }
 
 .section-title {
@@ -959,18 +959,3 @@ input, select { outline: none; }
   flex-shrink: 0;
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────────── */
-
-@media (min-width: 768px) {
-  #root {
-    display: flex;
-    justify-content: center;
-    background: var(--bg);
-    min-height: var(--tg-viewport-stable-height, 100dvh);
-  }
-  .app {
-    width: min(100%, 430px);
-    border-left: 1px solid var(--sep);
-    border-right: 1px solid var(--sep);
-  }
-}
