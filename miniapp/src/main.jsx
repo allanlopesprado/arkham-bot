@@ -910,6 +910,12 @@ function DangerRow({ icon, label, onClick, disabled, loading }) {
 
 function InfoTooltip({ text }) {
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, { passive: true, capture: true });
+    return () => window.removeEventListener('scroll', close, { capture: true });
+  }, [open]);
   return (
     <span className="info-tooltip-wrap">
       <button
