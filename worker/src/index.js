@@ -33,6 +33,7 @@ const AI_MODELS = new Set([
 ]);
 const AI_CREATIVITY_VALUES = new Set(['conservative','default','creative']);
 const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'all']);
+const WEEKDAY_DAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 const VALID_CARD_TYPES = new Set([
   'investigator', 'asset', 'event', 'skill',
   'enemy', 'location', 'treachery', 'act', 'agenda', 'story',
@@ -260,7 +261,7 @@ function validateSettingsPatch(body) {
       settings[key] = value;
     }
     if (key === 'daily_post_days') {
-      if (!Array.isArray(value) || !value.every((day) => WEEKDAY_CODES.has(day))) {
+      if (!Array.isArray(value) || !value.every((day) => WEEKDAY_DAY_CODES.has(day))) {
         return { error: 'invalid_setting_value', key };
       }
       settings[key] = value;

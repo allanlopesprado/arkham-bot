@@ -1409,7 +1409,6 @@ function App() {
         haptic('notification', 'success');
         console.log('[saveSettings] returned day_config:', JSON.stringify(json.settings?.day_config));
         applySettings(json.settings);
-        setSavedAllDaysMode(allDaysMode);
         setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '' });
       }
     } catch {
@@ -2042,7 +2041,12 @@ function App() {
                     const val = e.target.value.slice(0, 5);
                     if (!val) return;
                     if (activeDayCode === 'all') {
-                      setSettings((cur) => ({ ...cur, daily_post_times: [val] }));
+                      setSettings((cur) => ({
+                        ...cur,
+                        daily_post_times: cur.daily_post_times.length > 0
+                          ? cur.daily_post_times.map((t, i) => (i === 0 ? val : t))
+                          : [val],
+                      }));
                     } else {
                       updateDayConfig(activeDayCode, (cfg) => ({ ...cfg, times: [val] }));
                     }
