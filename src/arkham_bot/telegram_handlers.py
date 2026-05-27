@@ -1349,10 +1349,11 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 
     q = query.strip()
     is_numeric = re.fullmatch(r'\d+', q) is not None
+    is_card_code = re.fullmatch(r'\d{4,6}[a-z]?', q) is not None
 
     try:
-        # Exact 5-6 digit code → show directly without searching
-        if is_numeric and re.fullmatch(r'\d{5,6}', q):
+        # Exact card code (e.g. 01001 or 09519a) → show directly without searching
+        if is_card_code:
             prompt = _pop_search_prompt(context)
             await _send_card_by_code(update, q, prompt_message=prompt)
             return ConversationHandler.END
@@ -1360,13 +1361,13 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
         # DB search (falls back to in-memory on DB failure)
         try:
             results = await asyncio.to_thread(
-                search_cards, q, True, is_numeric
+                search_cards, q, True, is_numeric or is_card_code
             )
         except Exception as exc:
             logger.warning(f"DB search_cards failed, falling back to all-cards: {exc}")
             cards = await _fetch_all_cards(include_encounter=True)
             q_lower = q.lower()
-            if is_numeric:
+            if is_numeric or is_card_code:
                 results = [c for c in cards if (c.get('code') or '').startswith(q)]
             else:
                 results = [

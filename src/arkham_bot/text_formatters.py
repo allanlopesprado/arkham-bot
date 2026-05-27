@@ -108,13 +108,10 @@ def _slot_display(slot_raw: str) -> str:
     return f"{icon} {slot_raw}"
 
 
-def _unique_exceptional_tags(card: dict) -> str:
-    tags = []
-    if card.get('is_unique'):
-        tags.append('⭐ Unique')
+def _exceptional_tag(card: dict) -> str:
     if card.get('exceptional') or card.get('is_exceptional'):
-        tags.append('⚡ Exceptional')
-    return ' | '.join(tags)
+        return '⚡ Exceptional'
+    return ''
 
 
 
@@ -242,7 +239,8 @@ def format_card_caption(card, is_interactive=False):
 
     double_sided_types = {'investigator', 'act', 'agenda', 'scenario'}
     title_suffix = " - Front" if tc in double_sided_types else ""
-    lines = [f"<b>{prefix}Card: {_e(name)}{title_suffix}</b>"]
+    unique_prefix = "✸ " if card.get('is_unique') else ""
+    lines = [f"<b>{prefix}{unique_prefix}{_e(name)}{title_suffix}</b>"]
 
     type_line = _e(type_name)
     if subname:
@@ -257,8 +255,8 @@ def format_card_caption(card, is_interactive=False):
     lines.append("")
 
     faction_display = format_factions_display(card)
-    tags = _unique_exceptional_tags(card)
-    faction_line = ' | '.join(filter(None, [faction_display, tags]))
+    exceptional = _exceptional_tag(card)
+    faction_line = ' | '.join(filter(None, [faction_display, exceptional]))
     if faction_line:
         lines.append(faction_line)
 
@@ -276,7 +274,7 @@ def format_card_caption(card, is_interactive=False):
                 f"✊🏻 {_fmt_stat(card.get('skill_combat'))} | "
                 f"🦶🏻 {_fmt_stat(card.get('skill_agility'))}"
             )
-            lines.append(f"❤️ {_fmt_stat(card.get('health'))} | 🧠 {_fmt_stat(card.get('sanity'))}")
+            lines.append(f"❤️ Health: {_fmt_stat(card.get('health'))} | 🧠 Sanity: {_fmt_stat(card.get('sanity'))}")
         xp = card.get('xp')
         if xp:
             lines.append(f"⭐️ XP: {xp}")
@@ -284,7 +282,7 @@ def format_card_caption(card, is_interactive=False):
     elif tc == 'asset':
         xp = card.get('xp')
         slot_raw = card.get('slot', '')
-        parts = [f"💰 {_fmt_cost(card)}"]
+        parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
             parts.append(f"⭐️ XP: {xp}")
         slot_disp = _slot_display(slot_raw)
@@ -298,7 +296,7 @@ def format_card_caption(card, is_interactive=False):
         health = card.get('health')
         sanity = card.get('sanity')
         if health or sanity:
-            lines.append(f"❤️ {_fmt_stat(health, '0')} | 🧠 {_fmt_stat(sanity, '0')}")
+            lines.append(f"❤️ Health: {_fmt_stat(health, '0')} | 🧠 Sanity: {_fmt_stat(sanity, '0')}")
 
         dl = _deck_limit_display(card.get('deck_limit'))
         if dl:
@@ -306,7 +304,7 @@ def format_card_caption(card, is_interactive=False):
 
     elif tc == 'event':
         xp = card.get('xp')
-        parts = [f"💰 {_fmt_cost(card)}"]
+        parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
             parts.append(f"⭐️ XP: {xp}")
         skill = skill_test_display(card)
@@ -339,18 +337,20 @@ def format_card_caption(card, is_interactive=False):
         horror = card.get('enemy_horror')
         health_suffix = ' 👥' if card.get('health_per_investigator') else ''
         lines.append(
-            f"✊🏻 {_fmt_stat(fight)} | ❤️ {_fmt_stat(health)}{health_suffix} | 🦶🏻 {_fmt_stat(evade)}"
+            f"✊🏻 Fight: {_fmt_stat(fight)} | ❤️ Health: {_fmt_stat(health)}{health_suffix} | 🦶🏻 Evade: {_fmt_stat(evade)}"
         )
-        lines.append(f"💢 {_fmt_stat(damage)} | 😨 {_fmt_stat(horror)}")
+        lines.append(f"💢 Damage: {_fmt_stat(damage)} | 😨 Horror: {_fmt_stat(horror)}")
         if tc == 'enemy_location':
             shroud = card.get('shroud')
             clues = card.get('clues')
-            lines.append(f"🌑 {_fmt_stat(shroud)} | 🔍 {_fmt_stat(clues)}")
+            clues_suffix = '' if card.get('clues_fixed') else ' 👥'
+            lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 🔍 Clues: {_fmt_stat(clues)}{clues_suffix}")
 
     elif tc == 'location':
         shroud = card.get('shroud')
         clues = card.get('clues')
-        lines.append(f"🌑 {_fmt_stat(shroud)} | 🔍 {_fmt_stat(clues)}")
+        clues_suffix = '' if card.get('clues_fixed') else ' 👥'
+        lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 🔍 Clues: {_fmt_stat(clues)}{clues_suffix}")
 
     elif tc == 'act':
         stage = card.get('stage')
@@ -359,7 +359,7 @@ def format_card_caption(card, is_interactive=False):
         if stage is not None:
             parts.append(f"Stage {stage}")
         if clues is not None:
-            parts.append(f"🔍 {clues}")
+            parts.append(f"🔍 Clues: {clues}")
         if parts:
             lines.append(" | ".join(parts))
 
@@ -370,7 +370,7 @@ def format_card_caption(card, is_interactive=False):
         if stage is not None:
             parts.append(f"Stage {stage}")
         if doom is not None:
-            parts.append(f"💀 {doom}")
+            parts.append(f"💀 Doom: {doom}")
         if parts:
             lines.append(" | ".join(parts))
 
@@ -429,17 +429,18 @@ def format_card_back_caption(card, back_text_raw, is_interactive=False):
     tc = card.get('type_code', 'unknown')
     prefix = "" if is_interactive else "[COTD] "
 
-    lines = [f"<b>{prefix}Card: {_e(back_name)} - Back</b>", ""]
+    unique_prefix = "✸ " if card.get('is_unique') else ""
+    lines = [f"<b>{prefix}{unique_prefix}{_e(back_name)} - Back</b>", ""]
 
     # Back-side stats for act/agenda
     if tc == 'act':
         clues = card.get('clues')
         if clues is not None:
-            lines.append(f"🔍 {clues}")
+            lines.append(f"🔍 Clues: {clues}")
     elif tc == 'agenda':
         doom = card.get('doom')
         if doom is not None:
-            lines.append(f"💀 {doom}")
+            lines.append(f"💀 Doom: {doom}")
 
     back_text_formatted = clean_and_format_text(back_text_raw)
     back_flavor_formatted = clean_and_format_text(back_flavor, is_flavor=True)

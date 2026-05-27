@@ -5,7 +5,7 @@ def upsert_pack(payload: dict) -> None:
     client = get_supabase_client()
     if not client:
         return
-    client.upsert("arkham_packs", {"code": payload["code"], "raw": payload}, on_conflict="code")
+    client.upsert("arkham_packs", {"code": payload["code"], "name": payload.get("name", ""), "raw": payload}, on_conflict="code")
 
 
 def get_all_packs() -> list[dict]:
