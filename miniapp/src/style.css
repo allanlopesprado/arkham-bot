@@ -37,7 +37,6 @@ input, select { outline: none; }
 
 .app {
   width: 100%;
-  max-width: 640px;
   margin: 0 auto;
   min-height: var(--tg-viewport-stable-height, 100svh);
   background: var(--bg);
