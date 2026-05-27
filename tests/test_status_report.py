@@ -85,17 +85,9 @@ def test_as_bool_understands_string_settings():
     assert telegram_handlers._as_bool(None, True) is True
 
 
-def test_format_help_report_public_is_structured():
-    text = telegram_handlers._format_help_report(is_admin=False)
+def test_format_help_report_is_structured():
+    text = telegram_handlers._format_help_report()
 
     assert "<b>Cartas</b>" in text
     assert "<code>/status</code>" in text
     assert "<b>Admin</b>" not in text
-
-
-def test_format_help_report_admin_includes_admin_commands():
-    text = telegram_handlers._format_help_report(is_admin=True)
-
-    assert "<b>Admin</b>" in text
-    assert "<code>/post &lt;card_code&gt;</code>" in text
-    assert "<code>/add_admin &lt;id&gt; [role] [nome]</code>" in text

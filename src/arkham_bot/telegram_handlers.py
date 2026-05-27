@@ -389,7 +389,7 @@ def _format_status_report(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_help_report(is_admin: bool) -> str:
+def _format_help_report(_is_admin: bool = False) -> str:
     lines = [
         "<b>Arkham Bot</b>",
         "<code>Comandos disponiveis</code>",
@@ -413,21 +413,6 @@ def _format_help_report(is_admin: bool) -> str:
         "- <code>/menu</code> - mostra este menu",
         "- <code>/cancel</code> - cancela uma busca em andamento",
     ]
-    if is_admin:
-        lines.extend([
-            "",
-            "<b>Admin</b>",
-            "- <code>/post &lt;card_code&gt;</code> - posta carta agora",
-            "- <code>/repost &lt;card_code&gt;</code> - reposta carta",
-            "- <code>/skip &lt;card_code&gt;</code> - marca carta como usada",
-            "- <code>/pause</code> - pausa postagem diaria",
-            "- <code>/resume</code> - retoma postagem diaria",
-            "- <code>/settings</code> - mostra settings do Supabase",
-            "- <code>/queue</code> - mostra comandos pendentes",
-            "- <code>/errors</code> - mostra erros recentes",
-            "- <code>/add_admin &lt;id&gt; [role] [nome]</code> - adiciona admin",
-            "- <code>/remove_admin &lt;id&gt;</code> - remove admin",
-        ])
     return "\n".join(lines)
 
 
@@ -770,7 +755,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id if update.effective_user else None
     await update.message.reply_text(
-        _format_help_report(is_admin_user(user_id)),
+        _format_help_report(),
         parse_mode=ParseMode.HTML,
     )
 
@@ -1630,153 +1615,6 @@ async def xp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def post_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    if not context.args:
-        await update.message.reply_text("Usage: /post <card_code>")
-        return
-    from .daily_card import post_daily_card
-    result = await post_daily_card(specific_card_code=context.args[0].strip())
-    if result.success:
-        await update.message.reply_text(f"Posted {result.card_code}. message_id={result.message_id}")
-    else:
-        await update.message.reply_text(f"Post failed: {result.error}")
-
-
-async def repost_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await post_admin_command(update, context)
-
-
-async def skip_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    if not context.args:
-        await update.message.reply_text("Usage: /skip <card_code>")
-        return
-    from .local_storage import save_posted_card
-    card_code = context.args[0].strip()
-    save_posted_card(card_code)
-    await update.message.reply_text(f"Marked as skipped/posted: {card_code}")
-
-
-async def pause_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .repositories.settings_repo import set_setting
-    set_setting("daily_post_enabled", False, updated_by=str(update.effective_user.id if update.effective_user else "telegram"))
-    await update.message.reply_text("Daily posting paused.")
-
-
-async def resume_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .repositories.settings_repo import set_setting
-    set_setting("daily_post_enabled", True, updated_by=str(update.effective_user.id if update.effective_user else "telegram"))
-    await update.message.reply_text("Daily posting resumed.")
-
-
-async def settings_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .repositories.settings_repo import get_all_settings
-    try:
-        settings = get_all_settings()
-        if not settings:
-            await update.message.reply_text("No Supabase settings loaded or Supabase not configured.")
-            return
-        import json
-        await _send_long_or_private(update, json.dumps(settings, ensure_ascii=False, indent=2), private_threshold=800)
-    except Exception as exc:
-        logger.error("settings_command_failed: %s", exc, exc_info=True)
-        await update.message.reply_text("Could not load settings.")
-
-
-async def errors_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .repositories.errors_repo import list_recent_errors
-    try:
-        rows = list_recent_errors(10)
-        if rows:
-            text = "Recent errors:\n" + "\n".join(f"{r.get('created_at')} — {r.get('context')}: {r.get('error_message')}" for r in rows)
-            await _send_long_or_private(update, text)
-            return
-    except Exception as exc:
-        logger.warning("supabase_errors_lookup_failed: %s", exc)
-    await update.message.reply_text("No Supabase errors found or Supabase not configured. Check local logs on server.")
-
-
-async def queue_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .repositories.commands_repo import fetch_pending_commands
-    rows = fetch_pending_commands(10)
-    if not rows:
-        await update.message.reply_text("No pending/retrying commands.")
-        return
-    text = "Pending commands:\n" + "\n".join(f"{r.get('id')} — {r.get('command_type')} — {r.get('status')}" for r in rows)
-    await _send_long_or_private(update, text)
-
-
-async def sync_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .repositories.commands_repo import enqueue_command
-    user = update.effective_user
-    user_id = user.id if user else None
-    user_name = user.full_name if user else None
-    args = context.args or []
-    sync_faq = "faq" in args
-    cmd = enqueue_command("sync_arkhamdb", payload={"sync_faq": sync_faq}, requested_by=user_id, requested_by_name=user_name)
-    if cmd:
-        await update.message.reply_text(
-            f"✅ Sync enfileirado (ID: <code>{cmd.get('id', '?')}</code>).\n"
-            f"Será executado em até {30}s. Inclui FAQ: {'sim' if sync_faq else 'não'}.",
-            parse_mode=ParseMode.HTML,
-        )
-    else:
-        await update.message.reply_text("❌ Falha ao enfileirar sync. Verifique a conexão com o Supabase.")
-
-
-async def reset_cycle_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    from .config import POSTED_CARDS_FILE, POSTED_CARDS_LOCK
-    from .local_storage import safe_atomic_write
-    safe_atomic_write("", POSTED_CARDS_FILE, POSTED_CARDS_LOCK, data_type="text")
-    await update.message.reply_text("Daily card cycle reset locally.")
-
-
-async def add_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    if not context.args or not context.args[0].lstrip("-").isdigit():
-        await update.message.reply_text("Usage: /add_admin <telegram_user_id> [owner|admin|viewer] [name]")
-        return
-    from .repositories.admins_repo import upsert_admin
-    user_id = int(context.args[0])
-    role = context.args[1] if len(context.args) >= 2 else "admin"
-    name = " ".join(context.args[2:]) if len(context.args) >= 3 else None
-    try:
-        upsert_admin(user_id, name=name, role=role, enabled=True)
-        await update.message.reply_text(f"Admin saved: {user_id} role={role}")
-    except Exception as exc:
-        await update.message.reply_text(f"Failed to save admin: {exc}")
-
-
-async def remove_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await _require_admin(update):
-        return
-    if not context.args or not context.args[0].lstrip("-").isdigit():
-        await update.message.reply_text("Usage: /remove_admin <telegram_user_id>")
-        return
-    from .repositories.admins_repo import disable_admin
-    user_id = int(context.args[0])
-    disable_admin(user_id)
-    await update.message.reply_text(f"Admin disabled: {user_id}")
-
-
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Logs unhandled Telegram handler errors without exposing details to users."""
     logger.exception("Unhandled Telegram handler error", exc_info=context.error)
@@ -1835,18 +1673,6 @@ def register_handlers(application):
     application.add_handler(CommandHandler("faction", faction_command))
     application.add_handler(CommandHandler("type", type_command))
     application.add_handler(CommandHandler("xp", xp_command))
-    application.add_handler(CommandHandler("post", post_admin_command))
-    application.add_handler(CommandHandler("repost", repost_admin_command))
-    application.add_handler(CommandHandler("skip", skip_admin_command))
-    application.add_handler(CommandHandler("pause", pause_admin_command))
-    application.add_handler(CommandHandler("resume", resume_admin_command))
-    application.add_handler(CommandHandler("settings", settings_admin_command))
-    application.add_handler(CommandHandler("errors", errors_admin_command))
-    application.add_handler(CommandHandler("queue", queue_admin_command))
-    application.add_handler(CommandHandler("sync", sync_admin_command))
-    application.add_handler(CommandHandler("reset_cycle", reset_cycle_admin_command))
-    application.add_handler(CommandHandler("add_admin", add_admin_command))
-    application.add_handler(CommandHandler("remove_admin", remove_admin_command))
     application.add_handler(card_conv_handler)
     application.add_handler(CommandHandler("cancel", cancel_conversation))
     application.add_handler(CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"))
