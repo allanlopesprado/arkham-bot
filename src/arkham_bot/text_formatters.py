@@ -285,22 +285,23 @@ def format_card_caption(card, is_interactive=False):
         cost_parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
             cost_parts.append(f"⭐️ XP: {xp}")
-
         lines.append(" | ".join(cost_parts))
 
         health = card.get('health')
         sanity = card.get('sanity')
+        slot_disp = _slot_display(slot_raw)
+        skill = skill_test_display(card)
+
         hs_parts = []
         if health is not None or sanity is not None:
             hs_parts.append(f"❤️ Health: {_fmt_stat(health, '0')} | 🧠 Sanity: {_fmt_stat(sanity, '0')}")
-        slot_disp = _slot_display(slot_raw)
         if slot_disp:
-            if hs_parts:
-                lines.append(f"{hs_parts[0]} | {slot_disp}")
-            else:
-                lines.append(slot_disp)
-        elif hs_parts:
-            lines.append(hs_parts[0])
+            hs_parts.append(slot_disp)
+        if hs_parts:
+            lines.append(" | ".join(hs_parts))
+
+        if skill:
+            lines.append(skill)
 
         dl = _deck_limit_display(card.get('deck_limit'))
         if dl:
