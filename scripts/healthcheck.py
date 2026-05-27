@@ -11,7 +11,6 @@ if str(SRC_DIR) not in sys.path:
 from arkham_bot.config import (
     SUPABASE_ENABLED,
     TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
     ensure_runtime_dirs,
 )
 from arkham_bot.logging_config import setup_logging
@@ -22,7 +21,7 @@ logger = setup_logging()
 
 
 async def _check_telegram(strict: bool) -> bool:
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    if not TELEGRAM_BOT_TOKEN:
         msg = "Telegram env vars missing."
         if strict:
             logger.error(msg)
