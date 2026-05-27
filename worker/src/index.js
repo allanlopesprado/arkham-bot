@@ -645,11 +645,34 @@ async function handleGetHistory(request, env, ao) {
   let path = `/rest/v1/bot_posting_history?select=id,card_code,card_name,status,source,created_at,telegram_message_id&order=created_at.desc&limit=${limit}&offset=${offset}`;
 
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const d = new Date(date + 'T12:00:00Z');
-    const next = new Date(d);
-    next.setDate(next.getDate() + 1);
-    const nextStr = next.toISOString().slice(0, 10);
-    path += `&created_at=gte.${date}T00:00:00&created_at=lt.${nextStr}T00:00:00`;
+    let tz = 'UTC';
+    try {
+      const settingsRows = await fetchSettingsRows(env);
+      const settings = rowsToSettings(settingsRows);
+      if (settings.timezone) tz = settings.timezone;
+    } catch {}
+
+    // Convert a local date string (YYYY-MM-DD) + time to a UTC Date in the given tz.
+    // sv-SE locale produces "YYYY-MM-DD HH:MM:SS" which is easy to parse.
+    const localToUTC = (d, time) => {
+      const approx = new Date(`${d}T${time}Z`);
+      const localStr = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      }).format(approx).replace(' ', 'T');
+      const offsetMs = approx.getTime() - new Date(localStr + 'Z').getTime();
+      return new Date(new Date(`${d}T${time}Z`).getTime() + offsetMs);
+    };
+
+    const nextDay = new Date(Date.UTC(...date.split('-').map(Number).map((v, i) => i === 1 ? v - 1 : v)));
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    const nextDayStr = nextDay.toISOString().slice(0, 10);
+
+    const startUTC = localToUTC(date, '00:00:00');
+    const endUTC   = localToUTC(nextDayStr, '00:00:00');
+
+    path += `&created_at=gte.${startUTC.toISOString()}&created_at=lt.${endUTC.toISOString()}`;
   }
 
   if (q.length >= 2) {
