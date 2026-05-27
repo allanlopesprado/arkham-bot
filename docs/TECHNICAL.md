@@ -189,9 +189,6 @@ AI_DAILY_CARD_ENABLED=true
 OPENAI_API_KEY=<valor>
 ```
 
-### `arkhamdb_oauth.py`
-
-Modulo preparado para OAuth ArkhamDB. Nao e dependencia operacional do bot atual.
 
 ## Supabase
 
@@ -277,10 +274,6 @@ O Mini App:
 - chama `/me`, `/status` e `/bot-command` no Worker;
 - nao contem secrets;
 - desabilita acoes quando usuario nao e admin ou quando esta fora do Telegram.
-
-## OAuth ArkhamDB
-
-`arkhamdb_oauth.py` existe como modulo futuro. O runtime atual nao depende dele.
 
 ## IA
 
