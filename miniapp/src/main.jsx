@@ -1181,19 +1181,19 @@ function App() {
 
     app.onEvent?.('themeChanged', applyColors);
     app.onEvent?.('viewportChanged', onViewportChanged);
-    app.onEvent?.('safeAreaChanged', () => {});
-    app.onEvent?.('contentSafeAreaChanged', () => {});
 
-    // Fullscreen is only supported on mobile; exit immediately on desktop platforms
+    // Fullscreen: only supported on mobile. Exit immediately on desktop, and on runtime failure.
     const mobileOnly = ['android', 'ios'];
     if (!mobileOnly.includes(app.platform)) {
       try { app.exitFullscreen?.(); } catch {}
     }
-    // Also handle runtime failure (e.g. UNSUPPORTED) in case platform check misses a variant
     const onFullscreenFailed = ({ error } = {}) => {
       if (error === 'UNSUPPORTED') { try { app.exitFullscreen?.(); } catch {} }
     };
+    // fullscreenChanged fires when entering/exiting fullscreen — state readable via app.isFullscreen
+    const onFullscreenChanged = () => {};
     app.onEvent?.('fullscreenFailed', onFullscreenFailed);
+    app.onEvent?.('fullscreenChanged', onFullscreenChanged);
 
     // SettingsButton in Telegram header → jump to settings tab
     try {
@@ -1208,6 +1208,7 @@ function App() {
       app.offEvent?.('themeChanged', applyColors);
       app.offEvent?.('viewportChanged', onViewportChanged);
       app.offEvent?.('fullscreenFailed', onFullscreenFailed);
+      app.offEvent?.('fullscreenChanged', onFullscreenChanged);
     };
   }, []);
 
