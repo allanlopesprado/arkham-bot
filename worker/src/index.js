@@ -36,6 +36,7 @@ const WEEKDAY_CODES = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 
 const VALID_CARD_TYPES = new Set([
   'investigator', 'asset', 'event', 'skill',
   'enemy', 'location', 'treachery', 'act', 'agenda', 'story',
+  '__none__',
 ]);
 
 async function hmacSha256(keyBytes, data) {
