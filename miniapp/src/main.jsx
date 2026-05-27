@@ -203,11 +203,11 @@ const I18N = {
     aiCreativityDefault: 'Padrão',
     aiCreativityCreative: 'Criativo',
     // weekly schedule
-    weeklySchedule: 'Programação semanal',
-    weeklyScheduleCaption: 'Configure horários, ciclos e tipos por dia',
-    dailySchedule: 'Programação diária',
+    weeklySchedule: 'Padrão global',
+    weeklyScheduleCaption: 'Configure horário, ciclos e tipos por dia da semana',
+    dailySchedule: 'Por dia da semana',
     allWeekdays: 'Todos os dias',
-    configureAllWeekdays: 'Configurar todos os dias',
+    configureAllWeekdays: 'Todos os dias',
     configureDay: 'Configurar',
     dayDetail: 'Configuração do dia',
     cyclesToday: 'Ciclos permitidos',
@@ -223,11 +223,12 @@ const I18N = {
     // home sections
     overviewTitle: 'Visão geral',
     actionsTitle: 'Postagem',
+    manageTitle: 'Gerenciamento',
     configTitle: 'Configurações',
     databaseTitle: 'Banco de dados',
     databaseTab: 'Banco de dados',
-    databaseStatus: 'Status',
-    syncSchedule: 'Agendamento do sync',
+    databaseStatus: 'Status do banco',
+    syncSchedule: 'Sincronização automática',
     syncScheduleEnabled: 'Sync automático',
     syncScheduleEnabledCaption: 'Sincroniza o banco de dados automaticamente',
     syncScheduleDays: 'Dias da semana',
@@ -235,6 +236,7 @@ const I18N = {
     syncScheduleSaved: 'Agendamento salvo.',
     appTitle: 'Aplicativo',
     systemTitle: 'Sistema',
+    telegramChannel: 'Canal do Telegram',
     // history
     historyTab: 'Histórico',
     historyTitle: 'Histórico de postagens',
@@ -440,11 +442,11 @@ const I18N = {
     aiCreativityDefault: 'Default',
     aiCreativityCreative: 'Creative',
     // weekly schedule
-    weeklySchedule: 'Weekly schedule',
-    weeklyScheduleCaption: 'Configure times, cycles and types per day',
-    dailySchedule: 'Daily schedule',
+    weeklySchedule: 'Global default',
+    weeklyScheduleCaption: 'Configure time, cycles and types per weekday',
+    dailySchedule: 'Per weekday',
     allWeekdays: 'All days',
-    configureAllWeekdays: 'Configure all days',
+    configureAllWeekdays: 'All days',
     configureDay: 'Configure',
     dayDetail: 'Day configuration',
     cyclesToday: 'Allowed cycles',
@@ -460,11 +462,12 @@ const I18N = {
     // home sections
     overviewTitle: 'Overview',
     actionsTitle: 'Posting',
+    manageTitle: 'Management',
     configTitle: 'Settings',
     databaseTitle: 'Database',
     databaseTab: 'Database',
-    databaseStatus: 'Status',
-    syncSchedule: 'Sync schedule',
+    databaseStatus: 'Database status',
+    syncSchedule: 'Auto sync',
     syncScheduleEnabled: 'Auto sync',
     syncScheduleEnabledCaption: 'Automatically sync the database',
     syncScheduleDays: 'Weekdays',
@@ -472,6 +475,7 @@ const I18N = {
     syncScheduleSaved: 'Schedule saved.',
     appTitle: 'App',
     systemTitle: 'System',
+    telegramChannel: 'Telegram channel',
     // history
     historyTab: 'History',
     historyTitle: 'Posting history',
@@ -1700,29 +1704,25 @@ function App() {
         <>
           <Section title={copy.overviewTitle}>
             <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
-            <Row icon="cards" label={copy.cards} value={`${cardsValue} / ${overview?.counts?.posted_cards ?? '-'}`} />
-            <Row icon="queue" label={copy.queue} value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
+            <Row icon="cards"  label={copy.cards}  value={`${cardsValue} / ${overview?.counts?.posted_cards ?? '-'}`} />
+            <Row icon="queue"  label={copy.queue}  value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} onClick={() => setActiveTab('queue')} />
           </Section>
 
           <Section title={copy.actionsTitle}>
-            <Row icon="send"     label={copy.postCard}   onClick={() => setActiveTab('post')} />
-            <Row icon="clock"    label={copy.historyTab} onClick={() => setActiveTab('history')} />
-            <Row icon="settings" label={copy.settings}   onClick={() => setActiveTab('settings')} />
-            <Row icon="ai"       label={copy.aiTab}      onClick={() => setActiveTab('ai')} />
+            <Row icon="send"  label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="clock" label={copy.historyTab} onClick={() => setActiveTab('history')} />
           </Section>
 
-          <Section title={copy.databaseTitle}>
+          <Section title={copy.manageTitle}>
+            <Row icon="settings" label={copy.settings}    onClick={() => setActiveTab('settings')} />
+            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
             <Row icon="database" label={copy.databaseTab} onClick={() => setActiveTab('database')} />
           </Section>
 
-          <Section title={copy.appTitle}>
-            <Row icon="language" label={copy.chooseLanguage} onClick={() => setActiveTab('language')} value={copy.langName} />
-          </Section>
-
           <Section title={copy.systemTitle}>
-            <Row icon="wrench"   label={copy.maintenance} onClick={() => setActiveTab('maintenance')} />
-            <Row icon="queue"    label={copy.queue}       onClick={() => setActiveTab('queue')}   value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} />
-            <Row icon="server"   label={copy.health}      onClick={() => setActiveTab('health')}  value={workerValue} badgeTone={workerTone} />
+            <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
+            <Row icon="server"   label={copy.health}       onClick={() => setActiveTab('health')} value={workerValue} badgeTone={workerTone} />
+            <Row icon="language" label={copy.chooseLanguage} onClick={() => setActiveTab('language')} value={copy.langName} />
           </Section>
         </>
       )}
@@ -1821,7 +1821,7 @@ function App() {
           </Section>
 
           {/* Chat ID */}
-          <Section title={copy.telegramChatIdLabel}>
+          <Section title={copy.telegramChannel}>
             <ChatIdInputRow
               value={settings.telegram_chat_id}
               onChange={(v) => updateSetting('telegram_chat_id', v)}
@@ -1874,29 +1874,6 @@ function App() {
                   })}
                 </Section>
               </>
-            );
-          })()}
-
-          {/* AI automatic messages */}
-          {settings.ai_enabled && (() => {
-            const lang = language === 'pt' ? 'pt' : 'en';
-            return (
-              <Section title={copy.aiMessagesSection}>
-                <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
-                {settings.ai_pre_message_enabled && <>
-                  <p className="section-note">{copy.aiPreMessageCaption}</p>
-                  <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
-                    {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
-                  </SelectRow>
-                </>}
-                <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
-                {settings.ai_post_question_enabled && <>
-                  <p className="section-note">{copy.aiPostQuestionCaption}</p>
-                  <SelectRow label={copy.aiPostQuestionDelay} value={String(settings.ai_post_question_delay_seconds)} onChange={(v) => updateSetting('ai_post_question_delay_seconds', Number(v))}>
-                    {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
-                  </SelectRow>
-                </>}
-              </Section>
             );
           })()}
 
@@ -2038,7 +2015,6 @@ function App() {
             <Section title={copy.postTimes}>
               <div className="time-add-row" style={{ paddingTop: 8 }}>
                 <Icon name="clock" />
-                <span className="row-label" style={{ marginRight: 8 }}>{copy.syncScheduleTime}</span>
                 <input
                   className="time-add-input"
                   type="time"
