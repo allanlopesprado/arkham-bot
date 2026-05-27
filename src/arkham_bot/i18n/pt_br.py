@@ -160,7 +160,7 @@ strings: dict = {
     "stat_xp": "XP",
     "stat_slot": "Slot",
     "stat_skills": "Skills",
-    "stat_deck": "Deck",
+    "stat_deck": "🃏 Deck",
     "stat_bonded": "Bonded",
     "stat_fight": "Fight",
     "stat_evade": "Evade",
