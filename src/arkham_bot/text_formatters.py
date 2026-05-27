@@ -222,7 +222,7 @@ def _build_stats_lines(card: dict) -> list[str]:
 
         skills = _fmt_skills_text(card)
         if skills:
-            lines.append(f"<b>Skills:</b> {skills}")
+            lines.append(f"🎯 <b>Skills:</b> {skills}")
 
         dl = card.get('deck_limit')
         if dl is not None and dl != 2:
