@@ -197,8 +197,11 @@ input, select { outline: none; }
   background: var(--bg2);
   border: 1px solid var(--sep);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
 }
+.card > *:first-child { border-radius: 12px 12px 0 0; overflow: hidden; }
+.card > *:last-child  { border-radius: 0 0 12px 12px; overflow: hidden; }
+.card > *:only-child  { border-radius: 12px; overflow: hidden; }
 
 /* ── Base Row ─────────────────────────────────────────────────────────────── */
 
