@@ -171,5 +171,3 @@ async def bot_commands_loop() -> None:
             raise
 
 
-def start_bot_commands_worker(application) -> None:
-    application.create_task(bot_commands_loop(), name="bot-commands-worker")

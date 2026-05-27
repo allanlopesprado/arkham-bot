@@ -191,12 +191,25 @@ async def daily_scheduler_loop() -> None:
             raise
 
 
-def start_daily_scheduler(application) -> None:
-    application.create_task(daily_scheduler_loop(), name="daily-card-scheduler")
+_background_tasks: list[asyncio.Task] = []
+
+
+async def start_daily_scheduler(application) -> None:
+    loop = asyncio.get_running_loop()
+    _background_tasks.append(loop.create_task(daily_scheduler_loop(), name="daily-card-scheduler"))
     if BOT_COMMANDS_POLLING_ENABLED:
         try:
-            from ..handlers.command_worker import start_bot_commands_worker
+            from ..handlers.command_worker import bot_commands_loop
 
-            start_bot_commands_worker(application)
+            _background_tasks.append(loop.create_task(bot_commands_loop(), name="bot-commands-worker"))
         except Exception as exc:
             logger.warning(f"bot_commands_worker_not_started: {exc}")
+
+
+async def stop_daily_scheduler(application) -> None:
+    for task in _background_tasks:
+        task.cancel()
+    if _background_tasks:
+        await asyncio.gather(*_background_tasks, return_exceptions=True)
+    _background_tasks.clear()
+    logger.info("scheduler_stopped_cleanly")

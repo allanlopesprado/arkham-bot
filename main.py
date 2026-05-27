@@ -41,7 +41,7 @@ async def interactive_post_init(application):
         BotCommand("status",    "Status do bot"),
     ])
     await bot_started_message(application)
-    start_daily_scheduler(application)
+    await start_daily_scheduler(application)
 
 
 def run_interactive_bot():
@@ -55,7 +55,8 @@ def run_interactive_bot():
         logger.critical("Telegram token not configured for interactive mode.")
         return
 
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).post_init(interactive_post_init).build()
+    from arkham_bot.services.scheduler import stop_daily_scheduler
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).post_init(interactive_post_init).post_shutdown(stop_daily_scheduler).build()
     register_handlers(application)
 
     logger.info("Starting polling...")
