@@ -903,10 +903,26 @@ function DangerRow({ icon, label, onClick, disabled, loading }) {
   );
 }
 
-function ToggleRow({ label, checked, onChange, disabled = false }) {
+function InfoTooltip({ text }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <span className="info-tooltip-wrap">
+      <button
+        className="info-btn"
+        type="button"
+        aria-label="info"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); haptic('selection'); setOpen((o) => !o); }}
+      >ⓘ</button>
+      {open && <span className="info-tooltip">{text}</span>}
+    </span>
+  );
+}
+
+function ToggleRow({ label, checked, onChange, disabled = false, info }) {
   return (
     <label className="toggle-row">
       <span className="row-label">{label}</span>
+      {info && <InfoTooltip text={info} />}
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => { haptic('selection'); onChange(e.target.checked); }} />
       <span className="toggle" aria-hidden="true" />
     </label>
@@ -1842,7 +1858,7 @@ function App() {
 
           {/* Card filter */}
           <Section title={copy.cardFilter}>
-            <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
+            <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} info={copy.includeSpoilersCaption} />
           </Section>
 
           {/* Weekly schedule */}
