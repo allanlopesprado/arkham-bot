@@ -30,7 +30,7 @@ SLOT_ICONS_MAP = {
     'Hand x2': '🤚🏻🤚🏻',
     'Arcane': '🔮',
     'Arcane x2': '🔮🔮',
-    'Ally': '👥',
+    'Ally': '🤝',
     'Body': '🧥',
     'Accessory': '💎',
     'Tarot': '🃏',
@@ -105,7 +105,7 @@ def _slot_display(slot_raw: str) -> str:
     if not slot_raw:
         return ""
     icon = SLOT_ICONS_MAP.get(slot_raw, '🎴')
-    return f"{icon} {slot_raw}"
+    return f"Slot: {icon} {slot_raw}"
 
 
 def _exceptional_tag(card: dict) -> str:
@@ -288,9 +288,6 @@ def format_card_caption(card, is_interactive=False):
         slot_disp = _slot_display(slot_raw)
         if slot_disp:
             parts.append(slot_disp)
-        skill = skill_test_display(card)
-        if skill:
-            parts.append(skill)
         lines.append(" | ".join(parts))
 
         health = card.get('health')
@@ -307,9 +304,6 @@ def format_card_caption(card, is_interactive=False):
         parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
             parts.append(f"⭐️ XP: {xp}")
-        skill = skill_test_display(card)
-        if skill:
-            parts.append(skill)
         lines.append(" | ".join(parts))
         dl = _deck_limit_display(card.get('deck_limit'))
         if dl:
