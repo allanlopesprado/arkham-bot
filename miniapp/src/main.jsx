@@ -1152,7 +1152,6 @@ function App() {
   const [historyError, setHistoryError] = useState(null);
   const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [historyHasMore, setHistoryHasMore] = useState(false);
-  // Explicit "all days" mode — never derived from daily_post_days length
   const [allDaysMode, setAllDaysMode] = useState(false);
   const [savedAllDaysMode, setSavedAllDaysMode] = useState(false);
 
@@ -1466,6 +1465,9 @@ function App() {
     const n = normalizeSettings(next);
     setSettings(n);
     setSavedSettings(n);
+    const allSelected = WEEKDAYS.every((d) => n.daily_post_days.includes(d.code));
+    setAllDaysMode(allSelected);
+    setSavedAllDaysMode(allSelected);
   }
 
   function updateSetting(key, value) {
