@@ -801,27 +801,27 @@ def _taboo_category(entry: dict) -> str:
 
 
 TABOO_CATEGORIES = {
-    'forbidden':   ('🚫', 'Banned'),
-    'xp_up':       ('⬆️', '+XP (more expensive)'),
-    'xp_down':     ('⬇️', '−XP (cheaper)'),
-    'exceptional': ('⭐', 'Exceptional'),
-    'errata':      ('📝', 'Text errata'),
-    'other':       ('⚠️', 'Other restrictions'),
+    'forbidden':   ('', 'Banned'),
+    'xp_up':       ('', '+XP (more expensive)'),
+    'xp_down':     ('', '−XP (cheaper)'),
+    'exceptional': ('', 'Exceptional'),
+    'errata':      ('', 'Text errata'),
+    'other':       ('', 'Other restrictions'),
 }
 
 
 def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict) -> tuple[str, InlineKeyboardMarkup]:
     """Builds the taboo list selection message and buttons."""
     sorted_lists = sorted(taboos, key=lambda t: t.get('date_start', ''), reverse=True)
-    lines = ["📋 <b>Taboo Lists</b>", "Select a list to explore:\n"]
+    lines = ["<b>Taboo Lists</b>", "Select a list to explore:\n"]
     buttons = []
     for i, t in enumerate(sorted_lists):
         raw = t.get('date_start', '')[:10]
         date = f"{raw[8:10]}/{raw[5:7]}/{raw[:4]}" if len(raw) == 10 else raw
         tid = t.get('id', i)
-        label = f"{'✅ ' if i == 0 else ''}{date}"
+        label = f"{'[current] ' if i == 0 else ''}{date}"
         buttons.append([InlineKeyboardButton(label, callback_data=f"TABOO_LIST_{tid}")])
-    buttons.append([InlineKeyboardButton("❌ Close", callback_data=CALLBACK_CANCEL)])
+    buttons.append([InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL)])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
@@ -831,19 +831,19 @@ def _taboo_detail_text_and_buttons(taboo: dict, cats: dict) -> tuple[str, Inline
     date_str = f"{raw_date[8:10]}/{raw_date[5:7]}/{raw_date[:4]}" if len(raw_date) == 10 else raw_date
     total = sum(len(v) for v in cats.values())
     tid = taboo.get('id', '')
-    lines = [f"📋 <b>Taboo — {date_str}</b>", f"{total} card(s) affected\n"]
+    lines = [f"<b>Taboo — {date_str}</b>", f"{total} card(s) affected\n"]
     for cat_key, (icon, label) in TABOO_CATEGORIES.items():
         count = len(cats.get(cat_key, []))
         if count:
-            lines.append(f"{icon} {label}: <b>{count}</b>")
+            lines.append(f"{label}: <b>{count}</b>")
     buttons = []
     for cat_key, (icon, label) in TABOO_CATEGORIES.items():
         count = len(cats.get(cat_key, []))
         if count:
-            buttons.append([InlineKeyboardButton(f"{icon} {label} ({count})", callback_data=f"TABOO_CAT_{cat_key}_0")])
+            buttons.append([InlineKeyboardButton(f"{label} ({count})", callback_data=f"TABOO_CAT_{cat_key}_0")])
     buttons.append([
-        InlineKeyboardButton("↩️ Lists", callback_data="TABOO_LISTS"),
-        InlineKeyboardButton("❌ Close", callback_data=CALLBACK_CANCEL),
+        InlineKeyboardButton("Lists", callback_data="TABOO_LISTS"),
+        InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL),
     ])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
@@ -942,7 +942,7 @@ async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dic
 
     if card:
         caption, is_spoiler = _spoiler_caption(card)
-        taboo_block = f"\n\n⚠️ <b>Taboo:</b> {escape(restriction)}"
+        taboo_block = f"\n\n<b>Taboo:</b> {escape(restriction)}"
         if text_note:
             taboo_block += f"\n<i>{escape(text_note)}</i>"
         caption = caption + taboo_block
@@ -955,7 +955,7 @@ async def _send_taboo_card(update: Update, code: str, entry: dict, name_map: dic
             else:
                 await target.reply_text(caption, parse_mode=ParseMode.HTML)
     else:
-        text = f"<b>{escape(name)}</b> (<code>{code}</code>)\n⚠️ <b>Taboo:</b> {escape(restriction)}"
+        text = f"<b>{escape(name)}</b> (<code>{code}</code>)\n<b>Taboo:</b> {escape(restriction)}"
         if text_note:
             text += f"\n<i>{escape(text_note)}</i>"
         target = update.message or (update.callback_query.message if update.callback_query else None)
@@ -973,7 +973,7 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     cats = context.bot_data.get('taboo_cats', {})
     name_map = context.bot_data.get('taboo_name_map', {})
     entries = cats.get(cat_key, [])
-    icon, label = TABOO_CATEGORIES.get(cat_key, ('⚠️', cat_key))
+    icon, label = TABOO_CATEGORIES.get(cat_key, ('', cat_key))
 
     PAGE = 10
     total = len(entries)
@@ -992,10 +992,10 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
 
     has_prev = page > 0
     has_next = page < total_pages - 1
-    btn_prev = InlineKeyboardButton("⬅️ Previous", callback_data=f"TABOO_CAT_{cat_key}_{page-1}")
-    btn_next = InlineKeyboardButton("➡️ Próximo", callback_data=f"TABOO_CAT_{cat_key}_{page+1}")
-    btn_back = InlineKeyboardButton("↩️ Back", callback_data="TABOO_BACK")
-    btn_close = InlineKeyboardButton("❌ Close", callback_data=CALLBACK_CANCEL)
+    btn_prev = InlineKeyboardButton("Previous", callback_data=f"TABOO_CAT_{cat_key}_{page-1}")
+    btn_next = InlineKeyboardButton("Next", callback_data=f"TABOO_CAT_{cat_key}_{page+1}")
+    btn_back = InlineKeyboardButton("Back", callback_data="TABOO_BACK")
+    btn_close = InlineKeyboardButton("Close", callback_data=CALLBACK_CANCEL)
     if has_prev and has_next:
         buttons.append([btn_prev, btn_close, btn_next])
     elif has_prev:
@@ -1005,7 +1005,7 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     else:
         buttons.append([btn_back, btn_close])
 
-    text = f"{icon} <b>{label}</b> — {total} card(s) — page {page+1}/{total_pages}:"
+    text = f"<b>{label}</b> — {total} card(s) — page {page+1}/{total_pages}:"
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(buttons))
 
 
