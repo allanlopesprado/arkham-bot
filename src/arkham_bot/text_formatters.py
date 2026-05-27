@@ -97,7 +97,7 @@ def _fmt_cost(card: dict) -> str:
     if cost == -2:
         return 'X'
     if cost is None:
-        return 'Permanent' if card.get('permanent') else '-'
+        return '—'
     return str(cost)
 
 
@@ -285,6 +285,8 @@ def format_card_caption(card, is_interactive=False):
         cost_parts = [f"💰 Cost: {_fmt_cost(card)}"]
         if xp:
             cost_parts.append(f"⭐️ XP: {xp}")
+        if card.get('permanent'):
+            cost_parts.append("Permanent")
         lines.append(" | ".join(cost_parts))
 
         health = card.get('health')
