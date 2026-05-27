@@ -356,6 +356,24 @@ function validateSettingsPatch(body) {
   return { settings };
 }
 
+async function requireAuth(request, env, ao, path) {
+  const initData = request.headers.get('x-telegram-init-data') || '';
+  safeLog({
+    path,
+    method: request.method,
+    initData_present: Boolean(initData),
+    initData_length: initData.length,
+    telegram_user_id_present: null,
+    admin: null,
+    status: null,
+  });
+  const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
+  if (!user) {
+    return { response: withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao) };
+  }
+  return { user };
+}
+
 async function requireAdmin(request, env, ao, path) {
   const initData = request.headers.get('x-telegram-init-data') || '';
   safeLog({
@@ -614,7 +632,14 @@ async function handleBotInfo(env, ao) {
   }
 }
 
+const _packsCache = { payload: null, ts: 0 };
+const PACKS_CACHE_TTL_MS = 3_600_000; // 1 hour
+
 async function handleGetPacks(_env, ao) {
+  const now = Date.now();
+  if (_packsCache.payload && now - _packsCache.ts < PACKS_CACHE_TTL_MS) {
+    return withCors(jsonResponse(_packsCache.payload), ao);
+  }
   try {
     const resp = await fetch('https://arkhamdb.com/api/public/packs/', {
       headers: { 'Accept': 'application/json' },
@@ -631,7 +656,9 @@ async function handleGetPacks(_env, ao) {
         total: p.total ?? 0,
       }))
       .sort((a, b) => (a.cycle_position ?? 99) - (b.cycle_position ?? 99) || (a.position ?? 99) - (b.position ?? 99));
-    return withCors(jsonResponse({ ok: true, packs }), ao);
+    _packsCache.payload = { ok: true, packs };
+    _packsCache.ts = now;
+    return withCors(jsonResponse(_packsCache.payload), ao);
   } catch (err) {
     return withCors(jsonResponse({ error: 'packs_fetch_failed', detail: String(err) }, 500), ao);
   }
@@ -874,26 +901,15 @@ export default {
     }
 
     if (pathname === '/status' && request.method === 'GET') {
-      const initData = request.headers.get('x-telegram-init-data') || '';
-      safeLog({
-        path: '/status',
-        method: 'GET',
-        initData_present: Boolean(initData),
-        initData_length: initData.length,
-        telegram_user_id_present: null,
-        admin: null,
-        status: 200,
-      });
-      const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
-      if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
+      const auth = await requireAuth(request, env, ao, '/status');
+      if (auth.response) return auth.response;
       return handleStatus(request, env, ao);
     }
 
     if (pathname === '/me' && request.method === 'GET') {
-      const initData = request.headers.get('x-telegram-init-data') || '';
-      const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
-      if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
-      return handleMe(request, env, user, ao);
+      const auth = await requireAuth(request, env, ao, '/me');
+      if (auth.response) return auth.response;
+      return handleMe(request, env, auth.user, ao);
     }
 
     if (pathname === '/overview' && request.method === 'GET') {
@@ -947,19 +963,9 @@ export default {
     }
 
     if ((pathname === '/bot-command' || pathname === '/') && request.method === 'POST') {
-      const initData = request.headers.get('x-telegram-init-data') || '';
-      safeLog({
-        path: pathname,
-        method: 'POST',
-        initData_present: Boolean(initData),
-        initData_length: initData.length,
-        telegram_user_id_present: null,
-        admin: null,
-        status: null,
-      });
-      const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
-      if (!user) return withCors(jsonResponse({ error: 'invalid_telegram_init_data' }, 401), ao);
-      return handleBotCommand(request, env, user, ao);
+      const auth = await requireAuth(request, env, ao, pathname);
+      if (auth.response) return auth.response;
+      return handleBotCommand(request, env, auth.user, ao);
     }
 
     if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/' || pathname === '/history') {
