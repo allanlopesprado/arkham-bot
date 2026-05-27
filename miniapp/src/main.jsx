@@ -239,7 +239,7 @@ const I18N = {
     // history
     historyTab: 'Histórico',
     historyTitle: 'Histórico de postagens',
-    postedCardsCount: 'Cartas postadas no ciclo',
+    postsOnDate: (n, date) => date ? `${n} postagem${n !== 1 ? 's' : ''} em ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}` : `${n} postagem${n !== 1 ? 's' : ''} recente${n !== 1 ? 's' : ''}`,
     noHistory: 'Nenhuma postagem recente',
     historyDateFilter: 'Data',
     clearFilter: 'Limpar filtros',
@@ -481,7 +481,7 @@ const I18N = {
     // history
     historyTab: 'History',
     historyTitle: 'Posting history',
-    postedCardsCount: 'Cards posted in cycle',
+    postsOnDate: (n, date) => date ? `${n} post${n !== 1 ? 's' : ''} on ${new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : `${n} recent post${n !== 1 ? 's' : ''}`,
     noHistory: 'No recent posts',
     historyDateFilter: 'Date',
     clearFilter: 'Clear filters',
@@ -2114,7 +2114,7 @@ function App() {
             </div>
           </Section>
 
-          <Section footer={`${copy.postedCardsCount}: ${overview?.counts?.posted_cards ?? '—'}`}>
+          <Section footer={!historyLoadingState && !historyError ? copy.postsOnDate(historyItems.length, historyDate) : undefined}>
             {historyError && <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />}
             {!historyLoadingState && !historyError && historyItems.length === 0 && (
               <Row icon="cards" label={copy.noHistory} />
