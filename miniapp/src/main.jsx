@@ -1184,11 +1184,7 @@ function App() {
     app.onEvent?.('safeAreaChanged', () => {});
     app.onEvent?.('contentSafeAreaChanged', () => {});
 
-    // Fullscreen is not supported on Telegram Desktop — exit immediately if activated
-    const desktopPlatforms = ['tdesktop', 'weba', 'webk', 'macos'];
-    if (desktopPlatforms.includes(app.platform)) {
-      try { app.exitFullscreen?.(); } catch {}
-    }
+    // Exit fullscreen if the platform doesn't support it (UNSUPPORTED error from Telegram)
     app.onEvent?.('fullscreenFailed', () => { try { app.exitFullscreen?.(); } catch {} });
 
     // SettingsButton in Telegram header → jump to settings tab
