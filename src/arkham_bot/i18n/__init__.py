@@ -1,9 +1,12 @@
-from .strings import EN, PT
+from . import en, pt
 
-_SUPPORTED = {"en-US": EN, "pt-BR": PT}
+_SUPPORTED = {
+    "en-US": en.strings,
+    "pt-BR": pt.strings,
+}
 
 
-def get_strings(lang: str | None = None) -> dict[str, str]:
+def get_strings(lang: str | None = None) -> dict:
     """
     Returns the string dictionary for the given language code.
     Falls back to English if the language is not supported or not provided.
@@ -15,4 +18,4 @@ def get_strings(lang: str | None = None) -> dict[str, str]:
             lang = str(get_setting("ai_language", "en-US") or "en-US")
         except Exception:
             lang = "en-US"
-    return _SUPPORTED.get(lang, EN)
+    return _SUPPORTED.get(lang, en.strings)
