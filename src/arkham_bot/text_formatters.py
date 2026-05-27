@@ -43,6 +43,29 @@ SLOT_ICONS_MAP = {
     'Arcane. Accessory': '🔮💎',
 }
 
+SLOT_TEXT_MAP = {
+    'Hand': 'Hand', 'Hand x2': 'Hand x2',
+    'Arcane': 'Arcane', 'Arcane x2': 'Arcane x2',
+    'Ally': 'Ally', 'Body': 'Body',
+    'Accessory': 'Accessory', 'Tarot': 'Tarot', 'Head': 'Head',
+    'Hand. Arcane': 'Hand + Arcane',
+    'Hand x2. Arcane': 'Hand x2 + Arcane',
+    'Ally. Arcane': 'Ally + Arcane',
+    'Body. Hand x2': 'Body + Hand x2',
+    'Body. Arcane': 'Body + Arcane',
+    'Arcane. Accessory': 'Arcane + Accessory',
+}
+
+SKILL_NAMES_STATS = {
+    'skill_willpower': 'Will',
+    'skill_intellect': 'Intellect',
+    'skill_combat': 'Combat',
+    'skill_agility': 'Agility',
+    'skill_wild': 'Wild',
+}
+
+_ENCOUNTER_FACTION = {'mythos'}
+
 FACTION_ICONS_MAP = {
     'Guardian': '🔵', 'Seeker': '🟡', 'Rogue': '🟢',
     'Mystic': '🟣', 'Survivor': '🔴',
@@ -59,53 +82,8 @@ def _e(text: str) -> str:
     return html.escape(str(text)) if text else ""
 
 
-def format_factions_display(card):
-    factions = []
-
-    for key in ('faction_name', 'faction2_name', 'faction3_name'):
-        f = card.get(key)
-        if f and f not in factions:
-            factions.append(f)
-
-    if len(factions) > 1:
-        factions = [f for f in factions if f.lower() != 'neutral']
-
-    factions = list(dict.fromkeys(factions))
-
-    if not factions:
-        return ""
-
-    return " / ".join(f"{FACTION_ICONS_MAP.get(f, '⚪')} {f}" for f in factions)
-
-
-def skill_test_display(card):
-    test_icons = []
-    for skill_key, icon in SKILL_ICONS.items():
-        count = card.get(skill_key) or 0
-        if count > 0:
-            test_icons.extend([icon] * count)
-    return ' '.join(test_icons)
-
-
 def _fmt_stat(value, fallback: str = '-') -> str:
-    """Returns value as string, or fallback if None."""
     return str(value) if value is not None else fallback
-
-
-def _fmt_cost(card: dict) -> str:
-    cost = card.get('cost')
-    if cost == -2:
-        return 'X'
-    if cost is None:
-        return '-'
-    return str(cost)
-
-
-def _slot_display(slot_raw: str) -> str:
-    if not slot_raw:
-        return ""
-    icon = SLOT_ICONS_MAP.get(slot_raw, slot_raw)
-    return f"Slot: {icon}"
 
 
 def _exceptional_tag(card: dict) -> str:
@@ -114,14 +92,178 @@ def _exceptional_tag(card: dict) -> str:
     return ''
 
 
+def _fmt_faction_stats(card: dict) -> str:
+    """Plain text faction line for stats block. Empty for mythos/encounter cards."""
+    factions = []
+    for key in ('faction_name', 'faction2_name', 'faction3_name'):
+        f = card.get(key)
+        if f and f not in factions:
+            factions.append(f)
+    if len(factions) > 1:
+        factions = [f for f in factions if f.lower() != 'neutral']
+    factions = list(dict.fromkeys(factions))
+    if not factions or all(f.lower() in _ENCOUNTER_FACTION for f in factions):
+        return ''
+    return ' / '.join(factions)
 
-def _deck_limit_display(deck_limit) -> str:
-    """Return deck limit string only when meaningful - not None, not the default of 2."""
-    if deck_limit is None or deck_limit == 2:
-        return ""
-    if deck_limit == 0:
-        return "🚫 Deck: 0"
-    return f"Deck: {deck_limit}"
+
+def _fmt_skills_text(card: dict) -> str:
+    """Returns 'Intellect x2. Agility x1.' or empty string."""
+    parts = []
+    for key, name in SKILL_NAMES_STATS.items():
+        v = card.get(key)
+        if v and v > 0:
+            parts.append(f'{name} x{v}')
+    return '. '.join(parts) + '.' if parts else ''
+
+
+def _fmt_slot_text(card: dict) -> str:
+    slot_raw = card.get('slot', '') or ''
+    return SLOT_TEXT_MAP.get(slot_raw, slot_raw)
+
+
+def _fmt_cost_stat(card: dict) -> str | None:
+    """Returns cost string or None if cost is absent (permanent/bonded)."""
+    cost = card.get('cost')
+    if cost is None:
+        return None
+    if cost == -2:
+        return 'X'
+    return str(cost)
+
+
+def _build_stats_lines(card: dict) -> list[str]:
+    """Returns stat lines for the stats block of a card caption."""
+    lines = []
+    tc = card.get('type_code', '')
+
+    faction = _fmt_faction_stats(card)
+    if faction:
+        exceptional = _exceptional_tag(card)
+        faction_line = faction
+        if exceptional:
+            faction_line += f' | {exceptional}'
+        lines.append(faction_line)
+
+    if tc == 'investigator':
+        is_mini = (
+            card.get('faction_code', '').lower() == 'neutral' and
+            card.get('skill_willpower') is None
+        )
+        if not is_mini:
+            lines.append(
+                f"<b>Will:</b> {_fmt_stat(card.get('skill_willpower'))}. "
+                f"<b>Int:</b> {_fmt_stat(card.get('skill_intellect'))}. "
+                f"<b>Combat:</b> {_fmt_stat(card.get('skill_combat'))}. "
+                f"<b>Agi:</b> {_fmt_stat(card.get('skill_agility'))}."
+            )
+            lines.append(
+                f"<b>Health:</b> {_fmt_stat(card.get('health'))}. "
+                f"<b>Sanity:</b> {_fmt_stat(card.get('sanity'))}."
+            )
+        xp = card.get('xp')
+        if xp:
+            lines.append(f"<b>XP:</b> {xp}.")
+
+    elif tc in ('asset', 'event', 'skill'):
+        cost = _fmt_cost_stat(card)
+        xp = card.get('xp')
+        meta_flags = []
+        if card.get('permanent'):
+            meta_flags.append('Permanent.')
+        if card.get('myriad'):
+            meta_flags.append('Myriad.')
+        if card.get('exile'):
+            meta_flags.append('Exile.')
+
+        cost_parts = []
+        if cost is not None:
+            cost_parts.append(f"<b>Cost:</b> {cost}.")
+        if xp:
+            cost_parts.append(f"<b>XP:</b> {xp}.")
+        if meta_flags:
+            cost_parts.append(' '.join(meta_flags))
+        if cost_parts:
+            lines.append(' '.join(cost_parts))
+
+        slot = _fmt_slot_text(card)
+        if slot:
+            lines.append(f"<b>Slot:</b> {slot}.")
+
+        health = card.get('health')
+        sanity = card.get('sanity')
+        if health is not None or sanity is not None:
+            lines.append(
+                f"<b>Health:</b> {_fmt_stat(health, '0')}. "
+                f"<b>Sanity:</b> {_fmt_stat(sanity, '0')}."
+            )
+
+        skills = _fmt_skills_text(card)
+        if skills:
+            lines.append(f"<b>Skills:</b> {skills}")
+
+        dl = card.get('deck_limit')
+        if dl is not None and dl != 2:
+            lines.append(f"<b>Deck:</b> {dl}.")
+
+        bonded = card.get('bonded_to')
+        if bonded:
+            lines.append(f"<b>Bonded:</b> {_e(bonded)}.")
+
+    elif tc in ('enemy', 'enemy_location'):
+        hp_suffix = ' (x inv.)' if card.get('health_per_investigator') else ''
+        lines.append(
+            f"<b>Fight:</b> {_fmt_stat(card.get('enemy_fight'))}. "
+            f"<b>Health:</b> {_fmt_stat(card.get('health'))}{hp_suffix}. "
+            f"<b>Evade:</b> {_fmt_stat(card.get('enemy_evade'))}."
+        )
+        lines.append(
+            f"<b>Damage:</b> {_fmt_stat(card.get('enemy_damage'))}. "
+            f"<b>Horror:</b> {_fmt_stat(card.get('enemy_horror'))}."
+        )
+        if tc == 'enemy_location':
+            cl_suf = '' if card.get('clues_fixed') else ' (x inv.)'
+            lines.append(
+                f"<b>Shroud:</b> {_fmt_stat(card.get('shroud'))}. "
+                f"<b>Clues:</b> {_fmt_stat(card.get('clues'))}{cl_suf}."
+            )
+
+    elif tc == 'location':
+        cl_suf = '' if card.get('clues_fixed') else ' (x inv.)'
+        lines.append(
+            f"<b>Shroud:</b> {_fmt_stat(card.get('shroud'))}. "
+            f"<b>Clues:</b> {_fmt_stat(card.get('clues'))}{cl_suf}."
+        )
+
+    elif tc == 'act':
+        parts = []
+        if card.get('stage') is not None:
+            parts.append(f"<b>Stage:</b> {card['stage']}.")
+        if card.get('clues') is not None:
+            parts.append(f"<b>Clues:</b> {card['clues']}.")
+        if parts:
+            lines.append(' '.join(parts))
+
+    elif tc == 'agenda':
+        parts = []
+        if card.get('stage') is not None:
+            parts.append(f"<b>Stage:</b> {card['stage']}.")
+        if card.get('doom') is not None:
+            parts.append(f"<b>Doom:</b> {card['doom']}.")
+        if parts:
+            lines.append(' '.join(parts))
+
+    elif tc == 'key':
+        linked = card.get('linked_to_name') or card.get('linked_to_code')
+        if linked:
+            lines.append(f"<b>Linked to:</b> {_e(linked)}.")
+
+    elif tc in ('scenario', 'story'):
+        encounter_name = card.get('encounter_name', '')
+        if encounter_name:
+            lines.append(f"📖 {_e(encounter_name)}")
+
+    return lines
 
 def clean_and_format_text(text_raw, is_flavor=False):
     if not text_raw:
@@ -254,146 +396,13 @@ def format_card_caption(card, is_interactive=False):
 
     lines.append("")
 
-    faction_display = format_factions_display(card)
-    exceptional = _exceptional_tag(card)
-    faction_line = ' | '.join(filter(None, [faction_display, exceptional]))
-    if faction_line:
-        lines.append(faction_line)
-
     # --- Stats per type ---
-
-    if tc == 'investigator':
-        is_mini = (
-            card.get('faction_code', '').lower() == 'neutral' and
-            card.get('skill_willpower') is None
-        )
-        if not is_mini:
-            lines.append(
-                f"👤 {_fmt_stat(card.get('skill_willpower'))} | "
-                f"📖 {_fmt_stat(card.get('skill_intellect'))} | "
-                f"✊🏻 {_fmt_stat(card.get('skill_combat'))} | "
-                f"🦶🏻 {_fmt_stat(card.get('skill_agility'))}"
-            )
-            lines.append(f"❤️ Health: {_fmt_stat(card.get('health'))} | 🧠 Sanity: {_fmt_stat(card.get('sanity'))}")
-        xp = card.get('xp')
-        if xp:
-            lines.append(f"⭐️ XP: {xp}")
-
-    elif tc == 'asset':
-        xp = card.get('xp')
-        slot_raw = card.get('slot', '')
-        cost_parts = [f"💰 Cost: {_fmt_cost(card)}"]
-        if xp:
-            cost_parts.append(f"⭐️ XP: {xp}")
-        lines.append(" | ".join(cost_parts))
-
-        health = card.get('health')
-        sanity = card.get('sanity')
-        slot_disp = _slot_display(slot_raw)
-        skill = skill_test_display(card)
-
-        hs_parts = []
-        if health is not None or sanity is not None:
-            hs_parts.append(f"❤️ Health: {_fmt_stat(health, '0')} | 🧠 Sanity: {_fmt_stat(sanity, '0')}")
-        if slot_disp:
-            hs_parts.append(slot_disp)
-        if hs_parts:
-            lines.append(" | ".join(hs_parts))
-
-        if skill:
-            lines.append(f"Skills: {skill}")
-
-        dl = _deck_limit_display(card.get('deck_limit'))
-        if dl:
-            lines.append(dl)
-
-    elif tc == 'event':
-        xp = card.get('xp')
-        parts = [f"💰 Cost: {_fmt_cost(card)}"]
-        if xp:
-            parts.append(f"⭐️ XP: {xp}")
-        lines.append(" | ".join(parts))
-        dl = _deck_limit_display(card.get('deck_limit'))
-        if dl:
-            lines.append(dl)
-
-    elif tc == 'skill':
-        xp = card.get('xp')
-        if xp:
-            lines.append(f"⭐️ XP: {xp}")
-        skill = skill_test_display(card)
-        if skill:
-            lines.append(f"Skills: {skill}")
-        dl = _deck_limit_display(card.get('deck_limit'))
-        if dl:
-            lines.append(dl)
-
-    elif tc in ('enemy', 'enemy_location'):
-        fight = card.get('enemy_fight')
-        health = card.get('health')
-        evade = card.get('enemy_evade')
-        damage = card.get('enemy_damage')
-        horror = card.get('enemy_horror')
-        health_suffix = ' 👥' if card.get('health_per_investigator') else ''
-        lines.append(
-            f"✊🏻 Fight: {_fmt_stat(fight)} | ❤️ Health: {_fmt_stat(health)}{health_suffix} | 🦶🏻 Evade: {_fmt_stat(evade)}"
-        )
-        lines.append(f"💢 Damage: {_fmt_stat(damage)} | 😨 Horror: {_fmt_stat(horror)}")
-        if tc == 'enemy_location':
-            shroud = card.get('shroud')
-            clues = card.get('clues')
-            clues_suffix = '' if card.get('clues_fixed') else ' 👥'
-            lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 🔍 Clues: {_fmt_stat(clues)}{clues_suffix}")
-
-    elif tc == 'location':
-        shroud = card.get('shroud')
-        clues = card.get('clues')
-        clues_suffix = '' if card.get('clues_fixed') else ' 👥'
-        lines.append(f"🌑 Shroud: {_fmt_stat(shroud)} | 🔍 Clues: {_fmt_stat(clues)}{clues_suffix}")
-
-    elif tc == 'act':
-        stage = card.get('stage')
-        clues = card.get('clues')
-        parts = []
-        if stage is not None:
-            parts.append(f"Stage {stage}")
-        if clues is not None:
-            parts.append(f"🔍 Clues: {clues}")
-        if parts:
-            lines.append(" | ".join(parts))
-
-    elif tc == 'agenda':
-        stage = card.get('stage')
-        doom = card.get('doom')
-        parts = []
-        if stage is not None:
-            parts.append(f"Stage {stage}")
-        if doom is not None:
-            parts.append(f"💀 Doom: {doom}")
-        if parts:
-            lines.append(" | ".join(parts))
-
-    elif tc == 'treachery':
-        pass
-
-    elif tc in ('scenario', 'story'):
-        encounter_name = card.get('encounter_name', '')
-        if encounter_name:
-            lines.append(f"📖 {_e(encounter_name)}")
-
-    elif tc == 'key':
-        linked = card.get('linked_to_name') or card.get('linked_to_code')
-        if linked:
-            lines.append(f"🔑 Linked to: {_e(linked)}")
+    stats = _build_stats_lines(card)
+    if stats:
+        lines.extend(stats)
 
     # --- Shared card attributes ---
     meta = []
-    if card.get('myriad'):
-        meta.append('✖️3 Myriad')
-    if card.get('exile'):
-        meta.append('🔥 Exile')
-    if card.get('bonded_to'):
-        meta.append(f"🔗 Bonded: {_e(card['bonded_to'])}")
     if card.get('victory') is not None:
         meta.append(f"🏆 {card['victory']} VP")
     if card.get('vengeance') is not None:
