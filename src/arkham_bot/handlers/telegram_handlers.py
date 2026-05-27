@@ -643,7 +643,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                 logger.warning(f"Failed to download front image for {card_code} ({card_image_url}). Trying next extension: {img_e}")
                 continue
 
-        caption = format_card_caption(card_data, is_interactive=True)
+        caption, is_spoiler = _spoiler_caption(card_data)
         await _delete_status()
         message = None
 
@@ -658,6 +658,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                 photo=card_image_bytes,
                 caption=caption,
                 parse_mode=ParseMode.HTML,
+                has_spoiler=is_spoiler,
                 reply_parameters=user_reply,
             )
 
@@ -692,6 +693,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                             photo=back_image_bytes,
                             caption=back_caption,
                             parse_mode=ParseMode.HTML,
+                            has_spoiler=is_spoiler,
                             reply_parameters=ReplyParameters(message_id=message.message_id),
                         )
                     except Exception as e:
