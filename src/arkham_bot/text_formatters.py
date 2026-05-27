@@ -5,14 +5,14 @@ import re
 MAX_CAPTION_BYTES = 1024
 
 SKILL_ICONS = {
-    'skill_willpower': '👤', 'skill_intellect': '📖',
-    'skill_combat': '✊🏻', 'skill_agility': '🦶🏻', 'skill_wild': '❓'
+    'skill_willpower': '👤', 'skill_intellect': '📓',
+    'skill_combat': '✊🏻', 'skill_agility': '🪽', 'skill_wild': '❓'
 }
 
 GLOBAL_ICON_REPLACEMENTS = {
     '[action]': '➡️ ', '[reaction]': '🔁 ', '[free]': '🆓 ',
     '[fast]': '💨 ', '[unique]': '⭐ ',
-    '[combat]': '✊🏻', '[intellect]': '📖', '[agility]': '🦶🏻',
+    '[combat]': '✊🏻', '[intellect]': '📓', '[agility]': '🪽',
     '[willpower]': '👤', '[wild]': '❓',
     '[guardian]': '🔵', '[seeker]': '🟡', '[mystic]': '🟣',
     '[rogue]': '🟢', '[survivor]': '🔴',
