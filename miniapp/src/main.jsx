@@ -231,7 +231,7 @@ const I18N = {
     syncScheduleEnabled: 'Sync automático',
     syncScheduleEnabledCaption: 'Sincroniza o banco de dados automaticamente',
     syncScheduleDays: 'Dias da semana',
-    syncScheduleTime: 'Horário',
+    syncScheduleTime: 'Horário de sync',
     syncScheduleSaved: 'Agendamento salvo.',
     appTitle: 'Aplicativo',
     systemTitle: 'Sistema',
@@ -473,7 +473,7 @@ const I18N = {
     syncScheduleEnabled: 'Auto sync',
     syncScheduleEnabledCaption: 'Automatically sync the database',
     syncScheduleDays: 'Weekdays',
-    syncScheduleTime: 'Time',
+    syncScheduleTime: 'Sync time',
     syncScheduleSaved: 'Schedule saved.',
     appTitle: 'App',
     systemTitle: 'System',
@@ -1938,30 +1938,34 @@ function App() {
             </Section>
 
             {settings.sync_schedule_enabled && (
-              <Section title={copy.syncScheduleTitle}>
-                {WEEKDAYS.map((day) => (
-                  <ToggleRow
-                    key={day.code}
-                    label={day[lang]}
-                    checked={settings.sync_schedule_days.includes(day.code)}
-                    onChange={(checked) => {
-                      const next = checked
-                        ? [...new Set([...settings.sync_schedule_days, day.code])]
-                        : settings.sync_schedule_days.filter((d) => d !== day.code);
-                      updateSetting('sync_schedule_days', next.length ? next : [day.code]);
-                    }}
-                  />
-                ))}
-                <div className="time-add-row">
-                  <span className="row-label">{copy.syncScheduleTime}</span>
-                  <input
-                    className="time-add-input"
-                    type="time"
-                    value={settings.sync_schedule_time}
-                    onChange={(e) => updateSetting('sync_schedule_time', e.target.value.slice(0, 5))}
-                  />
-                </div>
-              </Section>
+              <>
+                <Section title={copy.syncScheduleTime}>
+                  <div className="time-add-row">
+                    <span className="row-label">{copy.syncScheduleTime}</span>
+                    <input
+                      className="time-add-input"
+                      type="time"
+                      value={settings.sync_schedule_time}
+                      onChange={(e) => updateSetting('sync_schedule_time', e.target.value.slice(0, 5))}
+                    />
+                  </div>
+                </Section>
+                <Section title={copy.syncScheduleDays}>
+                  {WEEKDAYS.map((day) => (
+                    <ToggleRow
+                      key={day.code}
+                      label={day[lang]}
+                      checked={settings.sync_schedule_days.includes(day.code)}
+                      onChange={(checked) => {
+                        const next = checked
+                          ? [...new Set([...settings.sync_schedule_days, day.code])]
+                          : settings.sync_schedule_days.filter((d) => d !== day.code);
+                        updateSetting('sync_schedule_days', next.length ? next : [day.code]);
+                      }}
+                    />
+                  ))}
+                </Section>
+              </>
             )}
 
             {settingsResult && (
