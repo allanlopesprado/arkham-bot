@@ -1790,13 +1790,45 @@ function App() {
           {/* Daily post */}
           <Section title={copy.dailyPost}>
             <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
-            {settings.daily_post_enabled && (
-              <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
-                {TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>{tz.label}</option>
-                ))}
-              </SelectRow>
-            )}
+            {settings.daily_post_enabled && (() => {
+              const lang = language === 'pt' ? 'pt' : 'en';
+              return (
+                <>
+                  <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
+                    {TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </SelectRow>
+                  <div className="section-title" style={{ paddingTop: 8 }}>{copy.postDays}</div>
+                  {WEEKDAYS.map((day) => (
+                    <ToggleRow
+                      key={day.code}
+                      label={day[lang]}
+                      checked={settings.daily_post_days.includes(day.code)}
+                      disabled={allDaysMode}
+                      onChange={(v) => {
+                        setSettings((cur) => {
+                          const next = v
+                            ? [...cur.daily_post_days, day.code]
+                            : cur.daily_post_days.filter((d) => d !== day.code);
+                          return { ...cur, daily_post_days: [...new Set(next)] };
+                        });
+                        haptic('selection');
+                      }}
+                    />
+                  ))}
+                  <div className="section-title" style={{ paddingTop: 8 }}>{copy.postTimes}</div>
+                  <TimeEditor
+                    times={settings.daily_post_times}
+                    pendingTime={pendingTime}
+                    onPendingTimeChange={setPendingTime}
+                    onAdd={() => addTimeForDay('all')}
+                    onRemove={(t) => removeTimeForDay('all', t)}
+                    copy={copy}
+                  />
+                </>
+              );
+            })()}
           </Section>
 
           {/* Chat ID */}
@@ -1813,46 +1845,42 @@ function App() {
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
-          {/* Weekly schedule */}
-          {(() => {
+          {/* Per-day advanced configuration */}
+          {settings.daily_post_enabled && (() => {
             const lang = language === 'pt' ? 'pt' : 'en';
             const allEnabled = allDaysMode;
             return (
-              <>
-                <Section title={copy.weeklySchedule}>
-                  <DayScheduleRow
-                    label={copy.allWeekdays}
-                    subtitle={dayConfigSummary('all', copy)}
-                    enabled={allEnabled}
-                    onToggle={setAllWeekdays}
-                    onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
-                  />
-                </Section>
-                <Section title={copy.dailySchedule} footer={copy.weeklyScheduleCaption}>
-                  {WEEKDAYS.map((day) => {
-                    const enabled = settings.daily_post_days.includes(day.code);
-                    return (
-                      <DayScheduleRow
-                        key={day.code}
-                        label={day[lang]}
-                        subtitle={enabled ? dayConfigSummary(day.code, copy) : undefined}
-                        enabled={enabled}
-                        onToggle={(v) => {
-                          setSettings((cur) => {
-                            const next = v
-                              ? [...cur.daily_post_days, day.code]
-                              : cur.daily_post_days.filter((d) => d !== day.code);
-                            return { ...cur, daily_post_days: [...new Set(next)] };
-                          });
-                          haptic('selection');
-                        }}
-                        onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
-                        disabled={allEnabled}
-                      />
-                    );
-                  })}
-                </Section>
-              </>
+              <Section title={copy.weeklySchedule} footer={copy.weeklyScheduleCaption}>
+                <DayScheduleRow
+                  label={copy.allWeekdays}
+                  subtitle={dayConfigSummary('all', copy)}
+                  enabled={allEnabled}
+                  onToggle={setAllWeekdays}
+                  onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
+                />
+                {WEEKDAYS.map((day) => {
+                  const enabled = settings.daily_post_days.includes(day.code);
+                  return (
+                    <DayScheduleRow
+                      key={day.code}
+                      label={day[lang]}
+                      subtitle={enabled ? dayConfigSummary(day.code, copy) : undefined}
+                      enabled={enabled}
+                      onToggle={(v) => {
+                        setSettings((cur) => {
+                          const next = v
+                            ? [...cur.daily_post_days, day.code]
+                            : cur.daily_post_days.filter((d) => d !== day.code);
+                          return { ...cur, daily_post_days: [...new Set(next)] };
+                        });
+                        haptic('selection');
+                      }}
+                      onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
+                      disabled={allEnabled}
+                    />
+                  );
+                })}
+              </Section>
             );
           })()}
 
