@@ -61,27 +61,27 @@ Comandos:
 
 Centraliza variaveis de ambiente e caminhos locais.
 
-Variaveis principais:
+Variaveis obrigatorias no `.env`:
 
 - `ENVIRONMENT`
 - `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ADMIN_TELEGRAM_USER_IDS`
+- `AI_DAILY_CARD_ENABLED`
+- `AI_MODEL`
+- `GEMINI_API_KEY` (ou `OPENAI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`)
+- `BOT_COMMANDS_POLLING_ENABLED`
+- `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS`
+- `REQUEST_TIMEOUT_SECONDS`
+
+Variaveis gerenciadas pelo miniapp via Supabase — nao precisam estar no `.env`:
+
 - `TIMEZONE`
 - `DAILY_POST_ENABLED`
 - `DAILY_POST_TIMES`
 - `DAILY_POST_DAYS`
-- `AI_DAILY_CARD_ENABLED`
-- `AI_MODEL`
-- `GEMINI_API_KEY`
-- `OPENAI_API_KEY`
-- `GROQ_API_KEY`
-- `MISTRAL_API_KEY`
-- `BOT_COMMANDS_POLLING_ENABLED`
-- `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS`
-- `REQUEST_TIMEOUT_SECONDS`
+- `TELEGRAM_CHAT_ID`
 
 ### `logging_config.py`
 
