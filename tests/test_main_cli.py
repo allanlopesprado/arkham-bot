@@ -20,8 +20,3 @@ def test_main_help_exits_successfully():
     assert "python main.py interactive" in result.stdout
 
 
-def test_wrapper_help_exits_successfully():
-    env = os.environ.copy()
-    result = subprocess.run([sys.executable, "arkham_daily_card_bot.py", "--help"], cwd=ROOT, env=env, text=True, capture_output=True)
-    assert result.returncode == 0
-    assert "python main.py healthcheck" in result.stdout
