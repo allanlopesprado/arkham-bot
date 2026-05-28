@@ -26,6 +26,6 @@ def admin_source(telegram_user_id: int | None) -> str:
         return "env"
     try:
         admin = get_admin(telegram_user_id)
-        return admin.get("role", "supabase") if admin else "none"
+        return admin.get("role") or "none" if admin else "none"
     except Exception:
         return "none"
