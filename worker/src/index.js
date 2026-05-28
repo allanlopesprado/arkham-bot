@@ -169,6 +169,9 @@ function corsHeaders(allowedOrigin) {
     'access-control-allow-origin': allowedOrigin,
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type,x-telegram-init-data',
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains',
     vary: 'Origin',
   };
 }
@@ -627,6 +630,7 @@ async function handleCancelCommand(request, env, user, ao, commandId) {
     if (!resp.ok) return withCors(jsonResponse({ error: 'command_cancel_failed' }, 500), ao);
     const rows = await resp.json();
     if (!rows.length) return withCors(jsonResponse({ error: 'command_not_cancellable' }, 409), ao);
+    await writeAuditLog(env, user, 'command_cancelled', { command_id: commandId });
     return withCors(jsonResponse({ ok: true, command: rows[0] }), ao);
   } catch {
     return withCors(jsonResponse({ error: 'command_cancel_failed' }, 500), ao);
@@ -869,6 +873,7 @@ async function handlePatchSettings(request, env, user, ao) {
       }));
       return withCors(jsonResponse({ error: 'settings_upsert_failed', detail, upstream_status: resp.status }, 500), ao);
     }
+    await writeAuditLog(env, user, 'settings_updated', { keys: rows.map(r => r.key) });
     const currentRows = await fetchSettingsRows(env);
     return withCors(jsonResponse({ ok: true, settings: rowsToSettings(currentRows), rows: currentRows }), ao);
   } catch (err) {
@@ -974,6 +979,7 @@ async function handleBotCommand(request, env, user, ao) {
   }
 
   const inserted = await resp.json();
+  await writeAuditLog(env, user, 'command_submitted', { command_type: commandType, command_id: inserted[0]?.id });
   return withCors(jsonResponse({
     ok: true,
     command: {
@@ -1186,6 +1192,7 @@ async function handleUpdateDestination(request, env, user, ao, destId) {
       body: JSON.stringify(patch),
     });
     if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_update_failed' }, 502), ao);
+    await writeAuditLog(env, user, 'destination_updated', { destination_id: destId, patch });
     return withCors(jsonResponse({ ok: true }), ao);
   } catch {
     return withCors(jsonResponse({ ok: false, error: 'destination_update_failed' }, 502), ao);
