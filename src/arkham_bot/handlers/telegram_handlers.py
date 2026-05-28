@@ -203,30 +203,23 @@ def _chunks(text: str, size: int = 3900) -> list[str]:
     return chunks or [""]
 
 
-def _arkhamdb_to_html(text: str) -> str:
-    """Convert ArkhamDB markdown/wiki syntax to Telegram HTML."""
+def _arkhamdb_html_to_telegram(html: str) -> str:
+    """Convert ArkhamDB HTML to the subset supported by Telegram."""
     import re
-    # ArkhamDB card links: [Card Name](/card/01001) → clickable link
-    text = re.sub(
-        r'\[([^\]]+)\]\(/card/([^)]+)\)',
-        lambda m: f'<a href="https://arkhamdb.com/card/{m.group(2)}">{escape(m.group(1))}</a>',
-        text,
-    )
-    # Escape remaining HTML special chars (but not inside already-processed tags)
-    # Process inline formatting on already-escaped text segments
-    # Split on existing <a> tags to avoid double-escaping
-    parts = re.split(r'(<a [^>]+>.*?</a>)', text)
-    out = []
-    for part in parts:
-        if part.startswith('<a '):
-            out.append(part)
-        else:
-            part = escape(part)
-            part = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', part)
-            part = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', part)
-            part = re.sub(r'~~([^~]+)~~', r'<s>\1</s>', part)
-            out.append(part)
-    return ''.join(out)
+    # Tag conversions
+    html = re.sub(r'<strong>(.*?)</strong>', r'<b>\1</b>', html, flags=re.DOTALL)
+    html = re.sub(r'<em>(.*?)</em>', r'<i>\1</i>', html, flags=re.DOTALL)
+    html = re.sub(r'<del>(.*?)</del>', r'<s>\1</s>', html, flags=re.DOTALL)
+    # ArkhamDB internal links → full URL
+    html = re.sub(r'<a href="/card/([^"]+)">', r'<a href="https://arkhamdb.com/card/\1">', html)
+    # Block elements → newlines
+    html = re.sub(r'<p>(.*?)</p>', r'\1\n', html, flags=re.DOTALL)
+    html = re.sub(r'<li>(.*?)</li>', r'• \1\n', html, flags=re.DOTALL)
+    html = re.sub(r'<ul>(.*?)</ul>', r'\1', html, flags=re.DOTALL)
+    html = re.sub(r'<ol>(.*?)</ol>', r'\1', html, flags=re.DOTALL)
+    # Strip remaining unsupported tags (but keep content)
+    html = re.sub(r'<(?!/?(?:b|i|s|u|code|pre|a)[\s>])[^>]+>', '', html)
+    return html.strip()
 
 
 
@@ -875,14 +868,11 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if i > 0:
                 lines.append("─────────────")
             if isinstance(entry, dict):
-                q = str(entry.get('question') or entry.get('title') or '').strip()
-                a = str(entry.get('answer') or entry.get('text') or '').strip()
-                if q:
-                    lines.append(f"❓ {_arkhamdb_to_html(q)}")
-                if a:
-                    lines.append(f"💬 {_arkhamdb_to_html(a)}")
+                raw_html = str(entry.get('html') or entry.get('text') or '').strip()
+                if raw_html:
+                    lines.append(_arkhamdb_html_to_telegram(raw_html))
             else:
-                lines.append(_arkhamdb_to_html(str(entry)))
+                lines.append(_arkhamdb_html_to_telegram(str(entry)))
         text = "\n\n".join(lines)
         for chunk in _chunks(text, 3900):
             await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
