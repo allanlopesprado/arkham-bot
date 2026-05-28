@@ -175,25 +175,32 @@ Verifica permissões de admin para o bot Telegram:
 
 Orquestra postagem de carta no Telegram:
 
-1. Resolve `chat_id` (Supabase > `.env` > fallback)
+1. Resolve destinos via `_get_destinations()`: lê `target_chats` (enabled, com `message_thread_id`) no Supabase; fallback para `telegram_chat_id` do `.env`
 2. Seleciona carta (IA opcional, ou aleatória, ou por código específico)
 3. Baixa imagem da ArkhamDB
 4. Monta legenda HTML com `format_card_caption(is_interactive=not is_scheduled)`
    - `is_scheduled=True` → inclui prefixo `[COTD]`
    - `is_scheduled=False` (postagem manual) → sem `[COTD]`
-5. Envia para Telegram com retry (3 tentativas)
-6. Registra em `bot_posting_history`
-7. Atualiza `bot_posted_cards`
-8. Faz pin/unpin quando configurado
+5. Envia para destino primário com retry (3 tentativas); replica para destinos extras
+6. Todos os `send_photo`/`send_message` passam `message_thread_id` para suporte a tópicos do Telegram
+7. Registra em `bot_posting_history`
+8. Atualiza `bot_posted_cards`
+9. Faz pin/unpin quando configurado
+
+`pre_message_sent` é declarado **fora** do loop de tentativas — garante que a mensagem de abertura da IA não seja enviada duas vezes em caso de retry.
 
 ### `scheduler.py`
 
-Scheduler interno. A cada minuto verifica:
+Scheduler interno. A cada 30s verifica:
 
 - Se o horário atual está dentro da janela de ±10 min de algum horário configurado
 - Se o dia da semana está habilitado
 - Se já postou naquela janela (estado em `data/daily_scheduler_state.json`)
 - Lê configurações do Supabase (`bot_settings`) na inicialização e em cada ciclo
+
+**Anti-duplicata em restart:** o slot é marcado como ocupado em `posted_slots` **antes** de chamar `post_daily_card`. Garante que se o bot for reiniciado durante o delay da mensagem de abertura da IA (ex: deploy), a nova instância não redispara o mesmo slot.
+
+**Disparo antecipado:** quando `ai_pre_message_enabled=true` e `ai_pre_message_delay_seconds > 0`, o scheduler dispara o job `delay` segundos **antes** do horário configurado, para que a carta chegue no horário certo.
 
 ### `heartbeat.py`
 
@@ -242,15 +249,21 @@ Comandos Telegram registrados:
 
 | Comando | Descrição |
 |---|---|
-| `/start` | Mensagem de boas-vindas |
-| `/status` | Status do bot (admins apenas) |
-| `/card <código>` | Exibe carta pelo código ArkhamDB |
-| `/search <nome>` | Busca cartas por nome |
-| `/faq <código>` | FAQ de uma carta |
-| `/taboo` | Lista taboo atual |
-| `/decklist <id>` | Exibe decklist do ArkhamDB |
-| `/sets` | Navega packs/sets por menu inline |
+| `/start` | Ajuda com descrição de todos os comandos por seção |
+| `/status` | Status operacional: hora local, catálogo, próximo post, último card do dia, Supabase (admins) |
+| `/card` | Busca guiada por pack paginado (10/página) → número da carta → imagem com stats |
+| `/search <nome>` | Busca cartas por nome com paginação |
+| `/faq <código>` | FAQ oficial da carta: imagem como reply ao usuário, texto do FAQ como reply à imagem, link ArkhamDB e data de atualização |
+| `/taboo` | Lista taboo atual com restrições e erratas |
+| `/decklist <id>` | Decklist do ArkhamDB: imagem do investigador, cartas agrupadas por tipo com links, descrição limpa |
+| `/sets` | Navega cartas por pack paginado (10/página); cartas com link ArkhamDB e spoiler ativo |
 | `/cotd` | Histórico de postagens diárias por ano/mês |
+
+Comportamentos:
+- Todos os comandos que retornam carta/resultado fazem **reply** à mensagem original do usuário
+- `/faq` usa **cache-on-demand**: consulta `arkham_faq` no DB primeiro (TTL 7 dias), busca na API e salva se ausente/desatualizado
+- `/card` valida número digitado contra conjunto real de números do pack (evita "não encontrado" enganoso)
+- `/status` desabilita preview de links
 
 ### `repositories/`
 
@@ -280,9 +293,9 @@ Todas as migrations estão em `supabase/migrations/` em ordem cronológica. Deve
 | Tabela | Conteúdo |
 |---|---|
 | `arkham_cards` | Cartas completas com campos normalizados + `raw` JSONB |
-| `arkham_packs` | Expansões/packs |
+| `arkham_packs` | Expansões/packs com metadados de ciclo/posição |
 | `arkham_factions` | Facções |
-| `arkham_faq` | FAQ por código de carta |
+| `arkham_faq` | FAQ por código de carta (populado por cache-on-demand via `/faq`) |
 | `arkham_taboos` | Listas taboo |
 | `arkham_decklists_cache` | Cache de decklists do ArkhamDB |
 
@@ -291,13 +304,19 @@ Todas as migrations estão em `supabase/migrations/` em ordem cronológica. Deve
 | Tabela | Conteúdo |
 |---|---|
 | `bot_settings` | Configurações key-value do bot e do scheduler |
-| `target_chats` | Canais/grupos de destino para postagem |
+| `target_chats` | Destinos de postagem com `chat_id`, `message_thread_id` (tópicos), soft-delete |
 | `bot_admins` | Admins com role (`owner`, `admin`, `viewer`) |
 | `bot_commands` | Fila de comandos do Mini App para o bot |
 | `bot_posted_cards` | Registro de cartas já postadas (controle de ciclo) |
 | `bot_posting_history` | Histórico de cada postagem (source, card_code, timestamp) |
 | `bot_errors` | Log de erros do bot |
 | `audit_logs` | Auditoria de ações administrativas (add/remove admin/destino) |
+
+### `target_chats` — suporte a tópicos
+
+A constraint `UNIQUE(chat_id)` foi substituída por `UNIQUE(chat_id, message_thread_id)` (migration `20260528_telegram_topics_support.sql`), permitindo múltiplos tópicos por grupo. `message_thread_id = NULL` representa o chat principal (sem tópico).
+
+O Worker não usa `on_conflict` do PostgREST para este upsert — faz SELECT antes do INSERT para checar duplicata `(chat_id, message_thread_id)`, e re-habilita destinos soft-deletados quando o mesmo par é readicionado.
 
 RLS está habilitado em todas as tabelas. O backend Python e o Worker usam `SUPABASE_SERVICE_ROLE_KEY`, que bypassa RLS.
 
@@ -404,19 +423,21 @@ Configurada nas variáveis de ambiente do Cloudflare Pages.
 
 ```
 home
-├── post          — Postar carta, buscar carta por código
-├── history       — Histórico de postagens com filtro por fonte e data
-├── queue         — Fila de comandos
+├── post          — Postar carta com busca por nome; destino selecionável
+├── history       — Histórico de postagens (filtro por fonte e data; abre no dia atual)
+├── queue         — Fila de comandos; "Limpar Fila" aparece apenas quando há pendentes
 ├── settings      — Configurações de postagem
 │   ├── schedule  — Horários e dias da semana
-│   ├── day_detail — Configuração específica por dia da semana
-│   └── ai        — Configurações de IA
-├── app_settings  — Configurações do App (idioma)
-├── database      — Sync ArkhamDB, cartas, packs
-├── maintenance   — Comandos de manutenção (reset ciclo, limpar fila)
-├── health        — Status do sistema e heartbeat do bot
-└── admins        — Gerenciamento de admins (somente owners)
+│   ├── day_detail — Configuração específica por dia (horários, ciclos, tipos)
+│   └── ai        — IA: modelo, tom, criatividade, delays de pré/pós mensagem
+├── destinations  — Gerenciar destinos de postagem (chat_id + message_thread_id)
+├── database      — Sync ArkhamDB, status de cartas/packs, sync agendado
+├── maintenance   — Reset de ciclo
+├── health        — Heartbeat do bot, capacidades, diagnóstico
+└── app_settings  — Idioma do aplicativo + Administradores (somente owners)
 ```
+
+Seção **Configurações** na home: Postagem · Gerenciar destinos · Aplicativo
 
 O botão BackButton do Telegram é gerenciado pelo `PARENT_TAB` para abas filhas.
 

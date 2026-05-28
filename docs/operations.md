@@ -187,7 +187,11 @@ supabase/migrations/202605240002_public_read_and_admin_policy_notes.sql
 supabase/migrations/202605260001_add_source_to_posting_history.sql
 supabase/migrations/202605260002_fix_arkham_cards_schema.sql
 supabase/migrations/202605270001_p3_admins_destinations_audit.sql
+supabase/migrations/20260528_worker_hardening_schema.sql
+supabase/migrations/20260528_telegram_topics_support.sql
 ```
+
+A migration `20260528_telegram_topics_support.sql` substitui `UNIQUE(chat_id)` por `UNIQUE(chat_id, message_thread_id)` na tabela `target_chats`, habilitando múltiplos tópicos por grupo no Telegram.
 
 ## Sincronização ArkhamDB
 
@@ -197,13 +201,28 @@ Dry-run (sem escrita):
 python scripts/sync_arkhamdb.py --dry-run
 ```
 
-Sync real:
+Sync real (cartas, packs, facções, taboos):
 
 ```powershell
 python scripts/sync_arkhamdb.py
 ```
 
+O sync normal **também atualiza** FAQs que já estão em cache no banco (`arkham_faq`), sem buscar os ~5900 cards do zero.
+
+Sync com FAQ completo (lento — uma chamada por carta):
+
+```powershell
+python scripts/sync_arkhamdb.py --sync-faq
+```
+
 O sync também pode ser disparado pelo Mini App via botão na aba "Database" (comando `sync_arkhamdb` na fila).
+
+### Estratégia de cache de FAQ
+
+O `/faq` popula `arkham_faq` por demanda (cache-on-demand):
+- Consulta o banco primeiro (TTL: 7 dias)
+- Se ausente ou desatualizado, busca na ArkhamDB API e salva no banco
+- O sync diário refresca apenas os FAQs já cacheados
 
 ## Oracle — Comandos Úteis
 
@@ -344,9 +363,17 @@ Política:
 
 - Verificar `daily_post_enabled` no Supabase (`bot_settings`)
 - Verificar `daily_post_times` e `daily_post_days`
-- Verificar `telegram_chat_id`
+- Verificar `telegram_chat_id` ou `target_chats` com `enabled=true`
 - Verificar timezone (`TIMEZONE` em `bot_settings`)
 - Verificar scheduler: `journalctl -u arkham-bot | grep scheduler`
+
+### Postagem duplicada após restart
+
+O slot é gravado em `posted_slots` antes de `post_daily_card` ser chamado. Se ainda assim houver duplicata, verificar se `data/daily_scheduler_state.json` está preservado entre restarts.
+
+### Mensagem de abertura da IA duplicada
+
+`pre_message_sent` é declarado fora do loop de tentativas em `daily_card.py`. Se a flag estiver sendo resetada, verificar se há mais de uma instância do bot rodando simultaneamente.
 
 ### `[COTD]` aparecendo em postagem manual
 
