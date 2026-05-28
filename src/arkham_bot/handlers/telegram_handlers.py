@@ -480,7 +480,8 @@ def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]
         if not numbers:
             return 0, 0, 0, [], set()
         sample_pool = [n for n in numbers if n > 0] or numbers
-        sample = sample_pool[:5]
+        k = min(5, len(sample_pool))
+        sample = sorted(random.sample(sample_pool, k))
         return len(numbers), numbers[0], numbers[-1], sample, set(numbers)
     except Exception as exc:
         logger.warning(f"Failed to get pack positions for {pack_code_prefix}: {exc}")
