@@ -260,7 +260,7 @@ input, select { outline: none; }
 
 .section-note {
   margin: 0;
-  padding: 4px 16px 12px;
+  padding: 4px 14px 12px;
   font-size: 13px;
   color: var(--hint);
   line-height: 1.5;
@@ -406,7 +406,7 @@ input, select { outline: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 10px 14px;
 }
 .stacked-input-row .row-label { font-size: 16px; color: var(--text); }
 .stacked-input-row .row-caption { font-size: 13px; color: var(--hint); }
@@ -429,7 +429,7 @@ input, select { outline: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 16px;
+  padding: 12px 14px;
 }
 .stacked-select-row .row-label { font-size: 16px; color: var(--text); }
 .stacked-select-row .block-select {
@@ -476,7 +476,7 @@ input, select { outline: none; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   border-top: 1px solid var(--sep);
 }
 
@@ -808,7 +808,7 @@ input, select { outline: none; }
 .history-source-filter {
   display: flex;
   gap: 6px;
-  padding: 10px 16px 4px;
+  padding: 10px 14px 4px;
 }
 .source-filter-btn {
   background: var(--bg2);
@@ -829,7 +829,7 @@ input, select { outline: none; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px 10px;
+  padding: 6px 14px 10px;
 }
 .history-date-wrap {
   display: flex;
@@ -875,7 +875,7 @@ input, select { outline: none; }
 
 /* ── History items ────────────────────────────────────────────────────────── */
 .history-item {
-  padding: 12px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--sep);
 }
 .history-item:last-child { border-bottom: none; }
