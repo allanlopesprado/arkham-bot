@@ -47,7 +47,7 @@ const SETTINGS_KEYS = new Set([
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
   'ai_post_question_enabled', 'ai_pre_message_delay_seconds', 'ai_post_question_delay_seconds', 'ai_model', 'ai_creativity',
-  'include_spoilers', 'allowed_card_types', 'day_config', 'telegram_chat_id',
+  'include_spoilers', 'allowed_card_types', 'day_config',
   'sync_schedule_enabled', 'sync_schedule_days', 'sync_schedule_time',
 ]);
 const AI_LANGUAGE_VALUES = new Set(['pt-BR', 'en-US']);
@@ -339,10 +339,6 @@ function validateSettingsPatch(body) {
         return { error: 'invalid_setting_value', key };
       }
       settings[key] = value;
-    }
-    if (key === 'telegram_chat_id') {
-      if (typeof value !== 'string') return { error: 'invalid_setting_value', key };
-      settings[key] = value.trim();
     }
     if (key === 'sync_schedule_enabled') {
       if (typeof value !== 'boolean') return { error: 'invalid_setting_value', key };

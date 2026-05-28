@@ -24,7 +24,6 @@ from ..core.config import (
     POSTED_CARDS_FILE,
     POSTED_CARDS_LOCK,
     TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
     DAILY_POST_DAYS,
 )
 from .local_storage import (
@@ -113,7 +112,7 @@ class _Destination:
 
 
 def _get_destinations() -> list[_Destination]:
-    """Returns enabled destinations from target_chats, falling back to telegram_chat_id setting."""
+    """Returns enabled destinations from target_chats table."""
     try:
         from ..core.supabase_client import get_supabase_client
         client = get_supabase_client()
@@ -128,8 +127,7 @@ def _get_destinations() -> list[_Destination]:
                 return dests
     except Exception as exc:
         logger.warning(f"target_chats_fetch_failed: {exc}")
-    chat_id = str(get_setting('telegram_chat_id', None) or TELEGRAM_CHAT_ID or "").strip()
-    return [_Destination(chat_id=chat_id)] if chat_id else []
+    return []
 
 
 async def post_daily_card(specific_card_code=None, target_chat_id: str | None = None, is_scheduled: bool = False) -> DailyPostResult:

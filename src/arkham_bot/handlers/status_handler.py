@@ -189,7 +189,6 @@ def _collect_status_payload(update: Update) -> dict:
         "local_date": local_date,
         "local_hour": local_hour,
         "timezone_name": timezone_name,
-        "telegram_chat_configured": bool(TELEGRAM_CHAT_ID),
         "telegram_user_id": user_id or "-",
         "daily_post_enabled": _as_bool(daily_post_enabled),
         "daily_post_times": daily_post_times,
@@ -225,12 +224,7 @@ async def bot_started_message(application):
     except Exception as exc:
         logger.warning("Cache pre-warm failed: %s", exc)
 
-    if TELEGRAM_CHAT_ID:
-        try:
-            s = get_strings()
-            await application.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=s["bot_started"])
-        except Exception as e:
-            logger.error(f"Could not send startup message. Error: {e}")
+    logger.info("bot_startup_complete")
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
