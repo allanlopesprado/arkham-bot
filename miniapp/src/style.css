@@ -71,7 +71,7 @@ input, select { outline: none; }
 
 .gate-icon { width: 48px; height: 48px; color: var(--hint); }
 .gate-title { margin: 0; color: var(--text); font-size: 20px; font-weight: 700; }
-.gate-text  { margin: 0; color: var(--hint); font-size: 15px; line-height: 1.5; }
+.gate-text  { margin: 0; color: var(--hint); font-size: 14px; line-height: 1.5; }
 
 /* ── Header ───────────────────────────────────────────────────────────────── */
 
@@ -100,9 +100,9 @@ input, select { outline: none; }
 
 .avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
-.header-title       { color: var(--text); font-size: 22px; font-weight: 700; line-height: 1.2; }
-.header-subtitle    { color: var(--hint); font-size: 14px; }
-.header-description { color: var(--hint); font-size: 13px; line-height: 1.5; max-width: 280px; text-align: center; }
+.header-title       { color: var(--text); font-size: 19px; font-weight: 700; line-height: 1.2; }
+.header-subtitle    { color: var(--hint); font-size: 13px; }
+.header-description { color: var(--hint); font-size: 12px; line-height: 1.5; max-width: 280px; text-align: center; }
 
 /* ── Notice ───────────────────────────────────────────────────────────────── */
 
@@ -237,7 +237,7 @@ input, select { outline: none; }
 
 .row-label {
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -280,7 +280,7 @@ input, select { outline: none; }
   flex-shrink: 0;
   max-width: 45%;
   color: var(--hint);
-  font-size: 15px;
+  font-size: 14px;
   text-align: right;
   overflow-wrap: anywhere;
 }
@@ -308,7 +308,7 @@ input, select { outline: none; }
   border-radius: 50%;
   background: transparent;
   color: var(--hint);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -392,7 +392,7 @@ input, select { outline: none; }
   border-radius: 8px;
   background: var(--section-bg);
   color: var(--text);
-  font-size: 16px;
+  font-size: 14px;
   caret-color: var(--link);
   transition: border-color 0.15s;
 }
@@ -408,7 +408,7 @@ input, select { outline: none; }
   gap: 6px;
   padding: 10px 14px;
 }
-.stacked-input-row .row-label { font-size: 16px; color: var(--text); }
+.stacked-input-row .row-label { font-size: 14px; color: var(--text); }
 .stacked-input-row .row-caption { font-size: 13px; color: var(--hint); }
 .stacked-input-row .block-input {
   width: 100%;
@@ -417,7 +417,7 @@ input, select { outline: none; }
   border-radius: 8px;
   background: var(--bg);
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   font-family: inherit;
   caret-color: var(--link);
   transition: border-color 0.15s;
@@ -431,7 +431,7 @@ input, select { outline: none; }
   gap: 6px;
   padding: 12px 14px;
 }
-.stacked-select-row .row-label { font-size: 16px; color: var(--text); }
+.stacked-select-row .row-label { font-size: 14px; color: var(--text); }
 .stacked-select-row .block-select {
   width: 100%;
   padding: 10px 12px;
@@ -439,7 +439,7 @@ input, select { outline: none; }
   border-radius: 8px;
   background: var(--bg2);
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   appearance: auto;
   cursor: pointer;
 }
@@ -457,7 +457,7 @@ input, select { outline: none; }
 .chat-id-input-wrap:focus-within { border-color: color-mix(in srgb, var(--link) 50%, transparent); }
 .chat-id-prefix {
   padding: 10px 0 10px 12px;
-  font-size: 15px;
+  font-size: 14px;
   font-family: monospace;
   color: var(--hint);
   user-select: none;
@@ -489,7 +489,7 @@ input, select { outline: none; }
   background: none;
   border: none;
   color: var(--hint);
-  font-size: 15px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   font-family: inherit;
   outline: none;
@@ -539,7 +539,7 @@ input, select { outline: none; }
   border-radius: 8px;
   background: var(--section-bg);
   color: var(--text);
-  font-size: 16px;
+  font-size: 14px;
   appearance: auto;
   cursor: pointer;
 }
@@ -553,7 +553,7 @@ input, select { outline: none; }
   border: 0;
   background: transparent;
   color: var(--text);
-  font-size: 16px;
+  font-size: 14px;
   caret-color: var(--link);
   min-width: 0;
 }
@@ -593,7 +593,7 @@ input, select { outline: none; }
 
 .card-name {
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -682,7 +682,7 @@ input, select { outline: none; }
   padding: 8px 14px;
   color: var(--link);
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   list-style: none;
   user-select: none;
   transition: background 0.12s ease;
@@ -792,7 +792,7 @@ input, select { outline: none; }
   justify-content: center;
 }
 .overview-stat .icon { width: 16px; height: 16px; color: var(--hint); flex-shrink: 0; }
-.overview-stat-label { font-size: 14px; color: var(--text); font-weight: 500; }
+.overview-stat-label { font-size: 13px; color: var(--text); font-weight: 500; }
 .overview-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
@@ -844,7 +844,7 @@ input, select { outline: none; }
   background: transparent;
   border: none;
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   outline: none;
   min-width: 0;
 }
@@ -886,7 +886,7 @@ input, select { outline: none; }
   min-width: 0;
 }
 .history-item-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
