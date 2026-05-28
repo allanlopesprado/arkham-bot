@@ -179,7 +179,28 @@ async def _check_rate_limit(update: Update) -> bool:
 
 
 def _chunks(text: str, size: int = 3900) -> list[str]:
-    return [text[i:i + size] for i in range(0, len(text), size)] or [""]
+    if len(text) <= size:
+        return [text]
+    # Split on paragraph boundaries to avoid cutting inside HTML tags
+    paragraphs = text.split("\n\n")
+    chunks, current = [], ""
+    for para in paragraphs:
+        candidate = f"{current}\n\n{para}".lstrip("\n") if current else para
+        if len(candidate) <= size:
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            # If a single paragraph exceeds the limit, hard-split it
+            if len(para) > size:
+                for i in range(0, len(para), size):
+                    chunks.append(para[i:i + size])
+                current = ""
+            else:
+                current = para
+    if current:
+        chunks.append(current)
+    return chunks or [""]
 
 
 def _arkhamdb_to_html(text: str) -> str:
