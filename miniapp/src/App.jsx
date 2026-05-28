@@ -1107,10 +1107,9 @@ export default function App() {
         const allEnabled = allDaysMode;
         return (
           <>
-            <Section title={copy.cardFilter} footer={copy.cardFilterCaption}>
+            <Section title={copy.cardFilter}>
               <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
             </Section>
-            <div className="section-footer">{copy.weeklyScheduleCaption}</div>
             <Section title={copy.weeklySchedule}>
               <DayScheduleRow
                 label={copy.allWeekdays}
