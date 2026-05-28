@@ -182,6 +182,32 @@ def _chunks(text: str, size: int = 3900) -> list[str]:
     return [text[i:i + size] for i in range(0, len(text), size)] or [""]
 
 
+def _arkhamdb_to_html(text: str) -> str:
+    """Convert ArkhamDB markdown/wiki syntax to Telegram HTML."""
+    import re
+    # ArkhamDB card links: [Card Name](/card/01001) → clickable link
+    text = re.sub(
+        r'\[([^\]]+)\]\(/card/([^)]+)\)',
+        lambda m: f'<a href="https://arkhamdb.com/card/{m.group(2)}">{escape(m.group(1))}</a>',
+        text,
+    )
+    # Escape remaining HTML special chars (but not inside already-processed tags)
+    # Process inline formatting on already-escaped text segments
+    # Split on existing <a> tags to avoid double-escaping
+    parts = re.split(r'(<a [^>]+>.*?</a>)', text)
+    out = []
+    for part in parts:
+        if part.startswith('<a '):
+            out.append(part)
+        else:
+            part = escape(part)
+            part = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', part)
+            part = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', part)
+            part = re.sub(r'~~([^~]+)~~', r'<s>\1</s>', part)
+            out.append(part)
+    return ''.join(out)
+
+
 
 def _format_uptime(now: datetime) -> str:
     seconds = max(0, int((now - BOT_STARTED_AT).total_seconds()))
@@ -824,17 +850,19 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         entries = faq if isinstance(faq, list) else [faq]
         lines = [s["faq_title"].format(card_code=escape(card_code))]
-        for entry in entries:
+        for i, entry in enumerate(entries):
+            if i > 0:
+                lines.append("─────────────")
             if isinstance(entry, dict):
-                q = entry.get('question') or entry.get('title') or ''
-                a = entry.get('answer') or entry.get('text') or ''
+                q = str(entry.get('question') or entry.get('title') or '').strip()
+                a = str(entry.get('answer') or entry.get('text') or '').strip()
                 if q:
-                    lines.append(f"\n<b>{escape(str(q))}</b>")
+                    lines.append(f"❓ {_arkhamdb_to_html(q)}")
                 if a:
-                    lines.append(escape(str(a)))
+                    lines.append(f"💬 {_arkhamdb_to_html(a)}")
             else:
-                lines.append(escape(str(entry)))
-        text = "\n".join(lines)
+                lines.append(_arkhamdb_to_html(str(entry)))
+        text = "\n\n".join(lines)
         for chunk in _chunks(text, 3900):
             await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
     except Exception as exc:
