@@ -1001,7 +1001,7 @@ export default function App() {
           </Section>
 
           {/* Sub-sections navigation */}
-          <Section>
+          <Section title={copy.advancedSettings}>
             <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
             <Row icon="ai"    label={copy.aiTab}        onClick={() => setActiveTab('ai')} />
           </Section>
