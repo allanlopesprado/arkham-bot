@@ -18,16 +18,19 @@ strings: dict = {
     "help_status_cmd": "- <code>/status</code> - status operacional",
 
     # /status
-    "status_title": "🤖 <b>Arkham Bot</b>",
-    "status_uptime": "⏱ Uptime: <code>{uptime}</code>",
-    "status_local_time": "🕐 Hora local: <code>{local_time}</code>",
-    "status_catalog": "📦 Catálogo: <code>{cards_count}</code> cartas · <code>{packs_count}</code> pacotes · <code>{taboo_count}</code> taboos",
-    "status_next_post": "📅 Próximo post: <code>{next_post}</code>",
-    "status_last_post": "✅ Último post: <code>{card_code}</code> ({post_status})",
-    "status_no_last_post": "📭 Nenhum post registrado nesta sessão",
+    "status_title": "🤖 <b>Arkham Bot — Online</b>",
+    "status_date": "📅 {date} · {hour}",
+    "status_timezone": "🌎 {timezone}",
+    "status_uptime": "⏱ Online há {uptime}",
+    "status_cards_line": "📚 Cartas: <code>{count}</code>",
+    "status_packs_line": "📦 Pacotes: <code>{count}</code>",
+    "status_taboos_line": "🔖 Taboos: <code>{count}</code>",
+    "status_next_post": "⏰ Próximo post: {next_post}",
+    "status_last_post": "🃏 Último card do dia: {card}",
+    "status_no_last_post": "📭 Nenhum card postado nesta sessão",
     "status_post_disabled": "⏸ Postagem automática desativada",
-    "status_pending_commands": "🗂 Fila: <code>{count}</code> comando(s) pendente(s)",
-    "status_supabase": "🗄 Supabase: <code>{status}</code>",
+    "status_pending_commands": "🗂 Fila: <code>{count}</code> pendente(s)",
+    "status_supabase": "🗄 Supabase: {status}",
 
     # /card
     "card_choose_pack": "Escolha um pacote para buscar a carta:",

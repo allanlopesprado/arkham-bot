@@ -212,10 +212,10 @@ def _format_days(value) -> str:
 
 
 def _time_until_next_post(times: list, days: list, timezone_name: str) -> str:
-    """Returns human-readable time until next scheduled post."""
+    """Returns human-readable time until next scheduled post (PT-BR)."""
     from zoneinfo import ZoneInfo
     if not times:
-        return "not scheduled"
+        return "não agendado"
     day_map = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
     allowed_days = set(day_map[d] for d in (days or []) if d in day_map) or set(range(7))
     try:
@@ -238,12 +238,14 @@ def _time_until_next_post(times: list, days: list, timezone_name: str) -> str:
                 total_mins = int(diff.total_seconds() / 60)
                 hours, mins = divmod(total_mins, 60)
                 if days_ahead == 0:
-                    return f"today at {time_str} (in {hours}h {mins}m)"
+                    if hours > 0:
+                        return f"hoje às {time_str} (em {hours}h {mins}m)"
+                    return f"hoje às {time_str} (em {mins}m)"
                 elif days_ahead == 1:
-                    return f"tomorrow at {time_str}"
+                    return f"amanhã às {time_str}"
                 else:
-                    return f"{candidate_date.strftime('%a')} at {time_str}"
-    return "not scheduled"
+                    return f"{candidate_date.strftime('%d/%m')} às {time_str}"
+    return "não agendado"
 
 
 def _as_bool(value, default: bool = False) -> bool:
@@ -301,27 +303,26 @@ def _format_status(payload: dict) -> str:
     lines = [
         s["status_title"],
         "",
+        s["status_date"].format(date=payload["local_date"], hour=payload["local_hour"]),
+        s["status_timezone"].format(timezone=payload["timezone_name"]),
         s["status_uptime"].format(uptime=payload["uptime"]),
-        s["status_local_time"].format(local_time=payload["local_time"]),
         "",
-        s["status_catalog"].format(
-            cards_count=payload["cards_count"],
-            packs_count=payload["packs_count"],
-            taboo_count=payload.get("taboo_count", "-"),
-        ),
+        s["status_cards_line"].format(count=payload["cards_count"]),
+        s["status_packs_line"].format(count=payload["packs_count"]),
+        s["status_taboos_line"].format(count=payload.get("taboo_count", "-")),
         "",
     ]
 
     if payload.get("daily_post_enabled"):
-        next_post = payload.get("next_post", "-")
-        lines.append(s["status_next_post"].format(next_post=next_post))
+        lines.append(s["status_next_post"].format(next_post=payload.get("next_post", "-")))
     else:
         lines.append(s["status_post_disabled"])
 
     last_code = payload.get("last_daily_post_card_code", "-")
-    last_status = payload.get("last_daily_post_status", "-")
+    last_name = payload.get("last_daily_post_card_name")
     if last_code and last_code != "-":
-        lines.append(s["status_last_post"].format(card_code=last_code, post_status=last_status))
+        display = f'<a href="https://arkhamdb.com/card/{last_code}">{escape(last_name or last_code)}</a>'
+        lines.append(s["status_last_post"].format(card=display))
     else:
         lines.append(s["status_no_last_post"])
 
@@ -433,15 +434,36 @@ def _collect_status_payload(update: Update) -> dict:
             pending_commands = "erro"
 
     try:
-        local_time = datetime.now(ZoneInfo(timezone_name)).strftime("%Y-%m-%d %H:%M:%S %Z")
+        local_dt = datetime.now(ZoneInfo(timezone_name))
+        local_date = local_dt.strftime("%d/%m/%Y")
+        local_hour = local_dt.strftime("%H:%M")
     except Exception:
-        local_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        local_dt = datetime.now()
+        local_date = local_dt.strftime("%d/%m/%Y")
+        local_hour = local_dt.strftime("%H:%M")
 
     state = load_json_file(DAILY_SCHEDULER_STATE_FILE, default={}) or {}
+    last_card_code = state.get("last_daily_post_card_code", "-")
+
+    # Fetch card name for last posted card
+    last_card_name = None
+    if last_card_code and last_card_code != "-" and SUPABASE_ENABLED:
+        try:
+            from ..core.supabase_client import get_supabase_client as _sc
+            _client = _sc()
+            if _client:
+                rows = _client.get("arkham_cards", {"code": f"eq.{last_card_code}", "select": "name", "limit": "1"})
+                if rows:
+                    last_card_name = rows[0].get("name")
+        except Exception:
+            pass
+
     return {
         "bot": "online",
         "uptime": _format_uptime(now),
-        "local_time": local_time,
+        "local_date": local_date,
+        "local_hour": local_hour,
+        "timezone_name": timezone_name,
         "telegram_chat_configured": bool(TELEGRAM_CHAT_ID),
         "telegram_user_id": user_id or "-",
         "daily_post_enabled": _as_bool(daily_post_enabled),
@@ -449,13 +471,14 @@ def _collect_status_payload(update: Update) -> dict:
         "daily_post_days": daily_post_days,
         "day_config": day_config,
         "last_daily_post_status": state.get("last_daily_post_status", "-"),
-        "last_daily_post_card_code": state.get("last_daily_post_card_code", "-"),
+        "last_daily_post_card_code": last_card_code,
+        "last_daily_post_card_name": last_card_name,
         "supabase_configured": SUPABASE_ENABLED,
         "supabase_status": supabase_status,
-        "cards_count": cards_count,
+        "cards_count": f"{int(cards_count):,}".replace(",", ".") if cards_count.isdigit() else cards_count,
         "packs_count": packs_count,
         "taboo_count": taboo_count,
-        "next_post": _time_until_next_post(daily_post_times, daily_post_days, timezone_name) if daily_post_enabled else "inactive",
+        "next_post": _time_until_next_post(daily_post_times, daily_post_days, timezone_name) if daily_post_enabled else "não agendado",
         "ai_daily_card_enabled": bool(AI_DAILY_CARD_ENABLED and OPENAI_API_KEY),
         "ai_model": AI_MODEL if OPENAI_API_KEY else "sem OPENAI_API_KEY",
         "bot_commands_enabled": BOT_COMMANDS_POLLING_ENABLED,

@@ -6,24 +6,30 @@ from arkham_bot.handlers import telegram_handlers
 def test_format_status_includes_key_fields():
     payload = {
         "uptime": "2h 3m",
-        "local_time": "2026-05-28 08:30:00 BRT",
-        "cards_count": "1234",
-        "packs_count": "42",
-        "taboo_count": "5",
+        "local_date": "28/05/2026",
+        "local_hour": "09:38",
+        "timezone_name": "America/Sao_Paulo",
+        "cards_count": "5.927",
+        "packs_count": "114",
+        "taboo_count": "10",
         "daily_post_enabled": True,
-        "next_post": "em 1h 30m",
+        "next_post": "amanhã às 08:30",
         "last_daily_post_card_code": "01001",
+        "last_daily_post_card_name": "Disc of Itzamna",
         "last_daily_post_status": "success",
         "is_admin": False,
     }
 
     text = telegram_handlers._format_status(payload)
 
+    assert "28/05/2026" in text
+    assert "09:38" in text
     assert "2h 3m" in text
-    assert "1234" in text
-    assert "42" in text
-    assert "01001" in text
-    assert "em 1h 30m" in text
+    assert "5.927" in text
+    assert "114" in text
+    assert "Disc of Itzamna" in text
+    assert "arkhamdb.com/card/01001" in text
+    assert "amanhã" in text
 
 
 def test_format_uptime_is_compact(monkeypatch):

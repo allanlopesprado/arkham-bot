@@ -18,16 +18,19 @@ strings: dict = {
     "help_status_cmd": "- <code>/status</code> - operational status",
 
     # /status
-    "status_title": "🤖 <b>Arkham Bot</b>",
-    "status_uptime": "⏱ Uptime: <code>{uptime}</code>",
-    "status_local_time": "🕐 Local time: <code>{local_time}</code>",
-    "status_catalog": "📦 Catalog: <code>{cards_count}</code> cards · <code>{packs_count}</code> packs · <code>{taboo_count}</code> taboos",
-    "status_next_post": "📅 Next post: <code>{next_post}</code>",
-    "status_last_post": "✅ Last post: <code>{card_code}</code> ({post_status})",
-    "status_no_last_post": "📭 No posts recorded this session",
+    "status_title": "🤖 <b>Arkham Bot — Online</b>",
+    "status_date": "📅 {date} · {hour}",
+    "status_timezone": "🌎 {timezone}",
+    "status_uptime": "⏱ Online for {uptime}",
+    "status_cards_line": "📚 Cards: <code>{count}</code>",
+    "status_packs_line": "📦 Packs: <code>{count}</code>",
+    "status_taboos_line": "🔖 Taboos: <code>{count}</code>",
+    "status_next_post": "⏰ Next post: {next_post}",
+    "status_last_post": "🃏 Last card of the day: {card}",
+    "status_no_last_post": "📭 No cards posted this session",
     "status_post_disabled": "⏸ Automatic posting disabled",
-    "status_pending_commands": "🗂 Queue: <code>{count}</code> pending command(s)",
-    "status_supabase": "🗄 Supabase: <code>{status}</code>",
+    "status_pending_commands": "🗂 Queue: <code>{count}</code> pending",
+    "status_supabase": "🗄 Supabase: {status}",
 
     # /card
     "card_choose_pack": "Choose a pack to search for the card:",
