@@ -186,7 +186,7 @@ export default function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', database: 'home', schedule: 'settings', admins: 'home', destinations: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', database: 'home', schedule: 'settings', admins: 'home', destinations: 'home', maintenance: 'home', queue: 'home', history: 'home', health: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -808,7 +808,6 @@ export default function App() {
           <Section title={copy.configTitle}>
             <Row icon="settings" label={copy.postingConfig} onClick={() => setActiveTab('settings')} />
             <Row icon="send"     label={copy.destinationsManageTab} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
-            <Row icon="language" label={copy.appConfig}     onClick={() => setActiveTab('app_settings')} />
           </Section>
 
           <Section title={copy.systemTitle}>
@@ -852,7 +851,7 @@ export default function App() {
             ))}
           </Section>
 
-          {targetChats.length > 0 && (
+          {targetChats.length > 0 ? (
             <Section title={copy.destination}>
               <SelectRow label={copy.destination} value={targetChatId} onChange={setTargetChatId}>
                 <option value="">{copy.defaultChat}</option>
@@ -860,6 +859,11 @@ export default function App() {
                   <option key={chat.chat_id} value={chat.chat_id}>{chat.title || chat.chat_id}</option>
                 ))}
               </SelectRow>
+            </Section>
+          ) : (
+            <Section>
+              <Row icon="info" label={copy.noDestinationsInPost} caption={undefined} />
+              <Row icon="send" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
             </Section>
           )}
 
@@ -913,8 +917,8 @@ export default function App() {
             )}
           </Section>
 
-          {/* Chat ID */}
-          <Section title={copy.telegramChannel}>
+          {/* Chat ID fallback */}
+          <Section title={copy.telegramChannel} footer={copy.telegramChatIdCaption}>
             <ChatIdInputRow
               value={settings.telegram_chat_id}
               onChange={(v) => updateSetting('telegram_chat_id', v)}
@@ -927,12 +931,23 @@ export default function App() {
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
-          {/* Agenda navigation */}
-          <Section>
-            <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
+          {/* Language */}
+          <Section title={copy.chooseLanguage}>
+            <ToggleRow
+              label={copy.portuguese}
+              checked={language === 'pt'}
+              onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
+            />
+            <ToggleRow
+              label={copy.englishLang}
+              checked={language === 'en'}
+              onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
+            />
           </Section>
 
+          {/* Sub-sections navigation */}
           <Section>
+            <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
             <Row icon="ai" label={copy.aiTab} onClick={() => setActiveTab('ai')} />
           </Section>
 
@@ -1027,10 +1042,6 @@ export default function App() {
             <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
           </Section>
 
-          <Section title={copy.clearQueue} footer={copy.clearQueueCaption}>
-            <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
-          </Section>
-
           {result && (
             <Section>
               <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
@@ -1103,6 +1114,16 @@ export default function App() {
                 <CommandRow key={cmd.id} command={cmd} onCancel={cancelCommand} loading={cancellingCommand === cmd.id} copy={copy} />
               ))}
             </Section>
+            {pendingCount > 0 && (
+              <Section title={copy.clearQueue} footer={copy.clearQueueCaption}>
+                <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
+              </Section>
+            )}
+            {result && (
+              <Section>
+                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+              </Section>
+            )}
           </>
         );
       })()}
@@ -1125,27 +1146,31 @@ export default function App() {
             )}
 
             <Section title={copy.postTimes}>
+              {getTimesForDay(activeDayCode).map((t) => (
+                <div key={t} className="time-add-row">
+                  <span className="row-label">{t}</span>
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    aria-label={copy.removeTime}
+                    onClick={() => removeTimeForDay(activeDayCode, t)}
+                  ><Icon name="x" /></button>
+                </div>
+              ))}
               <div className="time-add-row">
-                <span className="row-label">{copy.postTime}</span>
+                <span className="row-label">{copy.addTime}</span>
                 <input
                   className="time-add-input"
                   type="time"
-                  value={getTimesForDay(activeDayCode)[0] || ''}
-                  onChange={(e) => {
-                    const val = e.target.value.slice(0, 5);
-                    if (!val) return;
-                    if (activeDayCode === 'all') {
-                      setSettings((cur) => ({
-                        ...cur,
-                        daily_post_times: cur.daily_post_times.length > 0
-                          ? cur.daily_post_times.map((t, i) => (i === 0 ? val : t))
-                          : [val],
-                      }));
-                    } else {
-                      updateDayConfig(activeDayCode, (cfg) => ({ ...cfg, times: [val] }));
-                    }
-                  }}
+                  value={pendingTime}
+                  onChange={(e) => setPendingTime(e.target.value.slice(0, 5))}
                 />
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={copy.addTime}
+                  onClick={() => addTimeForDay(activeDayCode)}
+                >+</button>
               </div>
             </Section>
 
@@ -1468,15 +1493,6 @@ export default function App() {
       {/* ── HEALTH ── */}
       {activeTab === 'health' && (
         <>
-          <Section title={copy.summary}>
-            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
-            <Row icon="shield" label={copy.access} value={copy.roleLabels[me?.role] || me?.role || copy.admin} badgeTone="ok" />
-            <Row icon="cards"  label={copy.cards}  value={cardsValue} />
-            <Row icon="packs"  label={copy.packs}  value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
-            <Row icon="clock"  label={copy.lastSync} value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus?.last_sync).toLocaleString(copy.locale) : '-'} mono />
-            <Row icon="queue"  label={copy.queue}  value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
-          </Section>
-
           <Section title={copy.botRuntime}>
             {botRuntime ? (
               <>
@@ -1503,22 +1519,8 @@ export default function App() {
             </Section>
           )}
 
-          {(() => {
-            const activeChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
-            return (
-              <Section title={copy.destinationsTitle}>
-                {activeChats.length === 0
-                  ? <Row icon="info" label={copy.noDestinations} />
-                  : activeChats.map((chat) => (
-                      <Row key={chat.chat_id} icon="send" label={chat.title || String(chat.chat_id)} value={copy.chatActive} badgeTone="ok" />
-                    ))
-                }
-              </Section>
-            );
-          })()}
-
           <Section title={copy.system}>
-            <MenuRow icon="refresh" label={copy.recheckAuth} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} onClick={() => { fetchStatus(); fetchOverview(); }} />
+            <MenuRow icon="refresh" label={copy.recheckAuth} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} onClick={() => { fetchStatus(); fetchOverview(); fetchBotRuntime(); }} />
           </Section>
 
           <Section title={copy.diagnostic}>
