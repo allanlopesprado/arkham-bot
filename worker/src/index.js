@@ -1178,6 +1178,68 @@ async function handleAddDestination(request, env, user, ao) {
   }
 }
 
+async function handleGetPendingDestinations(env, ao) {
+  try {
+    const url = `${supabaseBase(env)}/rest/v1/pending_destinations?status=eq.pending&order=added_at.desc&limit=20`;
+    const resp = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'fetch_failed' }, 502), ao);
+    const rows = await resp.json();
+    return withCors(jsonResponse({ ok: true, pending: rows }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'fetch_failed' }, 502), ao);
+  }
+}
+
+async function handleAcceptPendingDestination(request, env, user, ao, pendingId) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const threadId = body.message_thread_id ? Number(body.message_thread_id) : null;
+    // Fetch pending entry
+    const pUrl = `${supabaseBase(env)}/rest/v1/pending_destinations?id=eq.${pendingId}&status=eq.pending&limit=1`;
+    const pResp = await fetch(pUrl, { headers: supabaseHeaders(env) });
+    const rows = await pResp.json().catch(() => []);
+    if (!rows.length) return withCors(jsonResponse({ ok: false, error: 'pending_not_found' }, 404), ao);
+    const { chat_id, chat_title } = rows[0];
+    // Insert into target_chats (check for existing first)
+    const checkUrl = `${supabaseBase(env)}/rest/v1/target_chats?chat_id=eq.${encodeURIComponent(chat_id)}&message_thread_id=${threadId == null ? 'is.null' : `eq.${threadId}`}&limit=1`;
+    const checkResp = await fetch(checkUrl, { headers: supabaseHeaders(env) });
+    const existing = await checkResp.json().catch(() => []);
+    if (existing.length && existing[0].enabled) {
+      return withCors(jsonResponse({ ok: false, error: 'destination_already_exists' }, 409), ao);
+    }
+    const destBody = { chat_id, title: chat_title, message_thread_id: threadId, enabled: true,
+      added_by_user_id: user.id, added_by_name: user.name || '', removed_by_user_id: null, removed_by_name: null, removed_at: null };
+    const insertResp = await fetch(`${supabaseBase(env)}/rest/v1/target_chats`, {
+      method: 'POST', headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(destBody),
+    });
+    if (!insertResp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }, 502), ao);
+    // Mark pending as accepted
+    await fetch(`${supabaseBase(env)}/rest/v1/pending_destinations?id=eq.${pendingId}`, {
+      method: 'PATCH', headers: { ...supabaseHeaders(env), 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'accepted' }),
+    });
+    await writeAuditLog(env, user, 'destination_added_from_pending', { chat_id, chat_title, message_thread_id: threadId });
+    const result = await insertResp.json();
+    return withCors(jsonResponse({ ok: true, destination: Array.isArray(result) ? result[0] : result }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'accept_failed' }, 502), ao);
+  }
+}
+
+async function handleDismissPendingDestination(env, user, ao, pendingId) {
+  try {
+    const resp = await fetch(`${supabaseBase(env)}/rest/v1/pending_destinations?id=eq.${pendingId}`, {
+      method: 'PATCH', headers: { ...supabaseHeaders(env), 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'dismissed' }),
+    });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'dismiss_failed' }, 502), ao);
+    return withCors(jsonResponse({ ok: true }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'dismiss_failed' }, 502), ao);
+  }
+}
+
 async function handleResolveDestination(request, env, ao) {
   const url = new URL(request.url);
   const chatId = url.searchParams.get('chat_id');
@@ -1387,6 +1449,23 @@ export default {
     }
 
     // /destinations
+    if (pathname === '/destinations/pending' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/destinations/pending');
+      if (auth.response) return auth.response;
+      return handleGetPendingDestinations(env, ao);
+    }
+    if (pathname.startsWith('/destinations/pending/') && request.method === 'POST') {
+      const pendingId = pathname.replace('/destinations/pending/', '').replace('/accept', '');
+      const auth = await requireAdmin(request, env, ao, '/destinations/pending/:id/accept');
+      if (auth.response) return auth.response;
+      return handleAcceptPendingDestination(request, env, auth.user, ao, pendingId);
+    }
+    if (pathname.startsWith('/destinations/pending/') && request.method === 'DELETE') {
+      const pendingId = pathname.replace('/destinations/pending/', '');
+      const auth = await requireAdmin(request, env, ao, '/destinations/pending/:id');
+      if (auth.response) return auth.response;
+      return handleDismissPendingDestination(env, auth.user, ao, pendingId);
+    }
     if (pathname === '/destinations' && request.method === 'GET') {
       const auth = await requireAdmin(request, env, ao, '/destinations');
       if (auth.response) return auth.response;
