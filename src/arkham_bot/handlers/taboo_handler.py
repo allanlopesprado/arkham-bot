@@ -99,7 +99,7 @@ def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict, page: int = 
         date = f"{raw[8:10]}/{raw[5:7]}/{raw[:4]}" if len(raw) == 10 else raw
         tid = t.get('id', start + i)
         is_current = (start + i == 0)
-        label = f"{date}  {s['taboo_list_current_prefix'].strip()}" if is_current else date
+        label = f"{s['taboo_list_current_prefix'].strip()} {date}" if is_current else date
         buttons.append([InlineKeyboardButton(label, callback_data=f"TABOO_LIST_{tid}")])
     nav = []
     if page > 0:
