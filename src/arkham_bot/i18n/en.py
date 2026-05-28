@@ -68,7 +68,7 @@ strings: dict = {
     "taboo_card_searching": "⏳ Searching card <code>{code}</code>...",
     "taboo_lists_title": "<b>Taboo Lists</b>",
     "taboo_lists_subtitle": "Select a list to explore:\n",
-    "taboo_list_current_prefix": "📌 ",
+    "taboo_list_current_prefix": "📌",
     "taboo_btn_close": "Close",
     "taboo_btn_lists": "Lists",
     "taboo_btn_back": "Back",
