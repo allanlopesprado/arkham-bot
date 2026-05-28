@@ -179,6 +179,9 @@ export const I18N = {
     syncScheduleSaved: 'Agendamento salvo.',
     appTitle: 'Aplicativo',
     systemTitle: 'Sistema',
+    postingConfig: 'Postagem',
+    appConfig: 'App',
+    appConfigCaption: 'Idioma e preferências',
     telegramChannel: 'Canal do Telegram',
     // history
     historyTab: 'Histórico',
@@ -487,6 +490,9 @@ export const I18N = {
     syncScheduleSaved: 'Schedule saved.',
     appTitle: 'App',
     systemTitle: 'System',
+    postingConfig: 'Posting',
+    appConfig: 'App',
+    appConfigCaption: 'Language and preferences',
     telegramChannel: 'Telegram channel',
     // history
     historyTab: 'History',

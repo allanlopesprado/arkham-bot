@@ -186,7 +186,7 @@ export default function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'home', language: 'home', database: 'home', schedule: 'settings', admins: 'home', destinations_manage: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', language: 'app_settings', database: 'home', schedule: 'settings', admins: 'home', destinations_manage: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -778,29 +778,40 @@ export default function App() {
       {/* ── HOME ── */}
       {activeTab === 'home' && (
         <>
-          <Section title={copy.overviewTitle}>
-            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
-            <Row icon="cards"  label={copy.cards}  value={`${cardsValue} / ${overview?.counts?.posted_cards ?? '-'}`} />
-            <Row icon="queue"  label={copy.queue}  value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} onClick={() => setActiveTab('queue')} />
-          </Section>
+          <div className="overview-panel">
+            <div className="overview-stat">
+              <span className={`overview-dot ${sysStatus?.ok ? 'ok' : 'err'}`} />
+              <span className="overview-stat-label">{loadingStatus ? '…' : workerValue}</span>
+            </div>
+            <div className="overview-divider" />
+            <div className="overview-stat">
+              <Icon name="cards" />
+              <span className="overview-stat-label">{cardsValue}</span>
+            </div>
+            <div className="overview-divider" />
+            <div className="overview-stat" style={{cursor:'pointer'}} onClick={() => setActiveTab('queue')} role="button" tabIndex={0} onKeyDown={e => e.key==='Enter' && setActiveTab('queue')}>
+              <Icon name="queue" />
+              <span className="overview-stat-label">{queueValue > 0 ? String(queueValue) : '0'}</span>
+              {queueValue > 0 && <span className="overview-badge">{copy.pending}</span>}
+            </div>
+          </div>
 
           <Section title={copy.actionsTitle}>
-            <Row icon="send"     label={copy.postCard}   onClick={() => setActiveTab('post')} />
-            <Row icon="clock"    label={copy.historyTab} onClick={() => setActiveTab('history')} />
-            <Row icon="settings" label={copy.settings}   onClick={() => setActiveTab('settings')} />
+            <Row icon="send"  label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="clock" label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="queue" label={copy.queue} value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} onClick={() => setActiveTab('queue')} />
           </Section>
 
-          <Section title={copy.manageTitle}>
-            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
-            <Row icon="database" label={copy.databaseTab} onClick={() => setActiveTab('database')} />
-            {me?.role === 'owner' && <Row icon="shield" label={copy.adminsTab} onClick={() => setActiveTab('admins')} />}
-            <Row icon="send" label={copy.destinationsManageTab} onClick={() => setActiveTab('destinations_manage')} />
+          <Section title={copy.configTitle}>
+            <Row icon="settings" label={copy.postingConfig} onClick={() => setActiveTab('settings')} />
+            <Row icon="language" label={copy.appConfig}     onClick={() => setActiveTab('app_settings')} />
           </Section>
 
           <Section title={copy.systemTitle}>
-            <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
+            <Row icon="database" label={copy.databaseTab}  onClick={() => setActiveTab('database')} />
             <Row icon="server"   label={copy.health}       onClick={() => setActiveTab('health')} value={workerValue} badgeTone={workerTone} />
-            <Row icon="language" label={copy.chooseLanguage} onClick={() => setActiveTab('language')} value={copy.langName} />
+            <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
+            {me?.role === 'owner' && <Row icon="shield" label={copy.adminsTab} onClick={() => setActiveTab('admins')} />}
           </Section>
         </>
       )}
@@ -915,6 +926,10 @@ export default function App() {
           {/* Agenda navigation */}
           <Section>
             <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
+          </Section>
+
+          <Section>
+            <Row icon="ai" label={copy.aiTab} onClick={() => setActiveTab('ai')} />
           </Section>
 
           {settingsResult && (
@@ -1420,6 +1435,22 @@ export default function App() {
             )}
           </Section>
         </>
+      )}
+
+      {/* ── APP SETTINGS ── */}
+      {activeTab === 'app_settings' && (
+        <Section title={copy.chooseLanguage}>
+          <ToggleRow
+            label={copy.portuguese}
+            checked={language === 'pt'}
+            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
+          />
+          <ToggleRow
+            label={copy.englishLang}
+            checked={language === 'en'}
+            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
+          />
+        </Section>
       )}
 
       {/* ── LANGUAGE ── */}
