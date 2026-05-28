@@ -1443,9 +1443,10 @@ export default function App() {
             <Section title={copy.pendingDestinationsTitle} footer={copy.pendingDestinationCaption}>
               {pendingDests.map(p => (
                 <div key={p.id} style={{ padding: '10px 14px', borderTop: '1px solid var(--sep)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <span className="row-label">{p.chat_title}</span>
-                    <span className="row-caption">{p.chat_id}{p.chat_username ? ` · @${p.chat_username}` : ''}</span>
+                    <span className="row-caption">{p.chat_id}</span>
+                    {p.chat_username && <span className="row-caption">@{p.chat_username}</span>}
                   </div>
                   <div className="stacked-input-row" style={{ padding: 0 }}>
                     <input
