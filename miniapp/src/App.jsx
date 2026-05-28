@@ -1176,17 +1176,17 @@ export default function App() {
       {activeTab === 'history' && (
         <>
           <Section title={copy.historyTitle}>
+            <div className="history-source-filter">
+              {[['all', copy.sourceAll], ['scheduled', copy.sourceScheduled], ['manual', copy.sourceManual]].map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  className={`source-filter-btn${historySourceFilter === val ? ' active' : ''}`}
+                  onClick={() => { haptic('selection'); setHistorySourceFilter(val); }}
+                >{label}</button>
+              ))}
+            </div>
             <div className="history-toolbar">
-              <div className="history-source-filter">
-                {[['all', copy.sourceAll], ['scheduled', copy.sourceScheduled], ['manual', copy.sourceManual]].map(([val, label]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    className={`source-filter-btn${historySourceFilter === val ? ' active' : ''}`}
-                    onClick={() => { haptic('selection'); setHistorySourceFilter(val); }}
-                  >{label}</button>
-                ))}
-              </div>
               <div className="history-date-wrap">
                 <Icon name="clock" />
                 <input
