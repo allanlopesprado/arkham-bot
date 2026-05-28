@@ -123,7 +123,6 @@ strings: dict = {
     "search_spoiler_warning": "⚠️ <b>Warning: this card contains a spoiler!</b>",
 
     # /sets
-    "sets_no_sets": "No sets available.",
     "sets_choose": "📦 Choose a set to browse its cards:",
     "sets_error": "Error loading sets.",
     "sets_no_cards": "No cards found in this set.",

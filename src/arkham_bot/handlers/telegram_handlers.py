@@ -308,21 +308,6 @@ def _format_uptime(now: datetime) -> str:
     return f"{minutes}m"
 
 
-def _format_list(value) -> str:
-    if isinstance(value, list):
-        return ", ".join(str(item) for item in value) or "-"
-    if value in (None, ""):
-        return "-"
-    return str(value)
-
-
-def _format_days(value) -> str:
-    s = get_strings()
-    names = _day_labels(s)
-    if not isinstance(value, list):
-        return _format_list(value)
-    return ", ".join(names.get(str(item), str(item)) for item in value) or "-"
-
 
 def _time_until_next_post(times: list, days: list, timezone_name: str) -> str:
     """Returns human-readable time until next scheduled post (PT-BR)."""
@@ -379,10 +364,6 @@ def _code(value) -> str:
     return f"<code>{_safe_status_value(value)}</code>"
 
 
-def _bold(value) -> str:
-    return f"<b>{_safe_status_value(value)}</b>"
-
-
 def _day_labels(s: dict) -> dict:
     return {
         'mon': s['day_mon'], 'tue': s['day_tue'], 'wed': s['day_wed'],
@@ -390,25 +371,6 @@ def _day_labels(s: dict) -> dict:
         'sun': s['day_sun'], 'all': s['day_all'],
     }
 
-
-def _format_day_config_lines(day_config: dict) -> list[str]:
-    if not isinstance(day_config, dict) or not day_config:
-        return []
-    s = get_strings()
-    labels = _day_labels(s)
-    lines = ["", "<b>Config por dia</b>"]
-    order = ['all', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-    for code in order:
-        cfg = day_config.get(code)
-        if not cfg:
-            continue
-        label = labels.get(code, code)
-        packs = cfg.get('packs') or []
-        types = cfg.get('types') or []
-        packs_str = f"{len(packs)} packs" if packs else "all"
-        types_str = ", ".join(types[:4]) + ("…" if len(types) > 4 else "") if types else "all"
-        lines.append(f"- {label}: packs={packs_str} | types={_code(types_str)}")
-    return lines if len(lines) > 2 else []
 
 
 def _format_status(payload: dict) -> str:

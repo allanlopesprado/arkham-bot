@@ -68,7 +68,7 @@ strings: dict = {
     "taboo_card_searching": "⏳ Buscando carta <code>{code}</code>...",
     "taboo_lists_title": "<b>Listas Taboo</b>",
     "taboo_lists_subtitle": "Selecione uma lista para explorar:\n",
-    "taboo_list_current_prefix": "📌 ",
+    "taboo_list_current_prefix": "📌",
     "taboo_btn_close": "Fechar",
     "taboo_btn_lists": "Listas",
     "taboo_btn_back": "Voltar",
@@ -123,7 +123,6 @@ strings: dict = {
     "search_spoiler_warning": "⚠️ <b>Atenção: esta carta contém spoiler!</b>",
 
     # /sets
-    "sets_no_sets": "Nenhum set disponível.",
     "sets_choose": "📦 Escolha um set para ver as cartas:",
     "sets_error": "Erro ao carregar sets.",
     "sets_no_cards": "Nenhuma carta encontrada neste set.",
