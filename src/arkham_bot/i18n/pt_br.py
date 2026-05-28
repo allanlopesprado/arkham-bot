@@ -44,6 +44,7 @@ strings: dict = {
     "card_searching": "⏳ Buscando carta **{full_card_id}**...",
     "card_not_found": "⚠️ Carta `{full_card_id}` não encontrada. Verifique o código e tente novamente.",
     "card_number_not_in_pack": "⚠️ O número *{number}* não existe neste pacote.\nNúmeros válidos: {samples}\n\nDigite outro número:",
+    "faq_last_updated": "Atualizado em",
     "card_error": "🚨 Erro ao buscar a carta `{full_card_id}`. Tente novamente mais tarde.",
 
     # cancel

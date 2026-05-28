@@ -953,7 +953,25 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 parts.append(_arkhamdb_html_to_telegram(str(entry)))
         faq_text = "\n\n".join(parts)
-        faq_text += "\n\n" + s["fmt_view_arkhamdb"].format(code=escape(card_code))
+
+        # Last updated date from the most recent FAQ entry
+        last_updated = None
+        for entry in reversed(entries):
+            if isinstance(entry, dict):
+                upd = entry.get('updated') or {}
+                date_str = upd.get('date', '') if isinstance(upd, dict) else ''
+                if date_str:
+                    try:
+                        from datetime import timezone as _tz
+                        dt = datetime.fromisoformat(date_str.split('.')[0])
+                        last_updated = dt.strftime('%d/%m/%Y')
+                    except Exception:
+                        pass
+                    break
+
+        if last_updated:
+            faq_text += f"\n\n🕐 <i>{s.get('faq_last_updated', 'Atualizado em')} {last_updated}</i>"
+        faq_text += "\n" + s["fmt_view_arkhamdb"].format(code=escape(card_code))
 
         # Fetch card image
         img_bytes = None
