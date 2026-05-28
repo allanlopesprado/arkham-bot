@@ -208,7 +208,17 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot_data['taboo_origin_chat_id'] = update.message.chat_id
         context.bot_data['taboo_origin_message_id'] = update.message.message_id
 
-        text, markup = _taboo_list_menu_text_and_buttons(sorted_lists, name_map)
+        latest = sorted_lists[0]
+        by_code = _parse_taboo_cards(latest)
+        cats: dict[str, list] = {k: [] for k in TABOO_CATEGORY_KEYS}
+        for code, entry in by_code.items():
+            cat = _taboo_category(entry)
+            cats.setdefault(cat, []).append((code, entry))
+        context.bot_data['taboo_selected'] = latest
+        context.bot_data['taboo_by_code'] = by_code
+        context.bot_data['taboo_cats'] = cats
+
+        text, markup = _taboo_detail_text_and_buttons(latest, cats)
         await update.message.reply_text(
             text,
             parse_mode=ParseMode.HTML,
