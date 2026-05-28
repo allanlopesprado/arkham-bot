@@ -267,3 +267,23 @@ export function AuthErrorGate({ copy }) {
     </GateScreen>
   );
 }
+
+export function UnauthorizedGate({ copy }) {
+  return (
+    <GateScreen>
+      <Icon name="shield" className="gate-icon" />
+      <p className="gate-title">{copy.unauthorizedTitle}</p>
+      <p className="gate-text">{copy.unauthorizedText}</p>
+    </GateScreen>
+  );
+}
+
+export function ApiNotConfiguredGate({ copy }) {
+  return (
+    <GateScreen>
+      <Icon name="wrench" className="gate-icon" />
+      <p className="gate-title">{copy.apiNotConfiguredTitle}</p>
+      <p className="gate-text">{copy.apiNotConfiguredText}</p>
+    </GateScreen>
+  );
+}

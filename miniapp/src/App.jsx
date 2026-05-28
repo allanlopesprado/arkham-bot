@@ -10,7 +10,7 @@ import {
   Spinner, Badge, Notice, Section, Row, MenuRow, DangerRow,
   ToggleRow, InputRow, StackedInputRow, ChatIdInputRow, SelectRow, StackedSelectRow,
   DayScheduleRow, CommandRow, CardResult,
-  LoadingGate, NoTelegramGate, AuthErrorGate,
+  LoadingGate, NoTelegramGate, AuthErrorGate, UnauthorizedGate, ApiNotConfiguredGate,
 } from './components.jsx';
 
 export default function App() {
@@ -218,7 +218,7 @@ export default function App() {
   // ── Auth gate ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!tg() || !initData()) { setAuthState('no_telegram'); return; }
-    if (!apiConfigured) { setAuthState('ready'); return; }
+    if (!apiConfigured) { setAuthState('api_not_configured'); return; }
 
     apiFetch('/me').then(({ ok, json }) => {
       if (ok && json?.admin === true) {
@@ -595,12 +595,14 @@ export default function App() {
     finally { setSearchingCards(false); }
   }
 
-  async function fetchHistoryItems(date, offset) {
+  async function fetchHistoryItems(date, offset, sourceOverride) {
     if (!apiConfigured) return;
     setHistoryLoadingState(true);
     setHistoryError(null);
+    const effectiveSource = sourceOverride !== undefined ? sourceOverride : historySourceFilter;
     const params = new URLSearchParams({ limit: '30', offset: String(offset) });
     if (date) params.set('date', date);
+    if (effectiveSource && effectiveSource !== 'all') params.set('source', effectiveSource);
     try {
       const { ok, status, json } = await apiFetch(`/history?${params.toString()}`);
       if (ok) {
@@ -749,7 +751,9 @@ export default function App() {
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
 
-  if (authState === 'loading' || authState === 'unauthorized') return <LoadingGate />;
+  if (authState === 'loading') return <LoadingGate />;
+  if (authState === 'unauthorized') return <UnauthorizedGate copy={copy} />;
+  if (authState === 'api_not_configured') return <ApiNotConfiguredGate copy={copy} />;
   if (authState === 'no_telegram') return <NoTelegramGate copy={copy} />;
   if (authState === 'auth_error') return <AuthErrorGate copy={copy} />;
 
@@ -1196,7 +1200,7 @@ export default function App() {
                   key={val}
                   type="button"
                   className={`source-filter-btn${historySourceFilter === val ? ' active' : ''}`}
-                  onClick={() => { haptic('selection'); setHistorySourceFilter(val); }}
+                  onClick={() => { haptic('selection'); setHistorySourceFilter(val); fetchHistoryItems(historyDate, 0, val); }}
                 >{label}</button>
               ))}
             </div>
@@ -1222,9 +1226,7 @@ export default function App() {
           </Section>
 
           {(() => {
-            const filteredItems = historySourceFilter === 'all'
-              ? historyItems
-              : historyItems.filter((p) => p.source === historySourceFilter);
+            const filteredItems = historyItems;
             return (
               <Section footer={!historyLoadingState && !historyError ? copy.postsOnDate(filteredItems.length, historyDate) : undefined}>
                 {historyError && <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />}

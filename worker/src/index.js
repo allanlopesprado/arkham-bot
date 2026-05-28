@@ -735,10 +735,15 @@ async function handleGetHistory(request, env, ao) {
   const url = new URL(request.url);
   const date = (url.searchParams.get('date') || '').trim();
   const q = (url.searchParams.get('q') || '').trim().replace(/[^\w\s:-]/g, '');
+  const source = (url.searchParams.get('source') || '').trim();
   const limit = boundedLimit(url.searchParams.get('limit'), 30, 100);
   const offset = Math.max(0, Number(url.searchParams.get('offset') || 0));
 
   let path = `/rest/v1/bot_posting_history?select=id,card_code,card_name,status,source,created_at,telegram_message_id&order=created_at.desc&limit=${limit}&offset=${offset}`;
+
+  if (source && source !== 'all') {
+    path += `&source=eq.${encodeURIComponent(source)}`;
+  }
 
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
     let tz = 'UTC';
@@ -917,6 +922,10 @@ async function handleBotCommand(request, env, user, ao) {
     }, 403), ao);
   }
 
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return withCors(jsonResponse({ error: 'backend_not_configured', detail: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.' }, 500), ao);
+  }
+
   const rateLimited = await checkRateLimit(env, user, commandType);
   if (rateLimited) {
     return withCors(new Response(JSON.stringify({ ok: false, error: 'rate_limited', detail: 'Command already pending' }), { status: 429, headers: { 'content-type': 'application/json' } }), ao);
@@ -982,7 +991,9 @@ async function writeAuditLog(env, user, action_type, payload = {}) {
         payload,
       }),
     });
-  } catch {}
+  } catch {
+    safeLog({ path: 'audit_log', method: 'POST', initData_present: null, initData_length: null, telegram_user_id_present: null, admin: null, status: 'write_failed' });
+  }
 }
 
 async function handleBotRuntime(env, ao) {
@@ -992,7 +1003,15 @@ async function handleBotRuntime(env, ao) {
     if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'supabase_error' }, 502), ao);
     const rows = await resp.json();
     if (!rows.length) return withCors(jsonResponse({ ok: true, alive: false, last_seen: null, seconds_ago: null }), ao);
-    const lastSeen = new Date(rows[0].updated_at);
+    const row = rows[0];
+    let lastSeen;
+    try {
+      const ts = JSON.parse(row.value);
+      const parsed = new Date(ts);
+      lastSeen = !isNaN(parsed.getTime()) ? parsed : new Date(row.updated_at);
+    } catch {
+      lastSeen = new Date(row.updated_at);
+    }
     const secondsAgo = Math.floor((Date.now() - lastSeen.getTime()) / 1000);
     const alive = secondsAgo < 180;
     return withCors(jsonResponse({ ok: true, alive, last_seen: lastSeen.toISOString(), seconds_ago: secondsAgo }), ao);
@@ -1128,7 +1147,16 @@ async function handleUpdateDestination(request, env, user, ao, destId) {
 async function handleDeleteDestination(request, env, user, ao, destId) {
   try {
     const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
-    const resp = await fetch(url, { method: 'DELETE', headers: supabaseHeaders(env) });
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: { ...supabaseHeaders(env), 'content-type': 'application/json', prefer: 'return=minimal' },
+      body: JSON.stringify({
+        enabled: false,
+        removed_by_user_id: user.id,
+        removed_by_name: user.name || '',
+        removed_at: new Date().toISOString(),
+      }),
+    });
     if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_delete_failed' }, 502), ao);
     await writeAuditLog(env, user, 'destination_removed', { id: destId });
     return withCors(jsonResponse({ ok: true }), ao);
@@ -1246,8 +1274,9 @@ export default {
       return handleBotCommand(request, env, auth.user, ao);
     }
 
-    // /ai-models (public)
     if (pathname === '/ai-models' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/ai-models');
+      if (auth.response) return auth.response;
       return withCors(jsonResponse({ ok: true, providers: AI_PROVIDERS }), ao);
     }
 
