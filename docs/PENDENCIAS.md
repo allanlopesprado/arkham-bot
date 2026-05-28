@@ -27,17 +27,10 @@
   A função síncrona `download_image_sync` tem o decorator `@network_retry_sync` com backoff exponencial. A versão assíncrona `download_image_async` não tem — uma falha de rede transiente durante postagem agendada faz a carta não ser enviada sem nova tentativa.  
   _Ação: adicionar retry assíncrono (ex: `tenacity.AsyncRetrying`) em `download_image_async`._
 
-- **Cache do `/decklist` não invalida após sync**  
-  O cache in-memory de cartas (`_cards_cache`) tem TTL de 10 minutos. Após um `sync_arkhamdb` que atualiza cartas, o cache pode servir dados stale até expirar.  
-  _Ação: invalidar `_cards_cache` e `_cards_encounter_cache` quando sync completa com sucesso no `command_worker.py`._
+- ~~**Cache do `/decklist` não invalida após sync**~~ ✅ corrigido em `c43d0df`
 
-- **`/cotd` não tem reply à mensagem do usuário**  
-  `/faq`, `/card`, `/sets` e `/decklist` fazem reply à mensagem original. `/cotd` não segue esse padrão.  
-  _Ação: adicionar `reply_parameters=ReplyParameters(message_id=update.message.message_id)` em `cotd_command`._
-
-- **`/status` e `/help` não fazem reply**  
-  Inconsistência com os demais comandos que fazem reply ao usuário.  
-  _Ação: adicionar `reply_parameters` em `status_command` e `start_command`._
+- ~~**`/cotd` não tem reply à mensagem do usuário**~~ ✅ já tinha reply
+- ~~**`/status` e `/help` não fazem reply**~~ ✅ corrigido em `c43d0df`
 
 ### Segurança
 
@@ -70,9 +63,7 @@
   `/card` exige digitar o número da carta; `/sets` permite clicar diretamente no nome. Considerar deprecar `/card` em favor de `/sets` ou transformar `/card` em alias.  
   _Decisão pendente do mantenedor._
 
-- **Descrição longa no `/decklist` truncada em 300 caracteres**  
-  Decks com descrições longas são cortados. Não há indicação visual de que o texto foi truncado.  
-  _Ação: adicionar `…` ao final se truncado._
+- ~~**Descrição longa no `/decklist` truncada sem indicador**~~ ✅ corrigido em `c43d0df`
 
 - **`/faq` sem título da carta acima do FAQ**  
   O FAQ exibe o texto da regra mas não mostra o nome da carta em destaque antes do texto. O título fica apenas no topo da imagem.  
