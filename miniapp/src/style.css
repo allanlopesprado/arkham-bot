@@ -144,55 +144,6 @@ input, select { outline: none; }
   line-height: 1.5;
 }
 
-/* ── Action grid (home panel) ─────────────────────────────────────────────── */
-
-.action-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 4px 0;
-}
-
-.action-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 18px 8px 14px;
-  background: var(--bg2);
-  border: 1px solid var(--sep);
-  border-radius: 14px;
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.12s, transform 0.1s;
-  min-height: 88px;
-  position: relative;
-}
-
-.action-tile:active { transform: scale(0.96); }
-
-@media (hover: hover) {
-  .action-tile:hover { background: color-mix(in srgb, var(--btn) 10%, var(--bg2)); }
-}
-
-.action-tile-icon { width: 26px; height: 26px; color: var(--btn); flex-shrink: 0; }
-
-.action-tile-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text);
-  text-align: center;
-  line-height: 1.3;
-}
-
-.action-tile .badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 10px;
-  padding: 1px 6px;
-}
 
 /* ── Card (list container) ────────────────────────────────────────────────── */
 
@@ -434,13 +385,6 @@ input, select { outline: none; }
 
 /* ── Inline form fields inside rows ──────────────────────────────────────── */
 
-.form-block {
-  align-items: flex-start;
-  min-height: auto;
-  padding-top: 12px;
-  padding-bottom: 12px;
-}
-
 .inline-input {
   width: 100%;
   padding: 8px 10px;
@@ -455,6 +399,8 @@ input, select { outline: none; }
 
 .inline-input:focus { border-color: color-mix(in srgb, var(--link) 50%, transparent); }
 .inline-input::placeholder { color: var(--hint); }
+
+.input-row { align-items: flex-start; min-height: auto; padding-top: 10px; padding-bottom: 10px; }
 
 .stacked-input-row {
   display: flex;
@@ -491,7 +437,7 @@ input, select { outline: none; }
   padding: 10px 12px;
   border: 1px solid var(--sep);
   border-radius: 8px;
-  background: var(--secondary-bg);
+  background: var(--bg2);
   color: var(--text);
   font-size: 15px;
   appearance: auto;
@@ -524,53 +470,6 @@ input, select { outline: none; }
   flex: 1;
 }
 
-.time-empty {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  color: var(--hint);
-  font-size: 15px;
-}
-
-.time-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 14px 16px;
-}
-
-.time-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg);
-  border: 1px solid var(--sep);
-  border-radius: 20px;
-  padding: 6px 10px 6px 14px;
-}
-
-.time-chip-value {
-  font-size: 15px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  letter-spacing: 0.02em;
-}
-
-.time-chip-remove {
-  background: none;
-  border: none;
-  padding: 2px;
-  color: var(--hint);
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: color 0.12s;
-}
-.time-chip-remove .icon { width: 14px; height: 14px; }
-.time-chip-remove:active { color: var(--destructive); }
 
 .time-add-row {
   display: flex;
@@ -910,7 +809,7 @@ input, select { outline: none; }
   padding: 10px 16px 4px;
 }
 .source-filter-btn {
-  background: var(--secondary-bg, var(--card-bg));
+  background: var(--bg2);
   border: 1.5px solid var(--separator);
   border-radius: 20px;
   color: var(--hint);

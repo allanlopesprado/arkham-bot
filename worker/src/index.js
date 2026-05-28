@@ -975,7 +975,7 @@ async function writeAuditLog(env, user, action_type, payload = {}) {
       method: 'POST',
       headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({
-        actor_telegram_user_id: user.telegram_user_id || user.id,
+        actor_telegram_user_id: user.id,
         actor_name: user.name || '',
         action_type,
         source: 'mini_app',
@@ -989,7 +989,7 @@ async function handleBotRuntime(env, ao) {
   try {
     const url = `${supabaseBase(env)}/rest/v1/bot_settings?key=eq.last_heartbeat&select=value,updated_at&limit=1`;
     const resp = await fetch(url, { headers: supabaseHeaders(env) });
-    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'supabase_error' }), ao);
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'supabase_error' }, 502), ao);
     const rows = await resp.json();
     if (!rows.length) return withCors(jsonResponse({ ok: true, alive: false, last_seen: null, seconds_ago: null }), ao);
     const lastSeen = new Date(rows[0].updated_at);
@@ -997,16 +997,20 @@ async function handleBotRuntime(env, ao) {
     const alive = secondsAgo < 180;
     return withCors(jsonResponse({ ok: true, alive, last_seen: lastSeen.toISOString(), seconds_ago: secondsAgo }), ao);
   } catch {
-    return withCors(jsonResponse({ ok: false, error: 'network_error' }), ao);
+    return withCors(jsonResponse({ ok: false, error: 'network_error' }, 502), ao);
   }
 }
 
 async function handleGetAdmins(env, ao) {
-  const url = `${supabaseBase(env)}/rest/v1/bot_admins?select=telegram_user_id,name,role,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
-  const resp = await fetch(url, { headers: supabaseHeaders(env) });
-  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admins_fetch_failed' }), ao);
-  const admins = await resp.json();
-  return withCors(jsonResponse({ ok: true, admins }), ao);
+  try {
+    const url = `${supabaseBase(env)}/rest/v1/bot_admins?select=telegram_user_id,name,role,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
+    const resp = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admins_fetch_failed' }, 502), ao);
+    const admins = await resp.json();
+    return withCors(jsonResponse({ ok: true, admins }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'admins_fetch_failed' }, 502), ao);
+  }
 }
 
 async function handleAddAdmin(request, env, user, ao) {
@@ -1020,7 +1024,7 @@ async function handleAddAdmin(request, env, user, ao) {
     name: String(name || '').slice(0, 100),
     role,
     enabled: true,
-    added_by_user_id: user.telegram_user_id || user.id,
+    added_by_user_id: user.id,
     added_by_name: user.name || '',
   };
   const url = `${supabaseBase(env)}/rest/v1/bot_admins?on_conflict=telegram_user_id`;
@@ -1036,103 +1040,126 @@ async function handleAddAdmin(request, env, user, ao) {
 }
 
 async function handleRemoveAdmin(request, env, user, ao, targetUserId) {
-  const targetId = Number(targetUserId);
-  if (!targetId) return withCors(jsonResponse({ ok: false, error: 'invalid_user_id' }, 400), ao);
-  const checkUrl = `${supabaseBase(env)}/rest/v1/bot_admins?role=eq.owner&enabled=eq.true&select=telegram_user_id`;
-  const checkResp = await fetch(checkUrl, { headers: supabaseHeaders(env) });
-  if (checkResp.ok) {
+  try {
+    const targetId = Number(targetUserId);
+    if (!targetId) return withCors(jsonResponse({ ok: false, error: 'invalid_user_id' }, 400), ao);
+    const checkUrl = `${supabaseBase(env)}/rest/v1/bot_admins?role=eq.owner&enabled=eq.true&select=telegram_user_id`;
+    const checkResp = await fetch(checkUrl, { headers: supabaseHeaders(env) });
+    if (!checkResp.ok) return withCors(jsonResponse({ ok: false, error: 'owner_check_failed' }, 502), ao);
     const owners = await checkResp.json();
     const isTargetOwner = owners.some((o) => o.telegram_user_id === targetId);
     if (isTargetOwner && owners.length <= 1) {
       return withCors(jsonResponse({ ok: false, error: 'cannot_remove_last_owner' }, 409), ao);
     }
+    const url = `${supabaseBase(env)}/rest/v1/bot_admins?telegram_user_id=eq.${targetId}`;
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: { ...supabaseHeaders(env), 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: false, removed_by_user_id: user.id, removed_by_name: user.name || '', removed_at: new Date().toISOString() }),
+    });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admin_remove_failed' }, 502), ao);
+    await writeAuditLog(env, user, 'admin_removed', { target_user_id: targetId });
+    return withCors(jsonResponse({ ok: true }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'admin_remove_failed' }, 502), ao);
   }
-  const url = `${supabaseBase(env)}/rest/v1/bot_admins?telegram_user_id=eq.${targetId}`;
-  const resp = await fetch(url, {
-    method: 'PATCH',
-    headers: { ...supabaseHeaders(env), 'content-type': 'application/json' },
-    body: JSON.stringify({ enabled: false, removed_by_user_id: user.telegram_user_id || user.id, removed_by_name: user.name || '', removed_at: new Date().toISOString() }),
-  });
-  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admin_remove_failed' }), ao);
-  await writeAuditLog(env, user, 'admin_removed', { target_user_id: targetId });
-  return withCors(jsonResponse({ ok: true }), ao);
 }
 
 async function handleGetDestinations(env, ao) {
-  const url = `${supabaseBase(env)}/rest/v1/target_chats?select=id,chat_id,title,message_thread_id,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
-  const resp = await fetch(url, { headers: supabaseHeaders(env) });
-  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destinations_fetch_failed' }), ao);
-  const destinations = await resp.json();
-  return withCors(jsonResponse({ ok: true, destinations }), ao);
+  try {
+    const url = `${supabaseBase(env)}/rest/v1/target_chats?select=id,chat_id,title,message_thread_id,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
+    const resp = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destinations_fetch_failed' }, 502), ao);
+    const destinations = await resp.json();
+    return withCors(jsonResponse({ ok: true, destinations }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'destinations_fetch_failed' }, 502), ao);
+  }
 }
 
 async function handleAddDestination(request, env, user, ao) {
-  const body = await request.json().catch(() => ({}));
-  const { chat_id, title = '', message_thread_id = null } = body;
-  if (!chat_id) return withCors(jsonResponse({ ok: false, error: 'chat_id_required' }, 400), ao);
-  const record = {
-    chat_id: String(chat_id),
-    title: String(title || '').slice(0, 200),
-    message_thread_id: message_thread_id ? Number(message_thread_id) : null,
-    enabled: true,
-    added_by_user_id: user.telegram_user_id || user.id,
-    added_by_name: user.name || '',
-  };
-  const url = `${supabaseBase(env)}/rest/v1/target_chats?on_conflict=chat_id`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
-    body: JSON.stringify(record),
-  });
-  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }), ao);
-  await writeAuditLog(env, user, 'destination_added', { chat_id });
-  const result = await resp.json();
-  return withCors(jsonResponse({ ok: true, destination: Array.isArray(result) ? result[0] : result }), ao);
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { chat_id, title = '', message_thread_id = null } = body;
+    if (!chat_id) return withCors(jsonResponse({ ok: false, error: 'chat_id_required' }, 400), ao);
+    const record = {
+      chat_id: String(chat_id),
+      title: String(title || '').slice(0, 200),
+      message_thread_id: message_thread_id ? Number(message_thread_id) : null,
+      enabled: true,
+      added_by_user_id: user.id,
+      added_by_name: user.name || '',
+    };
+    const url = `${supabaseBase(env)}/rest/v1/target_chats?on_conflict=chat_id`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify(record),
+    });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }, 502), ao);
+    await writeAuditLog(env, user, 'destination_added', { chat_id });
+    const result = await resp.json();
+    return withCors(jsonResponse({ ok: true, destination: Array.isArray(result) ? result[0] : result }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }, 502), ao);
+  }
 }
 
 async function handleUpdateDestination(request, env, user, ao, destId) {
-  const body = await request.json().catch(() => ({}));
-  const patch = {};
-  if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
-  if (typeof body.title === 'string') patch.title = body.title.slice(0, 200);
-  if (!Object.keys(patch).length) return withCors(jsonResponse({ ok: false, error: 'no_fields' }, 400), ao);
-  const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
-  const resp = await fetch(url, {
-    method: 'PATCH',
-    headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=representation' },
-    body: JSON.stringify(patch),
-  });
-  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_update_failed' }), ao);
-  return withCors(jsonResponse({ ok: true }), ao);
+  try {
+    const body = await request.json().catch(() => ({}));
+    const patch = {};
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (typeof body.title === 'string') patch.title = body.title.slice(0, 200);
+    if (!Object.keys(patch).length) return withCors(jsonResponse({ ok: false, error: 'no_fields' }, 400), ao);
+    const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(patch),
+    });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_update_failed' }, 502), ao);
+    return withCors(jsonResponse({ ok: true }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'destination_update_failed' }, 502), ao);
+  }
 }
 
 async function handleDeleteDestination(request, env, user, ao, destId) {
-  const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
-  const resp = await fetch(url, { method: 'DELETE', headers: supabaseHeaders(env) });
-  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_delete_failed' }), ao);
-  await writeAuditLog(env, user, 'destination_removed', { id: destId });
-  return withCors(jsonResponse({ ok: true }), ao);
+  try {
+    const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
+    const resp = await fetch(url, { method: 'DELETE', headers: supabaseHeaders(env) });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_delete_failed' }, 502), ao);
+    await writeAuditLog(env, user, 'destination_removed', { id: destId });
+    return withCors(jsonResponse({ ok: true }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'destination_delete_failed' }, 502), ao);
+  }
 }
 
 async function handleTestDestination(request, env, user, ao, destId) {
-  const dUrl = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}&select=chat_id,message_thread_id&limit=1`;
-  const dResp = await fetch(dUrl, { headers: supabaseHeaders(env) });
-  if (!dResp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_not_found' }), ao);
-  const rows = await dResp.json();
-  if (!rows.length) return withCors(jsonResponse({ ok: false, error: 'destination_not_found' }), ao);
-  const { chat_id, message_thread_id } = rows[0];
-  const botToken = env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) return withCors(jsonResponse({ ok: false, error: 'bot_token_not_configured' }), ao);
-  const msgBody = { chat_id, text: '✅ Test message from Arkham Bot Mini App.' };
-  if (message_thread_id) msgBody.message_thread_id = message_thread_id;
-  const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(msgBody),
-  });
-  const tgJson = await tgResp.json().catch(() => ({}));
-  if (!tgResp.ok || !tgJson.ok) return withCors(jsonResponse({ ok: false, error: 'telegram_send_failed', detail: tgJson.description || '' }), ao);
-  return withCors(jsonResponse({ ok: true }), ao);
+  try {
+    const dUrl = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}&select=chat_id,message_thread_id&limit=1`;
+    const dResp = await fetch(dUrl, { headers: supabaseHeaders(env) });
+    if (!dResp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_not_found' }, 404), ao);
+    const rows = await dResp.json();
+    if (!rows.length) return withCors(jsonResponse({ ok: false, error: 'destination_not_found' }, 404), ao);
+    const { chat_id, message_thread_id } = rows[0];
+    const botToken = env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return withCors(jsonResponse({ ok: false, error: 'bot_token_not_configured' }, 500), ao);
+    const msgBody = { chat_id, text: '✅ Test message from Arkham Bot Mini App.' };
+    if (message_thread_id) msgBody.message_thread_id = message_thread_id;
+    const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(msgBody),
+    });
+    const tgJson = await tgResp.json().catch(() => ({}));
+    if (!tgResp.ok || !tgJson.ok) return withCors(jsonResponse({ ok: false, error: 'telegram_send_failed', detail: tgJson.description || '' }, 502), ao);
+    return withCors(jsonResponse({ ok: true }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'test_failed' }, 502), ao);
+  }
 }
 
 export default {
