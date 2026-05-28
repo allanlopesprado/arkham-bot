@@ -555,7 +555,7 @@ async function handleOverview(request, env, user, ao) {
       fetchSupabaseJson(env, '/rest/v1/bot_commands?select=id,command_type,status,created_at,updated_at,executed_at,last_error,payload,result,requested_by_name&order=created_at.desc&limit=12'),
       fetchSupabaseJson(env, '/rest/v1/bot_posting_history?select=id,card_code,card_name,status,created_at,telegram_message_id&order=created_at.desc&limit=8'),
       fetchSupabaseJson(env, '/rest/v1/bot_errors?select=id,context,error_message,card_code,created_at&order=created_at.desc&limit=5'),
-      fetchSupabaseJson(env, '/rest/v1/target_chats?select=chat_id,title,message_thread_id,enabled,updated_at&order=created_at.desc&limit=20'),
+      fetchSupabaseJson(env, '/rest/v1/target_chats?select=chat_id,title,message_thread_id,enabled,updated_at&enabled=eq.true&order=created_at.desc&limit=20'),
       fetchCount(env, 'arkham_cards'),
       fetchCount(env, 'arkham_packs'),
       fetchCount(env, 'bot_posted_cards'),
@@ -1339,7 +1339,7 @@ export default {
       }
     }
 
-    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/' || pathname === '/history') {
+    if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/' || pathname === '/history' || pathname === '/ai-models' || pathname === '/bot-runtime' || pathname === '/admins' || pathname.startsWith('/admins/') || pathname === '/destinations' || pathname.startsWith('/destinations/')) {
       return withCors(jsonResponse({ error: 'method_not_allowed' }, 405), ao);
     }
 
