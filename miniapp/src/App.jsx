@@ -867,15 +867,15 @@ export default function App() {
           </div>
 
           <Section title={copy.actionsTitle}>
-            <Row icon="send"  label={copy.postCard}   onClick={() => setActiveTab('post')} />
-            <Row icon="clock" label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="send"    label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="history" label={copy.historyTab} onClick={() => setActiveTab('history')} />
             <Row icon="queue" label={copy.queue} value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} onClick={() => setActiveTab('queue')} />
           </Section>
 
           <Section title={copy.configTitle}>
-            <Row icon="settings" label={copy.postingConfig}          onClick={() => setActiveTab('settings')} />
-            <Row icon="send"     label={copy.destinationsManageTab}  onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
-            <Row icon="settings" label={copy.appTab}                 onClick={() => { setActiveTab('app_settings'); fetchAdmins(); }} />
+            <Row icon="settings"     label={copy.postingConfig}          onClick={() => setActiveTab('settings')} />
+            <Row icon="destinations" label={copy.destinationsManageTab}  onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
+            <Row icon="app"          label={copy.appTab}                 onClick={() => { setActiveTab('app_settings'); fetchAdmins(); }} />
           </Section>
 
           <Section title={copy.systemTitle}>
@@ -933,7 +933,7 @@ export default function App() {
           ) : (
             <Section>
               <Row icon="info" label={copy.noDestinationsInPost} caption={undefined} />
-              <Row icon="send" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
+              <Row icon="destinations" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
             </Section>
           )}
 
@@ -991,7 +991,7 @@ export default function App() {
           {targetChats.length === 0 && (
             <Section>
               <Row icon="info" label={copy.noDestinationsWarning} badgeTone="warn" />
-              <Row icon="send" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
+              <Row icon="destinations" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
             </Section>
           )}
 
@@ -1001,7 +1001,7 @@ export default function App() {
           </Section>
 
           <Section title={copy.scheduleTab} footer={copy.weeklyScheduleCaption}>
-            <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
+            <Row icon="calendar" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
           </Section>
 
           <Section title={copy.aiTab} footer={copy.aiTabCaption}>
@@ -1489,7 +1489,7 @@ export default function App() {
           <Section title={copy.destinationsManageTab}>
             <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={() => { fetchDestinations(); fetchPendingDestinations(); }} />
             {destError && <Row icon="info" label={String(destError)} value="err" badgeTone="err" />}
-            {!destLoading && !destError && destList.length === 0 && <Row icon="send" label={copy.noDestinations} />}
+            {!destLoading && !destError && destList.length === 0 && <Row icon="info" label={copy.noDestinations} />}
             {destList.map((dest) => (
               <div key={dest.id} className="row" style={{ justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
