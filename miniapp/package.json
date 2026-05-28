@@ -1,23 +1,23 @@
 {
-    "scripts":  {
-                    "dev":  "vite --host 0.0.0.0",
-                    "deploy":  "wrangler deploy",
-                    "dry-run":  "wrangler deploy --dry-run",
-                    "build":  "vite build",
-                    "check":  "vite build",
-                    "preview":  "vite preview"
-                },
-    "dependencies":  {
-                         "react":  "^18.3.1",
-                         "react-dom":  "^18.3.1"
-                     },
-    "devDependencies":  {
-                            "wrangler":  "^4.14.1",
-                            "vite":  "^5.4.11",
-                            "@vitejs/plugin-react":  "^4.3.4"
-                        },
-    "name":  "arkham-bot-miniapp",
-    "version":  "1.1.0",
-    "private":  true,
-    "type":  "module"
+  "name": "arkham-bot-miniapp",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "deploy": "wrangler deploy",
+    "dry-run": "wrangler deploy --dry-run",
+    "build": "vite build",
+    "check": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11",
+    "wrangler": "^4.14.1"
+  }
 }
