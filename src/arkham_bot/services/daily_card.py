@@ -176,7 +176,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
             ai_model = get_setting('ai_model', None) or None
             ai_creativity = get_setting('ai_creativity', 'default')
 
-            # When ai_auto_only=True, AI only runs for scheduled posts
+            # ai_auto_only=True: IA roda APENAS em posts agendados; posts manuais ignoram IA mesmo com ai_enabled=True
             ai_allowed = ai_enabled and (is_scheduled or not ai_auto_only)
 
             from ..core.config import AI_DAILY_CARD_ENABLED, GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY
@@ -248,6 +248,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     post_days_list = post_days
                 else:
                     post_days_list = []
+                # Se todos os 7 dias estão configurados → modo global (ignora day_config); caso contrário → modo por dia
                 per_day_mode = set(post_days_list) != set(_WEEKDAY_CODES)
 
                 today = _today_code(timezone_str)
@@ -315,6 +316,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     ai_post_question = _telegram_html_text(ai_choice.post_question)
                     logger.info(f"AI Card Selected: {card.get('name')} ({card.get('code')}). Reason: {ai_choice.reason}")
                 else:
+                    # IA retornou None (timeout/erro de API) mas está habilitada; usa aleatório para não perder o post do dia
                     card = random.choice(unposted_cards)
                     if ai_allowed:
                         logger.warning(f"AI returned None for daily card — falling back to random.")
@@ -404,6 +406,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 break
 
             except RetryAfter as exc:
+                # Rate limit do Telegram: usa o delay sugerido pelo servidor (mínimo 5s) e tenta novamente
                 retry_after = exc.retry_after if exc.retry_after > 0 else 5
                 logger.warning(f"Telegram Flood control: Retrying after {retry_after}s.")
                 await asyncio.sleep(retry_after)

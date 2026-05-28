@@ -8,7 +8,8 @@ _MAX_RETRIES = 3
 
 
 def _request_with_retry(client: httpx.Client, method: str, url: str, **kwargs) -> httpx.Response:
-    """Execute HTTP request with exponential backoff for transient errors."""
+    """Retry em erros transitórios (429, 5xx, timeout/rede) com backoff exponencial.
+    Erros de cliente (4xx) falham imediatamente — são bugs do chamador, não falhas de infra."""
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
             response = client.request(method, url, **kwargs)
@@ -33,7 +34,7 @@ class SupabaseRestClient:
             "Content-Type": "application/json",
             "Prefer": "return=representation",
         }
-        # Persistent HTTP client — reuses TCP+TLS connections across requests
+        # Cliente persistente: reutiliza conexões TCP+TLS entre requests, reduzindo ~50-200ms de overhead por chamada
         self._client = httpx.Client(
             timeout=REQUEST_TIMEOUT_SECONDS,
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),

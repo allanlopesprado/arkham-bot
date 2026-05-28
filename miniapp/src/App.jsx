@@ -95,7 +95,8 @@ export default function App() {
   const isAdmin = me?.admin === true;
   const actionsDisabled = !isAdmin || !apiConfigured || loadingCmd !== null;
   const settingsDirty = !settingsEqual(settings, savedSettings) || allDaysMode !== savedAllDaysMode;
-  // Ref always holds the latest settingsDirty — safe to read inside stale async closures
+  // Ref necessária: closures async (ex: MainButton handler) capturam o valor no momento de criação.
+  // Ler o estado diretamente retornaria o valor antigo; a ref sempre reflete o valor atual.
   const settingsDirtyRef = useRef(false);
   settingsDirtyRef.current = settingsDirty;
 
@@ -585,6 +586,7 @@ export default function App() {
     const val = e.target.value;
     setCardQuery(val);
     clearTimeout(searchTimerRef.current);
+    // <2 chars gera resultados demais (todos que contêm "a"); 500ms de debounce evita chamada a cada tecla
     if (val.trim().length < 2) { setCardResults([]); return; }
     searchTimerRef.current = setTimeout(() => doSearchCards(val.trim()), 500);
   }

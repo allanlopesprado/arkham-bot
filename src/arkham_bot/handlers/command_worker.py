@@ -60,8 +60,8 @@ def _validate_command_authorization(command: dict[str, Any]) -> None:
 
 
 def _claim_commands_atomic(batch_size: int) -> list[dict]:
-    """Claim pending commands atomically using FOR UPDATE SKIP LOCKED RPC.
-    Falls back to legacy fetch+mark if the RPC is not yet deployed."""
+    """Tenta claim atômico via RPC (FOR UPDATE SKIP LOCKED) para evitar que duas instâncias
+    executem o mesmo comando. Fallback automático para fetch+mark se a RPC não estiver deployada."""
     from ..core.supabase_client import get_supabase_client
     client = get_supabase_client()
     if client:
@@ -182,7 +182,7 @@ async def bot_commands_loop() -> None:
                 attempt_count = int(command.get("attempt_count") or 1)
                 max_attempts = int(command.get("max_attempts") or BOT_COMMANDS_MAX_RETRIES)
                 try:
-                    pass  # already marked processing by claim RPC
+                    pass  # _claim_commands_atomic já marca status=processing; não repete aqui
                     result = await _execute_command(command)
                     mark_command_executed(command_id, result)
                     create_audit_log(command_type or "unknown", "system_job", command.get("payload"), result, command.get("requested_by_telegram_user_id"), command.get("requested_by_name"))

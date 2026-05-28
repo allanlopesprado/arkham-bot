@@ -135,7 +135,7 @@ async def daily_scheduler_loop() -> None:
             today = WEEKDAY_CODES[now.weekday()]
 
             if daily_post_enabled:
-                # Determine whether we should trigger earlier to allow AI pre-message delays
+                # Dispara ANTES do horário configurado para que: pré-mensagem + delay + foto = horário certo para o usuário
                 ai_enabled = bool(get_setting('ai_enabled', True))
                 ai_pre_enabled = bool(get_setting('ai_pre_message_enabled', True))
                 try:
@@ -150,8 +150,8 @@ async def daily_scheduler_loop() -> None:
                     if _is_due(now, post_time, state, before_seconds=before_seconds):
                         logger.info("daily_post_due")
                         today_iso = now.date().isoformat()
-                        # Mark slot as claimed BEFORE posting so a restart mid-post
-                        # (e.g. during the AI pre-message delay) does not re-fire.
+                        # Slot gravado ANTES de postar: se o serviço reiniciar durante o delay da pré-mensagem,
+                        # a nova instância verá o slot e não disparará novamente (evita double-post).
                         posted_slots = [s for s in state.get("posted_slots", []) if s.startswith(today_iso)]
                         posted_slots.append(_slot_key(today_iso, post_time))
                         state["posted_slots"] = posted_slots
