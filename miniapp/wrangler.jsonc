@@ -1,4 +1,6 @@
 {
+  // Deploy is handled by Cloudflare Pages (arkham-bot-miniapp.pages.dev)
+  // connected to the GitHub repository. Do NOT run `wrangler deploy` here.
   "name": "miniapp",
   "compatibility_date": "2026-05-25",
   "assets": {
