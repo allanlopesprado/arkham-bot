@@ -747,6 +747,7 @@ export default function App() {
   const workerTone = sysStatus?.ok ? 'ok' : 'err';
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
+  const searchNotFoundLabel = copy.searchNotFound || copy.noHistory;
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
@@ -836,6 +837,9 @@ export default function App() {
               {searchingCards && <Spinner />}
             </div>
 
+            {!searchingCards && cardQuery.trim().length >= 2 && cardResults.length === 0 && (
+              <Row icon="info" label={copy.searchNotFound || copy.noHistory} />
+            )}
             {cardResults.length > 0 && cardResults.map((card) => (
               <CardResult
                 key={card.code}
@@ -1247,7 +1251,8 @@ export default function App() {
                 )}
                 {filteredItems.map((post) => {
                   const friendlyStatus = copy.postStatusLabels[post.status] || post.status;
-                  const tone = post.status?.startsWith('POSTED') ? 'ok' : post.status?.startsWith('FAIL') ? 'err' : '';
+                  const STATUS_TONE = { POSTED_FRONT_SUCCESS: 'ok', POSTED_BACK: 'ok', FAILED_DOWNLOAD: 'err', FAILED_SEND: 'err', CYCLE_RESET: '' };
+                  const tone = STATUS_TONE[post.status] ?? (post.status?.startsWith('POSTED') ? 'ok' : post.status?.startsWith('FAIL') ? 'err' : '');
                   const srcTone = post.source === 'scheduled' ? 'ok' : 'warn';
                   const srcLabel = post.source === 'scheduled' ? copy.scheduledPost : post.source === 'manual' ? copy.manualPost : null;
                   const arkhamUrl = post.card_code ? `https://arkhamdb.com/card/${post.card_code}` : null;

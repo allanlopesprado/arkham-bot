@@ -153,7 +153,7 @@ export function ChatIdInputRow({ value, onChange, placeholder }) {
           className="block-input chat-id-input"
           value={displayValue}
           onChange={handleChange}
-          placeholder="100123456789"
+          placeholder={placeholder || "100123456789"}
           inputMode="numeric"
           autoComplete="off"
           autoCorrect="off"
@@ -231,11 +231,17 @@ export function CommandRow({ command, onCancel, loading, copy }) {
 }
 
 export function CardResult({ card, selected, onSelect }) {
+  const fullName = card.name || card.real_name || card.code;
   return (
-    <button className={`card-result ${selected ? 'active' : ''}`.trim()} type="button" onClick={() => onSelect(card)}>
+    <button
+      className={`card-result ${selected ? 'active' : ''}`.trim()}
+      type="button"
+      onClick={() => onSelect(card)}
+      title={fullName}
+    >
       <span className="card-code">{card.code}</span>
       <div className="card-info">
-        <span className="card-name">{card.name || card.real_name}</span>
+        <span className="card-name">{fullName}</span>
         <span className="card-meta">{[card.type_code, card.faction_name, card.pack_name].filter(Boolean).join(' · ')}</span>
       </div>
     </button>
