@@ -1033,7 +1033,7 @@ export default function App() {
               <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
             </Section>
 
-            <Section title={copy.syncSchedule} footer={settings.sync_schedule_enabled ? copy.syncScheduleEnabledCaption : undefined}>
+            <Section title={copy.syncSchedule}>
               <ToggleRow
                 label={copy.syncScheduleEnabled}
                 checked={settings.sync_schedule_enabled}
@@ -1089,7 +1089,7 @@ export default function App() {
 
       {activeTab === 'maintenance' && (
         <>
-          <Section title={copy.resetCycle} footer={copy.resetCaption}>
+          <Section title={copy.resetCycle}>
             <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
           </Section>
 
@@ -1169,7 +1169,7 @@ export default function App() {
               ))}
             </Section>
             {pendingCount > 0 && (
-              <Section title={copy.clearQueue} footer={copy.clearQueueCaption}>
+              <Section title={copy.clearQueue}>
                 <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
               </Section>
             )}
