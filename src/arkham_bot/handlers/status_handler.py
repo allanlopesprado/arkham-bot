@@ -211,7 +211,7 @@ def _collect_status_payload(update: Update) -> dict:
 
 
 async def bot_started_message(application):
-    """Sends a message to the group as soon as the bot starts and pre-warms caches."""
+    """Pre-warms card and pack caches on startup."""
     import asyncio
     try:
         logger.info("Pre-warming caches on startup...")

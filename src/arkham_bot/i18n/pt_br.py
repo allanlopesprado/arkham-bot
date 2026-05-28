@@ -1,7 +1,4 @@
 strings: dict = {
-    # Startup
-    "bot_started": "Bot iniciado e aguardando mensagens...",
-
     # /start / help
     "help_title": "🃏 <b>Arkham Bot</b>\nSeu companheiro para Arkham Horror: The Card Game.",
     "help_cards_section": "🔍 <b>Cartas</b>",
@@ -54,7 +51,6 @@ strings: dict = {
     # /faq
     "faq_usage": "Uso: /faq <card_code>",
     "faq_not_found": "Nenhum FAQ encontrado para <code>{card_code}</code>.",
-    "faq_title": "📖 <b>FAQ — {card_code}</b>",
     "faq_error": "Não foi possível carregar o FAQ agora.",
 
     # /taboo
@@ -169,7 +165,6 @@ strings: dict = {
     "fmt_encounter": "Encontro: {name}",
     "fmt_pack": "Pacote: {name} #{position}",
     "fmt_view_arkhamdb": "🔗 <a href='https://arkhamdb.com/card/{code}'>Ver no ArkhamDB</a>",
-    "fmt_taboo_label": "<b>Taboo:</b> {restriction}",
 
     # card stat labels (kept in English — game terms)
     "stat_will": "Will",
@@ -205,8 +200,4 @@ strings: dict = {
     # month names
     "months": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
                "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
-
-    # day labels
-    "day_mon": "Seg", "day_tue": "Ter", "day_wed": "Qua", "day_thu": "Qui",
-    "day_fri": "Sex", "day_sat": "Sab", "day_sun": "Dom", "day_all": "Todos",
 }

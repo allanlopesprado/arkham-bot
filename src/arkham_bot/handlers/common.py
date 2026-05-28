@@ -374,18 +374,6 @@ def _safe_status_value(value) -> str:
     return escape(str(value if value not in (None, "") else "-"))
 
 
-def _code(value) -> str:
-    return f"<code>{_safe_status_value(value)}</code>"
-
-
-def _day_labels(s: dict) -> dict:
-    return {
-        'mon': s['day_mon'], 'tue': s['day_tue'], 'wed': s['day_wed'],
-        'thu': s['day_thu'], 'fri': s['day_fri'], 'sat': s['day_sat'],
-        'sun': s['day_sun'], 'all': s['day_all'],
-    }
-
-
 async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.BytesIO | None:
     """Tries all extensions and returns a valid image BytesIO or None."""
     import httpx

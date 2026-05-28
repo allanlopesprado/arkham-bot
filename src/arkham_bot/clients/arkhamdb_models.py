@@ -141,17 +141,3 @@ def validate_taboos_payload(payload: object, context: str = "taboos") -> list[di
         return payload
     taboos = ensure_list(payload, context)
     return [validate_taboo_payload(taboo, f"{context}[{index}]") for index, taboo in enumerate(taboos)]
-
-
-def get_card_required_string(card: dict, key: str, fallback: str | None = None) -> str:
-    value = card.get(key)
-    if isinstance(value, str) and value:
-        return value
-    if fallback is not None:
-        return fallback
-    raise ArkhamDBPayloadError(f"card.{key} is required.")
-
-
-def get_card_optional_string(card: dict, key: str, default: str = "") -> str:
-    value = card.get(key)
-    return value if isinstance(value, str) else default
