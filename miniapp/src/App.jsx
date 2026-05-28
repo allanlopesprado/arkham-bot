@@ -1000,10 +1000,12 @@ export default function App() {
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
-          {/* Sub-sections navigation */}
-          <Section title={copy.advancedSettings}>
+          <Section title={copy.scheduleTab} footer={copy.weeklyScheduleCaption}>
             <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
-            <Row icon="ai"    label={copy.aiTab}        onClick={() => setActiveTab('ai')} />
+          </Section>
+
+          <Section title={copy.aiTab} footer={copy.aiTabCaption}>
+            <Row icon="ai" label={copy.aiTab} onClick={() => setActiveTab('ai')} />
           </Section>
 
           {settingsResult && (
