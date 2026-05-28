@@ -279,12 +279,12 @@ def _arkhamdb_html_to_telegram(html: str) -> str:
     # Each <li> on its own line; blank line before the list block
     html = re.sub(
         r'<ul>(.*?)</ul>',
-        lambda m: '\n' + re.sub(r'<li>(.*?)</li>', r'\n• \1', m.group(1), flags=re.DOTALL) + '\n',
+        lambda m: '\n' + re.sub(r'<li>(.*?)</li>', r'\n\1', m.group(1), flags=re.DOTALL) + '\n',
         html, flags=re.DOTALL,
     )
     html = re.sub(
         r'<ol>(.*?)</ol>',
-        lambda m: '\n' + re.sub(r'<li>(.*?)</li>', r'\n• \1', m.group(1), flags=re.DOTALL) + '\n',
+        lambda m: '\n' + re.sub(r'<li>(.*?)</li>', r'\n\1', m.group(1), flags=re.DOTALL) + '\n',
         html, flags=re.DOTALL,
     )
     # Strip remaining unsupported tags (keep content)
