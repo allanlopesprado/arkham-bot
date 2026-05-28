@@ -1899,22 +1899,25 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
 _SETS_PAGE_SIZE = 10
 
 
-def _sets_pack_list(cards: list) -> list[tuple[str, str]]:
+def _sets_pack_list(cards: list) -> list[tuple[str, str, int]]:
     seen: dict[str, str] = {}
+    counts: dict[str, int] = {}
     for c in cards:
         code = c.get('pack_code') or ''
         name = c.get('pack_name') or code
-        if code and code not in seen:
-            seen[code] = name
-    return list(seen.items())
+        if code:
+            if code not in seen:
+                seen[code] = name
+            counts[code] = counts.get(code, 0) + 1
+    return [(code, name, counts.get(code, 0)) for code, name in seen.items()]
 
 
-def _sets_pack_buttons(packs: list[tuple[str, str]], page: int, s: dict) -> InlineKeyboardMarkup:
+def _sets_pack_buttons(packs: list[tuple[str, str, int]], page: int, s: dict) -> InlineKeyboardMarkup:
     start = page * _SETS_PAGE_SIZE
     page_packs = packs[start:start + _SETS_PAGE_SIZE]
     buttons = [
-        [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}_p0")]
-        for code, name in page_packs
+        [InlineKeyboardButton(f"{name} ({count})", callback_data=f"SET_BROWSE_{code}_p0")]
+        for code, name, count in page_packs
     ]
     nav = []
     if page > 0:
