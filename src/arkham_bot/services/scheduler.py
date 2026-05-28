@@ -33,8 +33,10 @@ def _load_state() -> dict:
 
 
 def _save_state(state: dict) -> None:
+    from .local_storage import safe_atomic_write
     DAILY_SCHEDULER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    DAILY_SCHEDULER_STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    lock = DAILY_SCHEDULER_STATE_FILE.with_suffix(".lock")
+    safe_atomic_write(state, DAILY_SCHEDULER_STATE_FILE, lock, data_type='json')
 
 
 def _slot_key(date_iso: str, post_time: str) -> str:
