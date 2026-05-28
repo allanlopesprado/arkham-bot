@@ -889,20 +889,29 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for chunk in _chunks(text, 3900):
             await update.message.reply_text(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
-        # Send card image after the FAQ text
+        # Send card image with caption (same style as /card)
         try:
             card_data, _ = await get_card_async(card_code)
             if card_data:
                 image_src = card_data.get('imagesrc')
+                img_bytes = None
                 for ext in EXTENSIONS_TO_TRY:
                     img_path = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}{ext}"
-                    img_url = f"https://arkhamdb.com{img_path}"
+                    img_url = urljoin(BASE_URL, img_path)
                     try:
-                        img_bytes = await download_image_async(img_url)
-                        await update.message.reply_photo(photo=img_bytes)
+                        content = await download_image_async(img_url)
+                        buf = io.BytesIO(content)
+                        Image.open(buf).verify()
+                        buf.seek(0)
+                        img_bytes = buf
                         break
                     except Exception:
                         continue
+                caption = format_card_caption(card_data, is_interactive=True)
+                if img_bytes:
+                    await update.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
+                else:
+                    await update.message.reply_text(caption, parse_mode=ParseMode.HTML)
         except Exception:
             pass
     except Exception as exc:
