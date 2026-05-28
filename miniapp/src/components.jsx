@@ -112,7 +112,7 @@ export function InputRow({ label, value, onChange, placeholder, hint }) {
     <div className="row input-row">
       <div className="row-main">
         <span className="row-label">{label}</span>
-        <input className="inline-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} inputMode="text" />
+        <input className="inline-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} inputMode="text" autoComplete="off" />
       </div>
       {hint && <span className="row-caption-block">{hint}</span>}
     </div>
@@ -130,6 +130,7 @@ export function StackedInputRow({ label, value, onChange, placeholder, hint, inp
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         inputMode={inputMode || 'text'}
+        autoComplete="off"
         autoCorrect="off"
         autoCapitalize="none"
         spellCheck={false}
@@ -154,6 +155,7 @@ export function ChatIdInputRow({ value, onChange, placeholder }) {
           onChange={handleChange}
           placeholder="100123456789"
           inputMode="numeric"
+          autoComplete="off"
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
