@@ -19,7 +19,7 @@ export function authHeaders() { return { 'x-telegram-init-data': initData() }; }
 
 export async function apiFetch(path, options = {}) {
   const url = apiUrl(path);
-  if (!url) throw new Error('no_api');
+  if (!url) return { ok: false, status: 0, json: { error: 'no_api' } };
   const resp = await fetch(url, {
     ...options,
     headers: { ...authHeaders(), ...(options.headers || {}) },

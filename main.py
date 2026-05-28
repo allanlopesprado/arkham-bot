@@ -58,7 +58,7 @@ def run_interactive_bot():
 
     if not TELEGRAM_BOT_TOKEN:
         logger.critical("Telegram token not configured for interactive mode.")
-        return
+        raise RuntimeError("TELEGRAM_BOT_TOKEN not configured")
 
     from arkham_bot.services.scheduler import stop_daily_scheduler
     from arkham_bot.services.heartbeat import stop_heartbeat

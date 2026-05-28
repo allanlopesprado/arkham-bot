@@ -139,7 +139,7 @@ export function settingsPatchPayload(settings, times) {
   const normalized = normalizeSettings({
     ...settings,
     daily_post_times: times.map((t) => t.slice(0, 5)),
-    timezone: settings.timezone.trim(),
+    timezone: (settings.timezone || '').trim(),
   });
   return Object.fromEntries(SETTINGS_PATCH_KEYS.map((key) => [key, normalized[key]]));
 }

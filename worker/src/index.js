@@ -1035,7 +1035,7 @@ async function handleGetAdmins(env, ao) {
 async function handleAddAdmin(request, env, user, ao) {
   const body = await request.json().catch(() => ({}));
   const { telegram_user_id, name = '', role = 'admin' } = body;
-  if (!telegram_user_id || !['admin', 'viewer'].includes(role)) {
+  if (!telegram_user_id || !['owner', 'admin', 'viewer'].includes(role)) {
     return withCors(jsonResponse({ ok: false, error: 'invalid_admin_data' }, 400), ao);
   }
   const record = {

@@ -96,7 +96,7 @@ def _decklist_url(decklist_id: str) -> str:
 
 
 async def _request_json_async(url: str, context: str):
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         response = await client.get(url)
     response.raise_for_status()
     return _parse_json_response(response, context)
@@ -161,7 +161,7 @@ def download_image_sync(url):
 
 async def download_image_async(url):
     """Downloads an image asynchronously (Interactive Mode)."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         response = await client.get(url)
         response.raise_for_status()
         return response.content
