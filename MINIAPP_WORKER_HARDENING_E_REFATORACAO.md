@@ -235,6 +235,58 @@ Médio, porque o código do Worker ainda não foi alterado.
 
 ---
 
+### 2.6 Migration versionada para as alterações seguras de banco
+
+Arquivo criado:
+
+```text
+supabase/migrations/20260528_worker_hardening_schema.sql
+```
+
+Commit:
+
+```text
+8336d97 db: add worker hardening schema migration
+```
+
+Classificação:
+
+```text
+CORREÇÃO DE RASTREABILIDADE
+NÃO É WORKAROUND
+```
+
+Motivo:
+
+```text
+As alterações de banco tinham sido executadas diretamente no Supabase real durante a conversa.
+Isso deixou o banco correto, mas sem rastreabilidade no Git.
+A migration versiona as alterações seguras e idempotentes já validadas:
+- arkham_packs.cycle_position
+- arkham_packs.position
+- arkham_packs.chapter
+- arkham_packs.total
+- target_chats.removed_by_user_id
+- target_chats.removed_by_name
+- target_chats.removed_at
+```
+
+Limite intencional:
+
+```text
+A migration NÃO altera a constraint de tópicos.
+A constraint target_chats_chat_id_key ainda depende de mudança coordenada no Worker.
+```
+
+Risco residual:
+
+```text
+Baixo para rastreabilidade das alterações seguras.
+Médio para tópicos, porque a constraint ainda precisa de desenho correto.
+```
+
+---
+
 ## 3. Erros operacionais do assistente nesta conversa
 
 Esta seção registra o que foi feito ou sugerido de forma inadequada durante a conversa, para não repetir.
@@ -544,6 +596,54 @@ Status:
 
 ```text
 REGISTRADO
+```
+
+---
+
+### ERR-008 — Mudanças de banco executadas antes de existir migration versionada
+
+O que aconteceu:
+
+```text
+Foram executadas alterações diretas no Supabase real:
+- adicionar colunas em arkham_packs
+- adicionar colunas em target_chats
+Depois foi identificado que não havia arquivo SQL/migration correspondente no repositório.
+```
+
+Classificação:
+
+```text
+ERRO DE RASTREABILIDADE
+CORRIGIDO PARCIALMENTE
+```
+
+Por que foi errado:
+
+```text
+Banco real ficou diferente do repositório.
+Futuro deploy ou reconstrução do banco poderia perder essas alterações.
+Auditoria ficaria dependente da conversa, não do Git.
+```
+
+Correção aplicada:
+
+```text
+Criado supabase/migrations/20260528_worker_hardening_schema.sql
+```
+
+Limite:
+
+```text
+A migration registra apenas mudanças seguras já aplicadas.
+Não resolve a constraint de tópicos.
+```
+
+Status:
+
+```text
+CORRIGIDO PARCIALMENTE
+PENDENTE: desenhar migration futura para tópicos após ajustar Worker
 ```
 
 ---
