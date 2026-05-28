@@ -406,7 +406,7 @@ input, select { outline: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 14px;
+  padding: 8px 14px;
 }
 .stacked-input-row .row-label { font-size: 14px; color: var(--text); }
 .stacked-input-row .row-caption { font-size: 13px; color: var(--hint); }
@@ -429,7 +429,7 @@ input, select { outline: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
+  padding: 8px 14px;
 }
 .stacked-select-row .row-label { font-size: 14px; color: var(--text); }
 .stacked-select-row .block-select {
@@ -476,7 +476,7 @@ input, select { outline: none; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 8px 14px;
   border-top: 1px solid var(--sep);
 }
 
@@ -645,7 +645,7 @@ input, select { outline: none; }
   transition: background 0.12s ease;
 }
 
-.icon-btn .icon { width: 16px; height: 16px; color: currentColor; }
+.icon-btn .icon { width: 18px; height: 18px; color: currentColor; }
 
 @media (hover: hover) {
   .icon-btn:hover { background: color-mix(in srgb, var(--text) 12%, transparent); }
@@ -728,7 +728,7 @@ input, select { outline: none; }
   .row-config-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 }
 
-.row-config-btn .icon { width: 17px; height: 17px; }
+.row-config-btn .icon { width: 18px; height: 18px; }
 
 .day-toggle-wrap {
   display: flex;
@@ -791,7 +791,7 @@ input, select { outline: none; }
   flex: 1;
   justify-content: center;
 }
-.overview-stat .icon { width: 16px; height: 16px; color: var(--hint); flex-shrink: 0; }
+.overview-stat .icon { width: 18px; height: 18px; color: var(--hint); flex-shrink: 0; }
 .overview-stat-label { font-size: 13px; color: var(--text); font-weight: 500; }
 .overview-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
@@ -875,7 +875,7 @@ input, select { outline: none; }
 
 /* ── History items ────────────────────────────────────────────────────────── */
 .history-item {
-  padding: 12px 14px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--sep);
 }
 .history-item:last-child { border-bottom: none; }
