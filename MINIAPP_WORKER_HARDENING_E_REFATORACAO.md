@@ -1,43 +1,88 @@
-# Mini App e Worker — plano profissional de hardening, UX, menus e refatoração
+# Mini App e Worker — plano profissional completo de hardening, UX, menus, validação e refatoração
 
-Este arquivo é o plano operacional canônico para elevar o Mini App administrativo e o Worker do Arkham Bot a nível profissional. Ele cobre correções obrigatórias, validações, menus, UX, segurança, RBAC, observabilidade, prevenção de erro humano, itens a remover/migrar, validações profissionais ainda pendentes e a refatoração completa do `miniapp/src/main.jsx`.
+Este arquivo é a especificação operacional canônica para a IA executora evoluir o Mini App administrativo e o Worker do Arkham Bot a nível profissional. Ele deve ser lido inteiro antes de qualquer alteração. O objetivo é reduzir risco operacional, corrigir segurança, melhorar UX, organizar menus, validar runtime real, documentar pendências e refatorar `miniapp/src/main.jsx` sem quebrar o bot Python.
 
-## Instrução principal para a IA executora
+## 1. Instrução principal para a IA executora
 
-Leia este arquivo inteiro antes de alterar qualquer código. Execute as fases na ordem indicada. Não pule validações. Não peça confirmação para tarefas já descritas aqui. Se uma etapa falhar, corrija apenas o problema diretamente relacionado à etapa e rode a validação novamente. Se uma mudança exigir migration, secret, deploy externo ou decisão de produto não descrita neste arquivo, registre como pendência e não implemente sem autorização explícita.
+Leia este arquivo inteiro antes de alterar código. Execute as fases na ordem indicada. Não pule validações. Não peça confirmação para tarefas já descritas aqui. Se uma etapa falhar, corrija apenas o problema diretamente relacionado à etapa e rode a validação novamente. Se uma mudança exigir migration, secret, deploy externo, criação de tabela, alteração destrutiva ou decisão de produto não descrita neste arquivo, registre como pendência e não implemente sem autorização explícita.
 
-## Objetivo
+Não faça commit automático antes de validar. Ao final, responda no formato obrigatório definido no final deste arquivo.
 
-Transformar o Mini App em um painel administrativo estável, seguro, auditável e sustentável, sem quebrar o bot Python. A execução deve ser incremental, com build e validação após cada fase.
+## 2. Objetivo do trabalho
 
-## Princípios de qualidade profissional
+Transformar o Mini App em um painel administrativo estável, seguro, auditável, previsível e sustentável, preservando o funcionamento do bot Python. O app deve operar bem dentro do Telegram em mobile, com autenticação robusta, menus claros, validação de payloads, prevenção de erro humano, observabilidade operacional e rollback possível.
 
-- Toda ação administrativa deve ter autenticação e autorização explícitas.
-- Toda ação destrutiva deve exigir confirmação clara.
-- Toda tela deve ter estado de carregamento, sucesso, erro e vazio.
-- Nenhum erro técnico deve aparecer sozinho sem mensagem amigável.
-- Nenhum segredo, token, header de autenticação ou payload sensível deve ser logado.
-- Nenhuma falha de rede deve liberar acesso administrativo.
-- Nenhuma alteração deve depender apenas do front; o Worker deve validar tudo.
-- O app deve proteger contra clique duplo, envio duplicado e salvamento parcial confuso.
-- O app deve indicar claramente quando há alterações não salvas.
-- O app deve ser operável por celular, com toque, safe area e layout Telegram correto.
-- A manutenção deve priorizar previsibilidade sobre estética.
-
-## Regras obrigatórias de execução
+## 3. Regras obrigatórias
 
 - Não alterar `.env`, secrets, tokens, chaves ou credenciais.
-- Não imprimir `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `x-telegram-init-data`, Authorization headers ou payloads completos de settings.
+- Não imprimir `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `x-telegram-init-data`, Authorization headers, service role ou payloads completos de settings.
 - Não alterar migrations/banco sem autorização explícita.
 - Não alterar backend Python, exceto para corrigir import quebrado diretamente relacionado a `/status`, `/cotd` ou processamento de comandos do Mini App.
 - Não recriar documentação antiga.
-- Não alterar README nesta tarefa, salvo autorização explícita.
-- Não fazer commit automático antes de validar.
-- Fazer alterações pequenas, reversíveis e testáveis.
-- Rodar validações após cada fase.
+- Não alterar `README.md` nesta tarefa, salvo autorização explícita.
+- Não remover fallback ArkhamDB enquanto o banco local puder estar vazio.
+- Não depender somente do front para segurança; Worker deve validar autorização e payload.
+- Não fazer refatoração estrutural antes de corrigir P0 e passar build.
 - Se uma fase quebrar build, reverter somente a última alteração.
 
-## Visão alvo de menus
+## 4. Definition of Done
+
+Só considerar o trabalho concluído quando todos estes itens estiverem satisfeitos ou formalmente reportados como `NÃO EXECUTADO + motivo`:
+
+```text
+- Python compileall passou.
+- Python healthcheck passou ou retornou apenas warnings esperados por falta de ambiente real.
+- Testes Python disponíveis passaram, se existirem.
+- Mini App build passou.
+- Mini App check passou.
+- Worker dry-run passou.
+- Auth fail-open foi removido.
+- Logs sensíveis foram removidos ou protegidos por DEV.
+- /status é admin-only.
+- /packs prefere Supabase com fallback ArkhamDB.
+- Não há segredo no bundle/front.
+- Fluxo admin no Telegram foi validado ou registrado como pendente.
+- Fluxo não-admin bloqueado foi validado ou registrado como pendente.
+- Fluxo postagem manual foi validado ou registrado como pendente.
+- Fluxo salvar configurações foi validado ou registrado como pendente.
+- Risco residual foi classificado como baixo, médio ou alto com justificativa.
+```
+
+## 5. Matriz de severidade
+
+Classifique todo achado assim:
+
+```text
+CRÍTICO
+- Expõe secret/token/service role.
+- Permite acesso admin sem validação.
+- Quebra bot Python em produção.
+- Impede postagem automática/manual.
+- Worker retorna 500 em endpoints centrais como /me, /settings, /bot-command.
+- Perde dados ou executa ação destrutiva sem confirmação.
+
+ALTO
+- Não salva configurações.
+- Duplica comandos por clique duplo.
+- Sync roda simultaneamente sem controle.
+- /status, /settings, /commands ou /packs quebram para admin.
+- Payload inválido é aceito pelo Worker.
+- Admin comum consegue executar ação owner-only.
+
+MÉDIO
+- UX confusa.
+- Tela sem empty/error state.
+- Erro técnico sem mensagem amigável.
+- Histórico/fila sem paginação adequada.
+- Dados operacionais incompletos.
+
+BAIXO
+- Texto, layout, organização, ícone, nomenclatura ou melhoria futura sem impacto operacional imediato.
+```
+
+Prioridade de correção: CRÍTICO > ALTO > MÉDIO > BAIXO.
+
+## 6. Visão alvo dos menus
 
 ```text
 Home
@@ -57,11 +102,128 @@ Home
 │   └── Aplicativo
 ```
 
-A Home deve funcionar como hub. Não deve haver excesso de botões soltos. Cada item precisa ter nome curto, ícone consistente, subtítulo opcional e badge quando houver alerta.
+A Home deve ser um hub. Não deve haver excesso de botões soltos. Cada menu precisa ter nome curto, subtítulo opcional, ícone consistente e badge quando houver alerta.
 
-## P0 — Correções obrigatórias imediatas
+## 7. Matriz tela × endpoint
 
-### 0.1 Validar wrappers Python
+Use esta matriz para validar dependências e evitar quebrar telas ao alterar Worker:
+
+```text
+Home
+- /me
+- /overview
+- /status
+
+Postagem
+- /cards
+- /bot-command
+- futuro /destinations
+
+Agenda
+- /settings
+- /status ou /overview para resumo operacional
+
+IA
+- /settings
+- futuro /ai-models
+
+Banco de Dados
+- /status
+- /packs
+- /bot-command com sync_arkhamdb
+- /overview
+
+Fila
+- /commands
+- /commands/:id
+- futuro /commands/:id/retry
+
+Histórico
+- /history
+
+Destinos
+- futuro /destinations
+- futuro /destinations/:id
+- futuro /test-message
+
+Administradores
+- futuro /admins
+- futuro /admins/:id
+
+Manutenção
+- /bot-command
+- /commands
+
+Saúde
+- /health
+- /status
+- futuro /health/deep
+- futuro /bot-runtime
+
+Aplicativo
+- /me
+- /bot-info
+```
+
+## 8. Matriz role × permissão
+
+```text
+owner
+- Pode acessar todo o painel.
+- Pode gerenciar admins.
+- Pode gerenciar destinos.
+- Pode alterar configurações.
+- Pode executar manutenção.
+- Pode acionar sync/reset/limpeza.
+
+admin
+- Pode acessar operação normal.
+- Pode postar carta.
+- Pode alterar agenda, IA e configurações operacionais se permitido.
+- Pode ver banco, fila, histórico e saúde.
+- Não pode remover owner.
+- Não pode gerenciar lista crítica de admins se a tela owner-only existir.
+
+member/none
+- Não pode acessar o painel.
+- Deve receber erro amigável de acesso negado.
+```
+
+Regra: todo endpoint administrativo deve validar role no Worker, nunca apenas no front.
+
+## 9. Tabelas esperadas pelo painel
+
+Validar existência e uso seguro. Se alguma tabela não existir, registrar pendência; não criar migration sem autorização.
+
+```text
+bot_settings
+- Configurações gerais, agenda, IA, filtros e chat padrão.
+
+bot_admins
+- Controle de administradores por Telegram user id e role.
+
+bot_commands
+- Fila de comandos emitidos pelo Mini App para o bot Python processar.
+
+arkham_cards
+- Cartas sincronizadas localmente.
+
+arkham_packs
+- Packs/ciclos sincronizados localmente.
+
+target_chats ou tabela equivalente
+- Destinos, grupos, canais e tópicos Telegram.
+
+daily_card_posts ou histórico equivalente
+- Histórico de cartas postadas.
+
+error_logs, posting_history, sync_logs ou equivalente
+- Diagnóstico, erros e eventos operacionais, se existir.
+```
+
+## 10. P0 — Correções obrigatórias imediatas
+
+### 10.1 Validar wrappers Python
 
 Validar estes arquivos:
 
@@ -111,7 +273,7 @@ Conteúdo esperado de `scheduler.py`:
 from ..services.scheduler import *  # noqa: F403
 ```
 
-Validar:
+Comandos:
 
 ```bash
 grep -n "from \.supabase_client\|from \.config\|from \.local_storage\|from \.scheduler" src/arkham_bot/handlers/telegram_handlers.py || true
@@ -121,7 +283,7 @@ python main.py healthcheck
 
 Critério: `/status` e `/cotd` não podem quebrar por `ModuleNotFoundError`.
 
-### 0.2 Corrigir fail-open no Mini App
+### 10.2 Corrigir fail-open do Mini App
 
 Arquivo:
 
@@ -149,7 +311,7 @@ Obrigatório:
 });
 ```
 
-Adicionar `auth_error` no gate, com mensagem:
+Adicionar tratamento visual para `auth_error`:
 
 ```text
 Não foi possível validar o acesso administrativo. Reabra pelo Telegram ou verifique o Worker.
@@ -157,7 +319,7 @@ Não foi possível validar o acesso administrativo. Reabra pelo Telegram ou veri
 
 Critério: se `/me` falhar por rede, CORS, Worker fora, 500 ou JSON inválido, o painel não abre.
 
-### 0.3 Remover logs sensíveis do `saveSettings()`
+### 10.3 Remover logs sensíveis do `saveSettings()`
 
 Remover ou proteger com `import.meta.env.DEV`:
 
@@ -170,7 +332,7 @@ console.log('[saveSettings] returned day_config:', ...)
 
 Critério: produção não deve logar `telegram_chat_id`, `day_config`, payload de settings ou detalhes operacionais sensíveis.
 
-### 0.4 Adicionar `check` no Mini App
+### 10.4 Adicionar `check` no Mini App
 
 Arquivo:
 
@@ -184,15 +346,7 @@ Adicionar:
 "check": "vite build"
 ```
 
-Rodar:
-
-```bash
-cd miniapp
-npm run build
-npm run check
-```
-
-### 0.5 Tornar `/status` admin-only
+### 10.5 Tornar `/status` admin-only
 
 Arquivo:
 
@@ -208,9 +362,7 @@ if (auth.response) return auth.response;
 return handleStatus(request, env, ao);
 ```
 
-Critério: não admin recebe `unauthorized`; admin recebe status.
-
-### 0.6 `/packs` deve preferir Supabase
+### 10.6 `/packs` deve preferir Supabase
 
 `handleGetPacks` deve tentar primeiro:
 
@@ -226,11 +378,9 @@ Resposta se Supabase tiver dados:
 
 Fallback obrigatório para ArkhamDB pública quando Supabase falhar ou estiver vazio.
 
-## P1 — Validação profissional por tela
+## 11. P1 — Validação profissional por tela
 
 ### Home
-
-Deve mostrar somente atalhos úteis e estado operacional resumido.
 
 Critérios:
 
@@ -241,8 +391,6 @@ Critérios:
 - Não duplica funções em múltiplos lugares sem necessidade.
 
 ### Postagem
-
-Deve permitir postagem manual sem ambiguidade.
 
 Deve conter:
 
@@ -268,18 +416,7 @@ Critérios:
 
 A agenda deve sair de `Configurações` e virar menu próprio.
 
-Deve conter:
-
-- Toggle de postagem automática.
-- Fuso horário.
-- Modo `Todos os dias`.
-- Configuração individual por dia.
-- Horários globais e por dia.
-- Filtros por ciclo/pack.
-- Filtros por tipo de carta.
-- Botão salvar claro.
-
-Regras:
+Critérios:
 
 - Se `Todos os dias` estiver ativo, ele prevalece.
 - Se estiver inativo, usar configuração de cada dia.
@@ -290,21 +427,6 @@ Regras:
 
 ### IA
 
-Deve conter:
-
-- IA habilitada.
-- IA apenas nos posts automáticos.
-- Idioma.
-- Provedor.
-- Modelo.
-- Tom.
-- Criatividade.
-- Mensagem antes da carta.
-- Delay antes da carta.
-- Pergunta após a carta.
-- Delay após a pergunta.
-- Teste de geração.
-
 Critérios:
 
 - Modelos não devem ficar duplicados indefinidamente no front e Worker.
@@ -313,17 +435,6 @@ Critérios:
 - Deixar claro quando IA não roda em post manual por `ai_auto_only=true`.
 
 ### Banco de Dados
-
-Deve conter:
-
-- Total de cartas.
-- Total de packs.
-- Última sincronização.
-- Status atualizado/desatualizado.
-- Botão sincronizar ArkhamDB.
-- Agendamento de sync.
-- Último erro de sync.
-- Resultado do último sync.
 
 Critérios:
 
@@ -334,22 +445,6 @@ Critérios:
 
 ### Fila
 
-Deve conter filtros:
-
-- Pendentes.
-- Processando.
-- Retrying.
-- Falhas.
-- Executados.
-- Cancelados.
-
-Ações:
-
-- Cancelar pendente.
-- Reenfileirar falha.
-- Ver erro completo.
-- Limpar pendentes.
-
 Critérios:
 
 - Não mostrar JSON bruto por padrão.
@@ -359,24 +454,14 @@ Critérios:
 
 ### Histórico
 
-Deve conter:
+Critérios:
 
-- Data.
-- Código.
-- Nome.
-- Status.
-- Origem manual/automática.
-- Telegram message id.
 - Filtro por data.
 - Busca por código/nome.
 - Paginação.
-
-Melhorias:
-
 - Link ArkhamDB.
 - Link Telegram quando possível.
 - Badge sucesso/falha.
-- Export futuro CSV/JSON se necessário.
 
 ### Destinos
 
@@ -395,16 +480,6 @@ created_at
 updated_at
 ```
 
-Funcionalidades:
-
-- Listar destinos.
-- Criar destino.
-- Editar nome amigável.
-- Ativar/desativar.
-- Definir padrão.
-- Informar tópico Telegram via `message_thread_id`.
-- Enviar mensagem de teste.
-
 Critérios:
 
 - Postagem manual permite escolher destino.
@@ -416,16 +491,7 @@ Critérios:
 
 Novo menu restrito a `owner`.
 
-Funcionalidades:
-
-- Listar admins.
-- Adicionar Telegram user id.
-- Definir role `owner` ou `admin`.
-- Ativar/desativar.
-- Remover.
-- Mostrar origem da permissão.
-
-Regras:
+Critérios:
 
 - Apenas `owner` gerencia admins.
 - Não permitir remover o último `owner`.
@@ -433,14 +499,6 @@ Regras:
 - Toda alteração deve registrar `updated_by`.
 
 ### Manutenção
-
-Deve conter:
-
-- Resetar ciclo.
-- Limpar fila.
-- Reprocessar falhas.
-- Limpar cache, se existir comando seguro.
-- Rodar diagnóstico.
 
 Critérios:
 
@@ -450,42 +508,25 @@ Critérios:
 
 ### Saúde
 
-Deve evoluir para painel operacional real.
-
-Deve conter:
-
-- Worker online.
-- Supabase online.
-- Bot Python online.
-- Scheduler ativo.
-- Polling/command worker ativo.
-- Próxima postagem.
-- Última postagem.
-- Último erro.
-- Último heartbeat.
-- Versão/commit em execução.
-- Ambiente.
-
-Endpoints recomendados:
-
-```text
-/health/deep
-/bot-runtime
-```
-
 Critério: Saúde deve responder à pergunta “o bot está funcionando agora e vai postar na hora certa?”.
 
+Deve mostrar:
+
+```text
+Worker online
+Supabase online
+Bot Python online
+Scheduler ativo
+Polling/command worker ativo
+Próxima postagem
+Última postagem
+Último erro
+Último heartbeat
+Versão/commit em execução
+Ambiente
+```
+
 ### Aplicativo
-
-Deve conter:
-
-- Idioma do app.
-- Usuário Telegram atual.
-- Role atual.
-- Origem da permissão.
-- Endpoint do Worker.
-- Versão do Mini App.
-- Estado da sessão.
 
 Critérios:
 
@@ -493,9 +534,7 @@ Critérios:
 - Não exibir `initData` completo.
 - Exibir somente tamanho/presença da sessão.
 
-## P2 — Padrões profissionais de UX
-
-### Estados obrigatórios por tela
+## 12. P2 — Padrões profissionais de UX
 
 Cada tela deve implementar:
 
@@ -508,102 +547,77 @@ saving/sending
 success
 ```
 
-Nenhuma tela deve parecer quebrada quando dados estiverem vazios.
-
-### Mensagens de erro
-
 Cada erro deve ter:
 
-- Título amigável.
-- Descrição curta.
-- Detalhe técnico opcional recolhido.
-- Ação recomendada.
-
-Exemplo:
-
 ```text
-Acesso negado
-Seu Telegram ID não tem permissão administrativa.
-Ação: peça para um owner adicionar seu usuário em Administradores.
+Título amigável
+Descrição curta
+Detalhe técnico opcional recolhido
+Ação recomendada
 ```
 
-### Prevenção de erro humano
-
-Implementar:
-
-- Confirmação em ação destrutiva.
-- Botão desabilitado durante envio.
-- Proteção contra clique duplo.
-- Aviso de alterações não salvas.
-- Validação antes de enviar para Worker.
-- Validação duplicada no Worker.
-- Resumo antes de salvar agenda complexa.
-
-### Feedback visual
-
-Implementar consistentemente:
-
-- Badges `ok`, `warn`, `err`, `pending`.
-- Spinners apenas onde há operação real.
-- Haptic feedback em sucesso/erro/seleção.
-- MainButton apenas quando houver alteração pendente.
-- BackButton sempre coerente.
-
-### Acessibilidade mínima
-
-- Botões devem ter texto visível.
-- Ícones não devem ser a única informação.
-- Inputs devem ter label.
-- Estados desabilitados devem ser visualmente claros.
-- Tamanho de toque mínimo adequado para celular.
-
-## P3 — Segurança e RBAC
-
-### Papéis
+Prevenção obrigatória:
 
 ```text
-owner
-admin
-member ou none
+Confirmação em ação destrutiva
+Botão desabilitado durante envio
+Proteção contra clique duplo
+Aviso de alterações não salvas
+Validação antes de enviar para Worker
+Validação duplicada no Worker
+Resumo antes de salvar agenda complexa
 ```
 
-Regras:
-
-- `owner`: tudo.
-- `admin`: operação e configuração, mas não gerencia owners/admins críticos.
-- `member/none`: sem acesso ao painel.
-
-### Endpoints admin-only
-
-Todos estes devem usar `requireAdmin`:
+Feedback visual:
 
 ```text
-/status
-/overview
-/settings
-/commands
-/commands/:id
-/cards
-/packs
-/history
-/bot-info
-/bot-command
-/destinations
-/ai-models
-/health/deep
-/bot-runtime
+Badges ok/warn/err/pending
+Spinner apenas em operação real
+Haptic feedback em sucesso/erro/seleção
+MainButton apenas com alteração pendente
+BackButton coerente
 ```
 
-### Endpoints owner-only futuros
+Acessibilidade mínima:
 
 ```text
-/admins
-/admins/:id
+Botões com texto
+Ícones não são única informação
+Inputs com label
+Disabled visível
+Área de toque adequada
+Não depender só de cor
+```
+
+## 13. P3 — Segurança, auditoria, logs e rate limit
+
+### Política de logs
+
+Pode logar:
+
+```text
+command_type
+status
+erro sanitizado
+telegram_user_id
+source seguro
+request_id
+```
+
+Não pode logar:
+
+```text
+token
+service role
+initData completo
+authorization header
+payload sensível completo
+secrets
 ```
 
 ### Auditoria
 
-Toda ação administrativa deve registrar:
+Toda ação administrativa deve registrar, quando houver suporte de banco:
 
 ```text
 requested_by_telegram_user_id
@@ -617,7 +631,7 @@ result
 last_error
 ```
 
-Para alteração direta de settings/admins/destinos, registrar também:
+Para alteração direta de settings/admins/destinos:
 
 ```text
 updated_by
@@ -626,9 +640,31 @@ previous_value quando seguro
 new_value quando seguro
 ```
 
-Não registrar secrets.
+### Rate limit e abuso
 
-## P4 — Worker e contratos de API
+Mesmo admin deve ter proteção contra abuso:
+
+```text
+bloquear múltiplos sync simultâneos
+bloquear duplo clique em bot-command
+limitar refresh automático agressivo
+limitar busca muito ampla
+limitar comandos destrutivos repetidos
+```
+
+### Idempotência
+
+Garantir ou registrar pendência:
+
+```text
+post_now não duplica por clique duplo
+sync_arkhamdb não executa duas vezes em paralelo
+clear_queue afeta apenas comandos pendentes
+retry não duplica comando processado
+cancelar comando processando tem regra explícita
+```
+
+## 14. P4 — Worker e contratos de API
 
 Endpoints atuais a manter:
 
@@ -661,15 +697,13 @@ Endpoints recomendados:
 /commands/:id/retry
 ```
 
-Todo endpoint deve retornar JSON consistente:
-
-Sucesso:
+Formato de sucesso:
 
 ```json
 { "ok": true }
 ```
 
-Erro:
+Formato de erro:
 
 ```json
 {
@@ -698,9 +732,11 @@ packs_fetch_failed
 history_fetch_failed
 bot_info_fetch_failed
 backend_not_configured
+rate_limited
+conflict_already_running
 ```
 
-## P5 — Refatoração do `main.jsx`
+## 15. P5 — Refatoração do `main.jsx`
 
 Executar somente depois de P0 e P1 estarem validados.
 
@@ -751,16 +787,18 @@ miniapp/src/
 
 Ordem:
 
-1. `telegram.js`.
-2. `api.js`.
-3. `i18n.js`.
-4. `constants.js` e `settings.js`.
-5. `icons.jsx`.
-6. Componentes simples.
-7. Componentes complexos.
-8. Screens.
-9. `App.jsx`.
-10. `main.jsx` como bootstrap.
+```text
+1. telegram.js
+2. api.js
+3. i18n.js
+4. constants.js e settings.js
+5. icons.jsx
+6. componentes simples
+7. componentes complexos
+8. screens
+9. App.jsx
+10. main.jsx como bootstrap
+```
 
 `main.jsx` final:
 
@@ -780,37 +818,43 @@ cd miniapp
 npm run build
 ```
 
-## P6 — O que remover, migrar ou manter
+## 16. P6 — Remover, migrar e manter
 
 ### Remover
 
-- Logs de produção em `saveSettings`.
-- Qualquer fallback que libere painel sem admin confirmado.
-- JSON bruto aberto por padrão.
-- Duplicação permanente de modelos IA no front e Worker.
-- Busca primária de packs na ArkhamDB quando Supabase local estiver populado.
-- Menus misturados sem domínio claro.
+```text
+Logs de produção em saveSettings
+Fallback que libera painel sem admin confirmado
+JSON bruto aberto por padrão
+Duplicação permanente de modelos IA no front e Worker
+Busca primária de packs na ArkhamDB quando Supabase local estiver populado
+Menus misturados sem domínio claro
+```
 
 ### Migrar
 
-- Agenda para menu próprio.
-- Destinos para menu próprio.
-- Admins para menu próprio owner-only.
-- Modelos IA para `/ai-models`.
-- Diagnóstico do bot Python para `/bot-runtime`.
-- Status de sync para fonte confiável no banco.
+```text
+Agenda para menu próprio
+Destinos para menu próprio
+Admins para menu próprio owner-only
+Modelos IA para /ai-models
+Diagnóstico do bot Python para /bot-runtime
+Status de sync para fonte confiável no banco
+```
 
 ### Manter
 
-- Telegram theme variables.
-- Safe area handling.
-- Haptic feedback.
-- Telegram MainButton.
-- Telegram BackButton.
-- Fallback ArkhamDB de packs.
-- Worker como única camada entre Mini App e Supabase.
+```text
+Telegram theme variables
+Safe area handling
+Haptic feedback
+Telegram MainButton
+Telegram BackButton
+Fallback ArkhamDB de packs
+Worker como única camada entre Mini App e Supabase
+```
 
-## P7 — Diagnóstico avançado futuro
+## 17. P7 — Diagnóstico avançado futuro
 
 Criar futuramente tabela/registro de runtime, somente com autorização para migration:
 
@@ -831,62 +875,66 @@ bot_runtime_status
 
 Objetivo: a tela Saúde deve mostrar se o bot Python está vivo e se a próxima postagem está planejada corretamente.
 
-## P8 — Checklist final de aceite profissional
+## 18. P8 — Release, deploy e rollback
 
-### Build e runtime
-
-```bash
-python -m compileall -q .
-python main.py healthcheck
-cd miniapp && npm run build && npm run check
-cd ../worker && npm run dry-run
-```
-
-### Regressão por busca
-
-```bash
-grep -R "setAuthState('ready')" -n miniapp/src || true
-grep -R "\[saveSettings\]\|saveSettings.*console" -n miniapp/src || true
-grep -R "pathname === '/status'" -n worker/src/index.js
-grep -R "handleGetPacks" -n worker/src/index.js
-grep -R "from \.supabase_client\|from \.config\|from \.local_storage\|from \.scheduler" -n src/arkham_bot/handlers/telegram_handlers.py || true
-```
-
-### Teste manual Telegram
+### Plano de release
 
 ```text
-/status
-/cotd
-/search Roland
-/faq 01001
+1. Confirmar git status limpo antes de começar.
+2. Criar branch de trabalho se possível.
+3. Aplicar P0.
+4. Rodar validações locais.
+5. Aplicar P1/P2.
+6. Rodar build/check/dry-run.
+7. Commitar com mensagem clara.
+8. Push.
+9. Deploy Mini App.
+10. Deploy Worker.
+11. Testar Telegram real.
+12. Monitorar logs.
+13. Executar rollback se erro crítico aparecer.
 ```
 
-### Teste manual Mini App
+### Rollback obrigatório se ocorrer
 
-- Admin abre o app.
-- Não admin é bloqueado.
-- Worker fora não libera painel.
-- Postagem busca carta.
-- Postagem enfileira comando.
-- Destino aparece corretamente.
-- Agenda salva e recarrega.
-- IA salva e recarrega.
-- Banco carrega status.
-- Fila lista comandos.
-- Histórico pagina e filtra.
-- Saúde mostra status real.
-- Idioma alterna.
-- BackButton funciona.
-- MainButton aparece somente com alterações pendentes.
-- Ação destrutiva exige confirmação.
+```text
+Mini App não abre para admin
+/me ou /settings retornam 500
+Worker quebra /bot-command
+Bot Python para de processar comandos
+Postagem automática quebra
+Token/segredo aparece em log ou resposta
+Configurações deixam de salvar
+```
 
-## P9 — Validações profissionais ainda não executadas e que a IA deve tentar executar
+### Comandos úteis de rollback
 
-Esta seção lista validações que ainda não foram executadas de fato nesta auditoria. A IA executora deve rodar o máximo possível no ambiente local/servidor. O que não puder executar deve ser reportado em `Pendências` com motivo objetivo.
+```bash
+git log --oneline -n 10
+git status
+git diff
+git revert <commit>
+```
 
-### 9.1 Build real
+Não executar revert sem necessidade; apenas garantir que commits sejam pequenos e reversíveis.
 
-Rodar:
+### Backup obrigatório antes de alteração destrutiva
+
+Antes de migration, limpeza de fila, reset de ciclo amplo, exclusão de dados ou alteração destrutiva:
+
+```text
+gerar backup
+registrar comando usado
+confirmar escopo afetado
+validar rollback
+executar apenas com autorização explícita
+```
+
+## 19. P9 — Validações profissionais ainda não executadas e que a IA deve tentar executar
+
+A IA executora deve rodar o máximo possível no ambiente local/servidor. O que não puder executar deve ser reportado em `Pendências` com motivo objetivo.
+
+### 19.1 Build real
 
 ```bash
 cd miniapp
@@ -899,15 +947,7 @@ npm install
 npm run dry-run
 ```
 
-Critério:
-
-- Mini App compila.
-- Worker passa dry-run.
-- Nenhum warning crítico deve ser ignorado sem registro.
-
-### 9.2 Runtime local
-
-Rodar quando ambiente permitir:
+### 19.2 Runtime local
 
 ```bash
 cd miniapp
@@ -917,15 +957,7 @@ cd ../worker
 npx wrangler dev
 ```
 
-Validar:
-
-- App abre localmente.
-- Front consegue chamar Worker local ou ambiente configurado.
-- Erros de CORS aparecem de forma controlada.
-
-### 9.3 Teste real no Telegram
-
-Validar dentro do Telegram, preferencialmente em iPhone e Android:
+### 19.3 Teste real no Telegram
 
 ```text
 admin abre
@@ -939,9 +971,9 @@ tema escuro funciona
 teclado aberto não quebra layout
 ```
 
-### 9.4 Autenticação e autorização
+### 19.4 Autenticação e autorização
 
-Simular ou testar:
+Testar:
 
 ```text
 sem initData
@@ -955,13 +987,7 @@ Worker sem TELEGRAM_BOT_TOKEN
 Supabase fora
 ```
 
-Critério:
-
-- Nenhum cenário inválido pode abrir painel.
-- Mensagem deve ser amigável.
-- Worker deve retornar HTTP coerente.
-
-### 9.5 Contrato de API
+### 19.5 Contrato de API
 
 Validar status HTTP e JSON de:
 
@@ -980,15 +1006,9 @@ Validar status HTTP e JSON de:
 /health
 ```
 
-Critério:
+### 19.6 Payload inválido
 
-- Sucesso retorna JSON previsível.
-- Erro retorna `{ error: "codigo" }`.
-- Não há HTML, stack trace ou segredo em resposta.
-
-### 9.6 Payload inválido
-
-Enviar payloads errados e confirmar recusa:
+Testar recusa de:
 
 ```text
 repost_card sem card_code
@@ -1003,14 +1023,7 @@ payload com campos extras
 payload com tipos errados
 ```
 
-Critério:
-
-- Worker rejeita antes de gravar.
-- Front mostra erro controlado.
-
-### 9.7 Persistência
-
-Fluxo obrigatório:
+### 19.7 Persistência
 
 ```text
 alterar configuração no Mini App
@@ -1022,9 +1035,7 @@ confirmar /status ou /overview refletindo valor
 confirmar bot Python lendo o mesmo valor quando aplicável
 ```
 
-### 9.8 End-to-end real
-
-Testar fluxos completos:
+### 19.8 End-to-end real
 
 ```text
 buscar carta > postar agora > comando entra na fila > bot processa > mensagem sai no Telegram > histórico registra
@@ -1034,9 +1045,7 @@ repost_card > comando processa > mensagem sai
 skip_card > ciclo avança corretamente
 ```
 
-### 9.9 Regressão do bot Python
-
-Rodar:
+### 19.9 Regressão do bot Python
 
 ```bash
 python -m compileall -q .
@@ -1044,7 +1053,7 @@ python main.py healthcheck
 pytest -q
 ```
 
-Testar comandos reais:
+Comandos reais:
 
 ```text
 /status
@@ -1054,25 +1063,30 @@ Testar comandos reais:
 /card 01001
 ```
 
-### 9.10 Visual e responsivo
+### 19.10 Visual, responsivo e compatibilidade Telegram
 
-Validar em:
+Validar:
 
 ```text
 iPhone pequeno
 iPhone grande
 Android
+Telegram iOS
+Telegram Android
 Telegram tema claro
 Telegram tema escuro
 fonte ampliada
 teclado aberto em inputs
 safe area com notch
 scroll longo em telas grandes
+BackButton
+MainButton
+haptic sem quebrar quando API ausente
 ```
 
-### 9.11 Estados vazios
+### 19.11 Estados vazios
 
-Validar telas com dados ausentes:
+Validar:
 
 ```text
 sem comandos na fila
@@ -1086,12 +1100,7 @@ sem last_sync
 sem erros recentes
 ```
 
-Critério:
-
-- Nenhuma tela quebra.
-- Cada tela exibe empty state útil.
-
-### 9.12 Erros controlados
+### 19.12 Erros controlados
 
 Simular:
 
@@ -1106,33 +1115,16 @@ JSON inválido
 resposta vazia
 ```
 
-Critério:
+### 19.13 Segurança
 
-- App não trava.
-- Usuário recebe ação recomendada.
-- Detalhe técnico não expõe segredo.
+Comandos úteis:
 
-### 9.13 Concorrência
-
-Testar ou raciocinar e registrar:
-
-```text
-dois admins salvando settings ao mesmo tempo
-duplo clique em Postar agora
-dois sync_arkhamdb simultâneos
-cancelar comando enquanto bot processa
-salvar agenda enquanto bot lê configuração
+```bash
+grep -R "SUPABASE_SERVICE_ROLE_KEY\|TELEGRAM_BOT_TOKEN\|x-telegram-init-data\|authorization" -n miniapp/src || true
+grep -R "console.log\|console.error\|console.warn" -n miniapp/src worker/src || true
 ```
 
-Critério:
-
-- Não duplicar comandos por clique duplo.
-- Não gerar estado salvo enganoso.
-- Conflitos devem ser reduzidos ou documentados.
-
-### 9.14 Segurança
-
-Validar:
+Critérios:
 
 ```text
 nenhum service role no front
@@ -1142,18 +1134,10 @@ CORS fechado
 admin validado no Worker
 payload validado no Worker
 roles respeitadas
-owner-only em admins futuros
 sem stack trace público
 ```
 
-Comandos úteis:
-
-```bash
-grep -R "SUPABASE_SERVICE_ROLE_KEY\|TELEGRAM_BOT_TOKEN\|x-telegram-init-data\|authorization" -n miniapp/src || true
-grep -R "console.log\|console.error\|console.warn" -n miniapp/src worker/src || true
-```
-
-### 9.15 Observabilidade
+### 19.14 Observabilidade
 
 Confirmar se é possível responder:
 
@@ -1170,24 +1154,9 @@ o Worker está vivo?
 o Supabase está respondendo?
 ```
 
-Se não for possível, registrar como pendência.
+### 19.15 CI/CD
 
-### 9.16 Rollback
-
-Validar estratégia:
-
-```bash
-git log --oneline -n 10
-git status
-git diff
-git revert <commit>
-```
-
-Não executar revert sem necessidade. Apenas confirmar que os commits são pequenos o suficiente para rollback seguro.
-
-### 9.17 CI/CD
-
-Validar GitHub Actions ou registrar pendência:
+Validar ou registrar pendência:
 
 ```text
 instala dependências Python
@@ -1199,36 +1168,44 @@ falha se build quebrar
 não expõe secrets nos logs
 ```
 
-### 9.18 Acessibilidade mínima
+### 19.16 Performance
 
-Validar:
-
-```text
-labels em inputs
-botões com texto
-contraste aceitável
-estado disabled visível
-não depender só de cor
-área de toque adequada
-mensagens compreensíveis
-```
-
-### 9.19 Performance
-
-Verificar:
+Critérios recomendados:
 
 ```text
-tamanho do bundle
-tempo de abertura no Telegram
-tempo de /overview
-tempo de /cards search
-tempo de /history
-tempo de /packs
-cache de packs
-chamadas repetidas desnecessárias
+Mini App abre em até 3s em rede normal
+/overview responde em até 2s
+/cards responde em até 3s
+/history pagina, não carrega tudo
+/packs usa cache
+bundle não cresce sem justificativa
 ```
 
-### 9.20 Documentação operacional mínima
+### 19.17 Versionamento
+
+Recomendações:
+
+```text
+Mini App mostra versão/commit em Aplicativo ou Saúde
+Worker expõe versão/commit sem secrets
+Saúde mostra compatibilidade front/Worker
+Deploy registra commit ativo
+```
+
+### 19.18 Testes automatizados futuros
+
+Registrar como pendência se não existirem:
+
+```text
+unit tests para settingsPatchPayload
+unit tests para validateSettingsPatch
+unit tests para validateTelegramInitData
+unit tests para command payload validation
+smoke tests para rotas do Worker
+smoke tests para auth failure
+```
+
+### 19.19 Documentação operacional mínima
 
 Validar se há instrução clara para:
 
@@ -1247,24 +1224,93 @@ fazer rollback
 
 Se faltar, registrar como pendência. Não alterar README sem autorização explícita.
 
-## P10 — Ordem de execução recomendada
+## 20. Checklist final para o bot validar
+
+A IA executora deve marcar cada item como `[OK]`, `[ERRO]` ou `[NÃO EXECUTADO: motivo]`.
 
 ```text
-P0 — Segurança e estabilidade imediata
-P1 — Menus e UX profissional
-P2 — Estados e prevenção de erro humano
-P3 — RBAC e auditoria
-P4 — Contratos do Worker
-P5 — Refatoração do main.jsx
-P6 — Remover/migrar/manter
-P7 — Diagnóstico avançado futuro
-P8 — Checklist final
-P9 — Validações profissionais ainda pendentes
+[ ] Leu este arquivo inteiro antes de alterar código.
+[ ] Confirmou git status inicial.
+[ ] Validou wrappers Python.
+[ ] Corrigiu ou confirmou ausência de auth fail-open.
+[ ] Removeu/protegeu logs sensíveis.
+[ ] Adicionou script check no Mini App.
+[ ] Tornou /status admin-only.
+[ ] Ajustou /packs para Supabase com fallback ArkhamDB.
+[ ] Validou que não há service role/token no front.
+[ ] Validou que payloads sensíveis não são logados.
+[ ] Validou Home.
+[ ] Validou Postagem.
+[ ] Validou Agenda.
+[ ] Validou IA.
+[ ] Validou Banco de Dados.
+[ ] Validou Fila.
+[ ] Validou Histórico.
+[ ] Validou Destinos ou registrou pendência.
+[ ] Validou Administradores ou registrou pendência.
+[ ] Validou Manutenção.
+[ ] Validou Saúde.
+[ ] Validou Aplicativo.
+[ ] Validou estados loading/empty/ready/error/saving/success.
+[ ] Validou mensagens de erro amigáveis.
+[ ] Validou confirmação em ações destrutivas.
+[ ] Validou proteção contra clique duplo.
+[ ] Validou alterações não salvas.
+[ ] Validou RBAC owner/admin/none.
+[ ] Validou contratos dos endpoints atuais.
+[ ] Validou payloads inválidos.
+[ ] Validou persistência de settings.
+[ ] Validou fluxo E2E de postagem ou registrou pendência.
+[ ] Validou fluxo E2E de agenda ou registrou pendência.
+[ ] Validou fluxo E2E de sync ou registrou pendência.
+[ ] Rodou python -m compileall -q .
+[ ] Rodou python main.py healthcheck.
+[ ] Rodou pytest -q ou registrou pendência.
+[ ] Rodou cd miniapp && npm install, se necessário.
+[ ] Rodou cd miniapp && npm run build.
+[ ] Rodou cd miniapp && npm run check.
+[ ] Rodou cd worker && npm install, se necessário.
+[ ] Rodou cd worker && npm run dry-run.
+[ ] Validou Mini App no Telegram iOS ou registrou pendência.
+[ ] Validou Mini App no Telegram Android ou registrou pendência.
+[ ] Validou tema claro/escuro ou registrou pendência.
+[ ] Validou safe area/teclado/scroll ou registrou pendência.
+[ ] Validou CORS/origin permitido.
+[ ] Validou origin não permitido.
+[ ] Validou admin válido.
+[ ] Validou não-admin bloqueado.
+[ ] Validou initData ausente/inválido/expirado.
+[ ] Validou estados vazios.
+[ ] Validou erros controlados.
+[ ] Validou concorrência/idempotência ou registrou pendência.
+[ ] Validou rate limit ou registrou pendência.
+[ ] Validou observabilidade mínima.
+[ ] Validou estratégia de rollback.
+[ ] Validou CI/CD ou registrou pendência.
+[ ] Validou performance básica ou registrou pendência.
+[ ] Classificou todos os achados por severidade.
+[ ] Informou risco residual.
+[ ] Não deixou mudança destrutiva sem autorização.
+[ ] Não alterou README sem autorização.
+[ ] Não expôs secrets.
 ```
 
-A IA executora deve priorizar primeiro o que pode quebrar segurança ou operação. Melhorias visuais e refatoração estrutural vêm depois de build e runtime estáveis.
+## 21. Ordem final de execução recomendada
 
-## Formato de resposta obrigatório da IA executora
+```text
+1. P0 — Segurança e estabilidade imediata.
+2. Build/check/dry-run.
+3. P1 — Menus e UX profissional.
+4. P2 — Estados e prevenção de erro humano.
+5. P3 — RBAC, auditoria, logs, rate limit e idempotência.
+6. P4 — Contratos do Worker.
+7. P8/P9 — Validações profissionais reais.
+8. P5 — Refatoração do main.jsx, somente depois de tudo estável.
+9. P6/P7 — Migrações futuras e diagnóstico avançado, somente com autorização.
+10. Checklist final.
+```
+
+## 22. Formato de resposta obrigatório da IA executora
 
 ```text
 RESULTADO:
@@ -1279,9 +1325,14 @@ RESULTADO:
   - cd miniapp && npm run build: OK/ERRO/NÃO EXECUTADO + motivo
   - cd miniapp && npm run check: OK/ERRO/NÃO EXECUTADO + motivo
   - cd worker && npm run dry-run: OK/ERRO/NÃO EXECUTADO + motivo
+- Checklist final:
+  - [OK/ERRO/NÃO EXECUTADO] itens principais do checklist
+- Achados por severidade:
+  - CRÍTICO: ...
+  - ALTO: ...
+  - MÉDIO: ...
+  - BAIXO: ...
 - Validações manuais necessárias:
-  - ...
-- Achados adicionais:
   - ...
 - Pendências:
   - ...
