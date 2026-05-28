@@ -460,12 +460,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(_format_help_report(), parse_mode=ParseMode.HTML)
 
 
-def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]]:
-    """Returns (count, min_num, max_num, sample_numbers) based on the numeric suffix users type."""
+def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int], set[int]]:
+    """Returns (count, min_num, max_num, sample_numbers, valid_numbers_set)."""
     try:
         client = get_supabase_client()
         if not client:
-            return 0, 0, 0, []
+            return 0, 0, 0, [], set()
         rows = client.get('arkham_cards', {
             'code': f'like.{pack_code_prefix}%',
             'select': 'code',
@@ -478,15 +478,14 @@ def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]
             if r.get('code') and r['code'][prefix_len:].isdigit()
         ))
         if not numbers:
-            return 0, 0, 0, []
-        # Exclude 0 from samples (usually a special/cover card)
+            return 0, 0, 0, [], set()
         sample_pool = [n for n in numbers if n > 0] or numbers
         k = min(5, len(sample_pool))
         sample = sorted(random.sample(sample_pool, k))
-        return len(numbers), numbers[0], numbers[-1], sample
+        return len(numbers), numbers[0], numbers[-1], sample, set(numbers)
     except Exception as exc:
         logger.warning(f"Failed to get pack positions for {pack_code_prefix}: {exc}")
-        return 0, 0, 0, []
+        return 0, 0, 0, [], set()
 
 
 async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -546,7 +545,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     context.user_data['selected_pack_code'] = pack_code
 
-    count, min_pos, max_pos, sample = await asyncio.to_thread(_get_pack_positions, pack_code)
+    count, min_pos, max_pos, sample, valid_numbers = await asyncio.to_thread(_get_pack_positions, pack_code)
+    context.user_data['pack_valid_numbers'] = valid_numbers
 
     if count > 0:
         sample_str = ", ".join(str(p) for p in sample)
@@ -578,13 +578,27 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
         return CHOOSING_CARD_NUMBER
 
     card_number = card_number_input
+    entered_int = None
     try:
-        int(card_number_input)
+        entered_int = int(card_number_input)
         card_number = card_number_input.zfill(3)
     except ValueError:
         pass
 
     pack_code = context.user_data.get('selected_pack_code')
+
+    # Validate numeric input against known pack numbers
+    if entered_int is not None and pack_code:
+        valid_numbers: set[int] = context.user_data.get('pack_valid_numbers', set())
+        if valid_numbers and entered_int not in valid_numbers:
+            # Show nearby valid numbers as hint
+            nearby = sorted(n for n in valid_numbers if abs(n - entered_int) <= 50)[:6] or sorted(valid_numbers)[:6]
+            samples_str = ", ".join(str(n) for n in nearby)
+            await update.message.reply_text(
+                s["card_number_not_in_pack"].format(number=entered_int, samples=samples_str),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return CHOOSING_CARD_NUMBER
 
     if not pack_code:
         await update.message.reply_text(s["card_no_pack"])
