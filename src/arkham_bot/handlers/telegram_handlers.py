@@ -1851,8 +1851,9 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             nav.append(InlineKeyboardButton(s.get("sets_btn_prev", "◀"), callback_data=f"SET_BROWSE_{pack_code}_p{page - 1}"))
         if start + _SETS_PAGE_SIZE < total:
             nav.append(InlineKeyboardButton(s.get("sets_btn_next", "▶"), callback_data=f"SET_BROWSE_{pack_code}_p{page + 1}"))
-        nav.append(InlineKeyboardButton(s["sets_btn_back"], callback_data="SETS_BACK_p0"))
-        buttons.append(nav)
+        if nav:
+            buttons.append(nav)
+        buttons.append([InlineKeyboardButton(s["sets_btn_back"], callback_data="SETS_BACK_p0")])
         page_info = f" — {start + 1}–{min(start + _SETS_PAGE_SIZE, total)}/{total}"
         await query.edit_message_text(
             s["sets_pack_title"].format(pack_name=escape(pack_name), count=total) + page_info,
