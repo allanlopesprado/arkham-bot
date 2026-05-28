@@ -1,6 +1,27 @@
+import time
 import httpx
 
 from .config import REQUEST_TIMEOUT_SECONDS, SUPABASE_ENABLED, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
+
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+
+
+def _request_with_retry(client: httpx.Client, method: str, url: str, **kwargs) -> httpx.Response:
+    """Execute HTTP request with exponential backoff for transient errors."""
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            response = client.request(method, url, **kwargs)
+            if response.status_code in _RETRY_STATUS and attempt < _MAX_RETRIES:
+                time.sleep(2 ** attempt)
+                continue
+            response.raise_for_status()
+            return response
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            if attempt == _MAX_RETRIES:
+                raise
+            time.sleep(2 ** attempt)
+    raise RuntimeError("unreachable")
 
 
 class SupabaseRestClient:
@@ -27,9 +48,8 @@ class SupabaseRestClient:
     def table_url(self, table: str) -> str:
         return f"{self.base_url}/{table}"
 
-    def get(self, table: str, params: dict | None = None) -> list[dict]:
-        response = self._client.get(self.table_url(table), headers=self.headers, params=params)
-        response.raise_for_status()
+    def get(self, table: str, params: dict | list[tuple[str, str]] | None = None) -> list[dict]:
+        response = _request_with_retry(self._client, "GET", self.table_url(table), headers=self.headers, params=params)
         return response.json()
 
     def count(self, table: str, params: dict | None = None) -> int:
@@ -39,8 +59,7 @@ class SupabaseRestClient:
         all_params = {"select": "*", "limit": "1"}
         if params:
             all_params.update(params)
-        response = self._client.get(self.table_url(table), headers=headers, params=all_params)
-        response.raise_for_status()
+        response = _request_with_retry(self._client, "GET", self.table_url(table), headers=headers, params=all_params)
         content_range = response.headers.get("content-range", "")
         if "/" in content_range:
             try:
@@ -53,8 +72,7 @@ class SupabaseRestClient:
         headers = dict(self.headers)
         if prefer:
             headers["Prefer"] = prefer
-        response = self._client.post(self.table_url(table), headers=headers, params=params, json=payload)
-        response.raise_for_status()
+        response = _request_with_retry(self._client, "POST", self.table_url(table), headers=headers, params=params, json=payload)
         return response.json() if response.content else []
 
     def upsert(self, table: str, payload: dict | list[dict], on_conflict: str | None = None, return_minimal: bool = True) -> list[dict]:
@@ -64,13 +82,11 @@ class SupabaseRestClient:
         return self.post(table, payload, prefer=prefer, params=params)
 
     def patch(self, table: str, payload: dict, params: dict) -> list[dict]:
-        response = self._client.patch(self.table_url(table), headers=self.headers, params=params, json=payload)
-        response.raise_for_status()
+        response = _request_with_retry(self._client, "PATCH", self.table_url(table), headers=self.headers, params=params, json=payload)
         return response.json() if response.content else []
 
     def delete(self, table: str, params: dict) -> list[dict]:
-        response = self._client.delete(self.table_url(table), headers=self.headers, params=params)
-        response.raise_for_status()
+        response = _request_with_retry(self._client, "DELETE", self.table_url(table), headers=self.headers, params=params)
         return response.json() if response.content else []
 
 

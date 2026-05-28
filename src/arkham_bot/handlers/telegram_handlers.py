@@ -457,12 +457,16 @@ def _collect_status_payload(update: Update) -> dict:
 
     from ..core.config import (
         AI_DAILY_CARD_ENABLED,
+        AI_DAILY_CARD_ENABLED,
         AI_MODEL,
         BOT_COMMANDS_POLLING_ENABLED,
         DAILY_POST_DAYS,
         DAILY_POST_ENABLED,
         DAILY_POST_TIMES,
         DAILY_SCHEDULER_STATE_FILE,
+        GEMINI_API_KEY,
+        GROQ_API_KEY,
+        MISTRAL_API_KEY,
         OPENAI_API_KEY,
         SUPABASE_ENABLED,
         TELEGRAM_CHAT_ID,
@@ -572,8 +576,8 @@ def _collect_status_payload(update: Update) -> dict:
         "packs_count": packs_count,
         "taboo_count": taboo_count,
         "next_post": _time_until_next_post(daily_post_times, daily_post_days, timezone_name) if daily_post_enabled else "não agendado",
-        "ai_daily_card_enabled": bool(AI_DAILY_CARD_ENABLED and OPENAI_API_KEY),
-        "ai_model": AI_MODEL if OPENAI_API_KEY else "sem OPENAI_API_KEY",
+        "ai_daily_card_enabled": bool(AI_DAILY_CARD_ENABLED and any([GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY])),
+        "ai_model": AI_MODEL or "-",
         "bot_commands_enabled": BOT_COMMANDS_POLLING_ENABLED,
         "is_admin": is_admin,
         "admin_source": admin_source(user_id),
@@ -2166,13 +2170,14 @@ def _cotd_fetch_months(year: int) -> list[int]:
     client = get_supabase_client()
     if not client:
         return []
-    rows = client.get('bot_posting_history', {
-        'select': 'created_at',
-        'source': 'eq.scheduled',
-        'created_at': f'gte.{year}-01-01T00:00:00Z',
-        'order': 'created_at.asc',
-        'limit': '500',
-    })
+    rows = client.get('bot_posting_history', [
+        ('select', 'created_at'),
+        ('source', 'eq.scheduled'),
+        ('created_at', f'gte.{year}-01-01T00:00:00Z'),
+        ('created_at', f'lt.{year + 1}-01-01T00:00:00Z'),
+        ('order', 'created_at.asc'),
+        ('limit', '500'),
+    ])
     months = sorted({datetime.fromisoformat(r['created_at']).month for r in rows if r.get('created_at')})
     return months
 

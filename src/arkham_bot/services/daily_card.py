@@ -181,11 +181,12 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
             # When ai_auto_only=True, AI only runs for scheduled posts
             ai_allowed = ai_enabled and (is_scheduled or not ai_auto_only)
 
-            from ..core.config import AI_DAILY_CARD_ENABLED, GEMINI_API_KEY
+            from ..core.config import AI_DAILY_CARD_ENABLED, GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY
+            _has_key = any([GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY])
             logger.info(
                 f"AI config: enabled_db={ai_enabled} auto_only={ai_auto_only} "
                 f"is_scheduled={is_scheduled} ai_allowed={ai_allowed} "
-                f"has_key={bool(GEMINI_API_KEY)} model={ai_model or 'default'} "
+                f"has_key={_has_key} model={ai_model or 'default'} "
                 f"pre={ai_pre_message_enabled} post={ai_post_question_enabled}"
             )
 

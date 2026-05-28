@@ -7,9 +7,12 @@ from .config import (
     DEBUG_DIR,
     ENVIRONMENT,
     ERROR_LOG_FILE,
+    GEMINI_API_KEY,
+    GROQ_API_KEY,
     LOG_BACKUP_COUNT,
     LOG_FILE,
     LOG_MAX_BYTES,
+    MISTRAL_API_KEY,
     OPENAI_API_KEY,
     SUPABASE_SERVICE_ROLE_KEY,
     TELEGRAM_BOT_TOKEN,
@@ -19,15 +22,19 @@ from .config import (
 
 SENSITIVE_LOGGER_NAMES = ("httpx", "httpcore", "telegram", "telegram.ext")
 TELEGRAM_BOT_TOKEN_RE = re.compile(r"bot[0-9]+:[A-Za-z0-9_-]+")
-SECRET_NAME_RE = re.compile(r"\b(TELEGRAM_BOT_TOKEN|SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY)\b")
+GEMINI_KEY_RE = re.compile(r"(?<=key=)[A-Za-z0-9_-]{20,}")
+SECRET_NAME_RE = re.compile(
+    r"\b(TELEGRAM_BOT_TOKEN|SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY|GEMINI_API_KEY|GROQ_API_KEY|MISTRAL_API_KEY)\b"
+)
 REDACTED_SECRET = "[REDACTED]"
 
 
 def _mask_secrets(message: str) -> str:
     masked = TELEGRAM_BOT_TOKEN_RE.sub(f"bot{REDACTED_SECRET}", message)
+    masked = GEMINI_KEY_RE.sub(REDACTED_SECRET, masked)
     masked = SECRET_NAME_RE.sub(REDACTED_SECRET, masked)
 
-    for secret in (TELEGRAM_BOT_TOKEN, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY):
+    for secret in (TELEGRAM_BOT_TOKEN, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY):
         if secret:
             masked = masked.replace(secret, REDACTED_SECRET)
 
