@@ -1,14 +1,45 @@
-# Mini App e Worker — ordem de serviço técnica validada contra o código real
+# Mini App e Worker — ordem de serviço técnica de nível profissional
 
-Este arquivo é uma ordem de serviço técnica para corrigir e evoluir o Mini App administrativo e o Worker do Arkham Bot. Ele foi validado contra o estado real do projeto e separa claramente o que é bug confirmado, hardening de baixo risco, melhoria incremental, refatoração posterior e backlog futuro.
+Este arquivo é uma ordem de serviço técnica para corrigir e evoluir o Mini App administrativo e o Worker do Arkham Bot. Ele foi validado contra o código real do projeto e deve ser tratado pela IA executora como documento de execução, controle de qualidade e aceite técnico.
 
-A IA executora deve tratar este arquivo como instrução operacional, não como sugestão genérica.
+A prioridade é corrigir problemas confirmados sem gerar regressão. Melhorias maiores ficam separadas em fases posteriores.
 
-## 1. Escopo obrigatório desta execução
+---
 
-Executar somente **P0 — Correções obrigatórias agora**.
+## 1. Mandato da IA executora
 
-Não executar automaticamente:
+A IA executora deve:
+
+```text
+1. Ler este arquivo inteiro antes de alterar qualquer código.
+2. Executar primeiro apenas P0.
+3. Fazer a menor alteração correta possível.
+4. Preservar comportamento existente que não esteja explicitamente marcado como problema.
+5. Não criar endpoints, migrations, tabelas, telas novas complexas ou mudanças estruturais fora da fase autorizada.
+6. Rodar validações e registrar evidências.
+7. Se algo não puder ser validado, responder NÃO EXECUTADO + motivo.
+8. Não declarar sucesso sem comando executado ou evidência manual.
+```
+
+Este documento substitui qualquer decisão genérica da IA. Se houver conflito entre este arquivo e uma interpretação automática, este arquivo prevalece.
+
+---
+
+## 2. Escopo desta execução
+
+### Executar agora: P0
+
+```text
+- Corrigir auth fail-open no Mini App.
+- Remover logs sensíveis em saveSettings.
+- Adicionar script check no miniapp/package.json.
+- Tornar /status admin-only no Worker.
+- Fazer /packs tentar Supabase antes da ArkhamDB pública.
+- Validar wrappers Python existentes.
+- Rodar validações técnicas obrigatórias.
+```
+
+### Não executar agora
 
 ```text
 - CRUD de Administradores.
@@ -20,33 +51,22 @@ Não executar automaticamente:
 - novas tabelas.
 - refatoração completa do main.jsx.
 - testes automatizados amplos.
-- mudanças de arquitetura fora do escopo P0.
+- alterações em README.md.
+- alterações em workflows.
+- alterações em wrangler.toml.
+- alterações em .env ou secrets.
 ```
 
-Esses itens ficam documentados como backlog ou fase posterior.
+Esses itens são backlog/fase posterior.
 
-## 2. Objetivo real de P0
+---
 
-Corrigir problemas confirmados no código atual sem alterar comportamento funcional do bot além do necessário.
-
-P0 deve:
-
-```text
-- Fechar falha de autenticação do Mini App.
-- Remover logs sensíveis do Mini App.
-- Adicionar comando de validação do Mini App.
-- Proteger /status como rota admin.
-- Fazer /packs preferir dados locais do Supabase e usar ArkhamDB apenas como fallback.
-- Validar que os wrappers Python continuam corretos.
-- Rodar build/check/dry-run/healthcheck.
-```
-
-## 3. Diagnóstico validado contra o código real
+## 3. Diagnóstico confirmado no código real
 
 ```text
 CONFIRMADO
 - miniapp/src/main.jsx concentra Telegram helpers, API client, i18n, settings, componentes e telas.
-- O Mini App já possui base Telegram correta: haptic, popup, MainButton, BackButton, tema e safe area.
+- O Mini App já possui base Telegram funcional: haptic, popup, MainButton, BackButton, tema e safe area.
 - O Mini App já possui Home, Postagem, Configurações, IA, Banco, Fila, Histórico, Manutenção, Saúde e Idioma.
 - O Worker já valida initData do Telegram por HMAC.
 - O Worker já consulta bot_admins para identificar role owner/admin.
@@ -54,22 +74,60 @@ CONFIRMADO
 - O Worker já protege a maioria das rotas administrativas com requireAdmin.
 - Os wrappers Python em src/arkham_bot/handlers/ já existem e estão corretos.
 
-BUGS CONFIRMADOS
+BUGS / AJUSTES CONFIRMADOS
 - Auth gate do Mini App faz fail-open: se /me falha, cai em setAuthState('ready').
 - saveSettings loga payload completo e day_config no console.
 - miniapp/package.json não tem script check.
 - /status usa requireAuth, não requireAdmin.
 - /packs busca ArkhamDB pública diretamente e não tenta arkham_packs no Supabase primeiro.
 
-PONTOS QUE NÃO SÃO BUG P0
-- main.jsx grande é dívida técnica, mas não bug operacional imediato.
-- Admins CRUD exige endpoints novos e regra owner-only.
-- Destinos CRUD exige endpoints novos.
+NÃO É BUG P0
+- main.jsx grande é dívida técnica, não bug operacional imediato.
+- CRUD de Administradores exige endpoints novos.
+- CRUD de Destinos exige endpoints novos.
 - /bot-runtime e /health/deep exigem desenho de runtime/heartbeat.
-- Rate limit robusto no Worker é melhoria, não correção mínima.
+- Rate limit robusto no Worker é melhoria planejada, não correção mínima.
 ```
 
-## 4. Severidade dos achados
+---
+
+## 4. Arquivos permitidos e proibidos em P0
+
+### Pode alterar
+
+```text
+miniapp/src/main.jsx
+miniapp/package.json
+worker/src/index.js
+```
+
+### Pode validar, mas não alterar salvo erro direto
+
+```text
+src/arkham_bot/handlers/supabase_client.py
+src/arkham_bot/handlers/config.py
+src/arkham_bot/handlers/local_storage.py
+src/arkham_bot/handlers/scheduler.py
+```
+
+### Não alterar em P0
+
+```text
+README.md
+docs/**
+supabase/migrations/**
+src/arkham_bot/**, exceto wrappers se compileall apontar erro direto
+worker/wrangler.toml
+worker/wrangler.toml.example
+.env*
+.github/workflows/**
+```
+
+Se a IA achar que precisa alterar arquivo proibido, deve registrar como pendência e parar essa parte.
+
+---
+
+## 5. Classificação de severidade
 
 ```text
 CRÍTICO
@@ -84,6 +142,7 @@ ALTO
 - /status, /settings, /commands ou /packs quebram para admin.
 - Payload inválido é aceito em rota sensível.
 - Logs expõem payload operacional sensível.
+- Fallback removido sem substituto funcional.
 
 MÉDIO
 - UX confusa.
@@ -95,16 +154,20 @@ BAIXO
 - Texto, layout, organização, ícone ou melhoria futura sem impacto operacional imediato.
 ```
 
-Correções P0 envolvem dois achados críticos/altos:
+Correções P0 atacam principalmente:
 
 ```text
 - Auth fail-open: CRÍTICO.
 - Logs sensíveis de saveSettings: ALTO.
+- /status com autorização fraca: ALTO.
+- /packs dependente de ArkhamDB externa: MÉDIO/ALTO, conforme operação.
 ```
 
-## 5. Definition of Done de P0
+---
 
-P0 só está concluído se todos os itens abaixo estiverem OK ou reportados com erro objetivo:
+## 6. Definition of Done de P0
+
+P0 só está concluído se todos estes itens estiverem OK ou documentados com erro objetivo:
 
 ```text
 - Auth fail-open foi removido.
@@ -122,39 +185,29 @@ P0 só está concluído se todos os itens abaixo estiverem OK ou reportados com 
 - cd worker && npm run dry-run passou.
 - Mini App não contém service role/token/Authorization header.
 - Backlog P3 não foi executado sem autorização.
+- A IA entregou evidências de validação, não apenas declaração.
 ```
 
-## 6. Arquivos autorizados para P0
+---
 
-A IA executora pode alterar somente estes arquivos em P0:
+## 7. Critérios de bloqueio
+
+A execução deve parar e reportar ERRO se ocorrer:
 
 ```text
-miniapp/src/main.jsx
-miniapp/package.json
-worker/src/index.js
+- Build do Mini App quebra e a causa não é corrigida.
+- Worker dry-run quebra e a causa não é corrigida.
+- Python compileall quebra fora dos wrappers.
+- Correção exige migration.
+- Correção exige secret, .env ou deploy externo.
+- Correção exige mudar contrato de payload existente.
+- Correção exige alterar backend Python além dos wrappers.
+- Algum token/secret aparece no front, logs ou resposta.
 ```
 
-A IA executora pode apenas validar, sem alterar, estes arquivos:
+---
 
-```text
-src/arkham_bot/handlers/supabase_client.py
-src/arkham_bot/handlers/config.py
-src/arkham_bot/handlers/local_storage.py
-src/arkham_bot/handlers/scheduler.py
-```
-
-Não alterar em P0:
-
-```text
-README.md
-supabase/migrations/*
-src/arkham_bot/**, exceto se compileall apontar erro diretamente relacionado aos wrappers
-worker/wrangler.toml
-.env*
-.github/workflows/*
-```
-
-## 7. P0.1 — Validar wrappers Python
+## 8. P0.1 — Validar wrappers Python
 
 Validar estes arquivos:
 
@@ -197,7 +250,9 @@ Critério:
 
 Se algum wrapper estiver diferente, corrigir apenas o wrapper divergente. Não refatorar `telegram_handlers.py` nesta fase.
 
-## 8. P0.2 — Corrigir auth fail-open no Mini App
+---
+
+## 9. P0.2 — Corrigir auth fail-open no Mini App
 
 Arquivo:
 
@@ -259,7 +314,7 @@ Adicionar no bloco de renderização do Auth Gate:
 if (authState === 'auth_error') return <AuthErrorGate copy={copy} />;
 ```
 
-Não alterar o comportamento de:
+Não alterar comportamento de:
 
 ```text
 no_telegram
@@ -268,7 +323,7 @@ loading
 ready
 ```
 
-Critério de aceite:
+Critérios de aceite:
 
 ```text
 - Sem Telegram/initData continua mostrando no_telegram.
@@ -282,10 +337,12 @@ Armadilhas:
 ```text
 - Não usar auth_error para ausência de Telegram.
 - Não fechar o app automaticamente em auth_error; mostrar mensagem ajuda diagnóstico.
-- Não deixar unauthorized preso em LoadingGate para sempre se for possível mostrar erro amigável depois; mas não alterar isso em P0 se gerar risco.
+- Não refatorar todo o Auth Gate nesta fase.
 ```
 
-## 9. P0.3 — Remover logs sensíveis de saveSettings
+---
+
+## 10. P0.3 — Remover logs sensíveis de saveSettings
 
 Arquivo:
 
@@ -304,7 +361,7 @@ console.log('[saveSettings] returned day_config:', JSON.stringify(json.settings?
 
 Preferência em P0: remover completamente os logs de payload e day_config.
 
-Substituição segura recomendada para o bloco de resposta:
+Substituição segura recomendada:
 
 ```javascript
 if (!ok) {
@@ -324,7 +381,7 @@ Critério:
 Produção não deve logar payload completo, telegram_chat_id, day_config, initData, token, service role ou header.
 ```
 
-Depois de alterar, rodar:
+Validar:
 
 ```bash
 grep -R "\[saveSettings\]\|saveSettings.*console" -n miniapp/src || true
@@ -333,10 +390,12 @@ grep -R "\[saveSettings\]\|saveSettings.*console" -n miniapp/src || true
 Resultado aceitável:
 
 ```text
-Nenhum resultado, ou apenas logs protegidos explicitamente por import.meta.env.DEV e sem payload sensível.
+Nenhum resultado, ou apenas logs protegidos por import.meta.env.DEV e sem payload sensível.
 ```
 
-## 10. P0.4 — Adicionar script check no Mini App
+---
+
+## 11. P0.4 — Adicionar script check no Mini App
 
 Arquivo:
 
@@ -371,7 +430,9 @@ Critério:
 npm run build e npm run check executam com sucesso.
 ```
 
-## 11. P0.5 — Tornar /status admin-only
+---
+
+## 12. P0.5 — Tornar /status admin-only
 
 Arquivo:
 
@@ -404,9 +465,9 @@ if (auth.response) return auth.response;
 return handleStatus(request, env, ao);
 ```
 
-Não alterar `/health`. Ele deve continuar simples e público como hoje.
+Não alterar `/health`. Ele deve continuar simples e público.
 
-Critério:
+Critérios:
 
 ```text
 - Admin recebe status.
@@ -414,7 +475,9 @@ Critério:
 - /health continua respondendo { ok: true }.
 ```
 
-## 12. P0.6 — Fazer /packs preferir Supabase com fallback ArkhamDB
+---
+
+## 13. P0.6 — Fazer /packs preferir Supabase com fallback ArkhamDB
 
 Arquivo:
 
@@ -428,18 +491,12 @@ Função:
 handleGetPacks
 ```
 
-Comportamento atual confirmado:
-
-```text
-Busca https://arkhamdb.com/api/public/packs/ diretamente.
-```
-
 Comportamento desejado:
 
 ```text
 1. Se SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY existirem, tentar ler arkham_packs.
 2. Se arkham_packs retornar array não vazio, devolver source='supabase'.
-3. Se Supabase falhar, estiver vazio ou env estiver incompleto, manter fallback atual ArkhamDB.
+3. Se Supabase falhar, estiver vazio ou env estiver incompleto, manter fallback ArkhamDB.
 4. Não remover cache atual.
 5. Não cachear falha.
 6. Não logar service role ou headers.
@@ -454,21 +511,13 @@ Query Supabase:
 Resposta Supabase esperada:
 
 ```javascript
-{
-  ok: true,
-  packs,
-  source: 'supabase'
-}
+{ ok: true, packs, source: 'supabase' }
 ```
 
-Resposta fallback ArkhamDB pode continuar sem `source`, mas preferencialmente deve retornar:
+Resposta fallback recomendada:
 
 ```javascript
-{
-  ok: true,
-  packs,
-  source: 'arkhamdb'
-}
+{ ok: true, packs, source: 'arkhamdb' }
 ```
 
 Implementação orientativa:
@@ -517,16 +566,20 @@ Critérios:
 - Nenhum header ou service role é logado.
 ```
 
-## 13. Validações obrigatórias de P0
+---
 
-Rodar na raiz:
+## 14. Validações obrigatórias de P0
+
+### 14.1 Comandos técnicos
+
+Na raiz:
 
 ```bash
 python -m compileall -q .
 python main.py healthcheck
 ```
 
-Rodar no Mini App:
+Mini App:
 
 ```bash
 cd miniapp
@@ -535,7 +588,7 @@ npm run build
 npm run check
 ```
 
-Rodar no Worker:
+Worker:
 
 ```bash
 cd ../worker
@@ -543,7 +596,7 @@ npm install
 npm run dry-run
 ```
 
-Buscas obrigatórias:
+### 14.2 Buscas obrigatórias
 
 ```bash
 grep -R "setAuthState('ready')" -n miniapp/src || true
@@ -563,21 +616,7 @@ Critérios:
 - Mini App não deve conter service role/token/header Authorization.
 ```
 
-Validação manual de /packs, se houver ambiente:
-
-```bash
-curl -s "$WORKER_URL/packs" -H "origin: $ALLOWED_ORIGIN" -H "x-telegram-init-data: $VALID_INIT_DATA"
-```
-
-Critério esperado:
-
-```text
-- Retorna JSON.
-- Se Supabase tem arkham_packs: source='supabase'.
-- Se Supabase não tem dados: retorna packs via fallback sem quebrar.
-```
-
-## 14. Teste manual mínimo após P0
+### 14.3 Validação manual mínima
 
 No Telegram/Mini App:
 
@@ -602,18 +641,55 @@ No Telegram bot:
 /card 01001
 ```
 
-## 15. P1 — Melhorias incrementais aplicáveis depois de P0
+### 14.4 Evidência obrigatória
+
+No resultado final, a IA deve informar:
+
+```text
+- Comando executado.
+- Resultado OK/ERRO/NÃO EXECUTADO.
+- Se ERRO, trecho curto do erro.
+- Se NÃO EXECUTADO, motivo objetivo.
+```
+
+Não basta escrever “validado”.
+
+---
+
+## 15. Plano de rollback de P0
+
+Se algum erro crítico aparecer após as alterações:
+
+```text
+- Mini App não abre para admin.
+- /me, /settings ou /bot-command retornam 500.
+- Worker dry-run falha.
+- Bot Python para de compilar.
+- Postagem manual deixa de enfileirar comando.
+- Configurações deixam de salvar.
+- Secret aparece no front/log/resposta.
+```
+
+Então executar rollback do commit da alteração ou reverter manualmente os arquivos alterados:
+
+```bash
+git status
+git log --oneline -n 5
+git diff
+```
+
+Não fazer rollback automático sem reportar. Informar qual commit/arquivo seria revertido.
+
+---
+
+## 16. P1 — Melhorias incrementais aplicáveis depois de P0
 
 Estas melhorias são aplicáveis ao projeto atual, mas não devem bloquear P0.
 
-### 15.1 Separar Agenda de Configurações
-
-O Mini App já tem configuração semanal dentro do fluxo de settings/day_detail. Melhorar a navegação criando menu `Agenda`, mas sem mudar payloads nem nomes de settings.
-
-Critério prático:
+### 16.1 Separar Agenda de Configurações
 
 ```text
-- Criar activeTab='schedule' apenas se for reaproveitar o código existente.
+- Criar navegação activeTab='schedule' apenas se reaproveitar código existente.
 - Não mudar day_config.
 - Não mudar settingsPatchPayload.
 - Não mudar nomes de chaves salvas.
@@ -621,7 +697,7 @@ Critério prático:
 - Se Todos os dias estiver inativo, respeitar configuração por dia.
 ```
 
-### 15.2 Melhorar estados vazios e erros
+### 16.2 Melhorar estados vazios e erros
 
 Aplicar nas telas existentes:
 
@@ -648,9 +724,7 @@ saving/sending
 success
 ```
 
-### 15.3 Melhorar Fila
-
-Já existe listagem/cancelamento. Melhorar sem criar endpoints novos:
+### 16.3 Melhorar Fila
 
 ```text
 - Separar visualmente pending, retrying, processing, failed, executed.
@@ -659,9 +733,7 @@ Já existe listagem/cancelamento. Melhorar sem criar endpoints novos:
 - Manter cancelamento apenas para pending/retrying.
 ```
 
-### 15.4 Melhorar Histórico
-
-Já existe histórico com data e paginação. Melhorar sem mudar schema:
+### 16.4 Melhorar Histórico
 
 ```text
 - Busca por código/nome se o endpoint suportar q.
@@ -670,9 +742,7 @@ Já existe histórico com data e paginação. Melhorar sem mudar schema:
 - Empty state quando não houver postagens.
 ```
 
-### 15.5 Melhorar Destinos sem CRUD
-
-O Worker já retorna `target_chats` no overview. Antes de criar CRUD, melhorar uso atual:
+### 16.5 Melhorar Destinos sem CRUD
 
 ```text
 - Mostrar destino padrão/selecionado com chat_id e message_thread_id.
@@ -682,9 +752,9 @@ O Worker já retorna `target_chats` no overview. Antes de criar CRUD, melhorar u
 
 Não criar `/destinations` nesta fase.
 
-### 15.6 Melhorar Saúde com dados já existentes
+### 16.6 Melhorar Saúde com dados já existentes
 
-Sem criar `/bot-runtime`, usar o que já existe:
+Sem criar `/bot-runtime`, usar:
 
 ```text
 /status
@@ -705,11 +775,11 @@ fila pendente/retrying/processing/failed
 últimos erros de overview se disponíveis
 ```
 
-## 16. P2 — Refatoração do main.jsx
+---
+
+## 17. P2 — Refatoração do main.jsx
 
 Executar somente depois de P0 passar e P1 não estar quebrado.
-
-A refatoração é aplicável porque `main.jsx` contém helpers Telegram, API, i18n, settings, componentes e telas no mesmo arquivo.
 
 Ordem segura:
 
@@ -760,7 +830,7 @@ import './style.css';
 createRoot(document.getElementById('root')).render(<App />);
 ```
 
-Proibido durante a refatoração:
+Proibido durante refatoração:
 
 ```text
 - mudar endpoints
@@ -771,92 +841,33 @@ Proibido durante a refatoração:
 - alterar backend Python
 ```
 
-## 17. P3 — Backlog futuro, não executar sem autorização
+---
 
-Estes itens são válidos como evolução profissional, mas não devem ser executados automaticamente agora.
-
-### 17.1 CRUD de Administradores
-
-Motivo para backlog:
+## 18. P3 — Backlog futuro, não executar sem autorização
 
 ```text
-O Worker consulta bot_admins para autenticar, mas não há endpoints /admins e /admins/:id hoje.
+- CRUD de Administradores.
+- CRUD de Destinos.
+- /ai-models.
+- /bot-runtime.
+- /health/deep.
+- Rate limit robusto e idempotência backend.
+- Testes automatizados amplos.
+- Versionamento front/Worker.
 ```
 
-Requer:
+Motivos:
 
 ```text
-- endpoints owner-only
-- regras para não remover último owner
-- possível ajuste de schema/auditoria
+- Exigem endpoints novos.
+- Podem exigir migrations.
+- Alteram arquitetura operacional.
+- Não são necessários para corrigir P0.
 ```
 
-### 17.2 CRUD de Destinos
+---
 
-Motivo para backlog:
-
-```text
-O overview já lê target_chats, mas não há endpoints CRUD completos para destinos.
-```
-
-Requer:
-
-```text
-- endpoints /destinations
-- endpoint /test-message
-- regras de destino padrão
-- validação de message_thread_id
-```
-
-### 17.3 /ai-models
-
-Motivo para backlog:
-
-```text
-Hoje há lista de modelos no front e no Worker. Melhor centralizar, mas isso não é bug P0.
-```
-
-### 17.4 /bot-runtime e /health/deep
-
-Motivo para backlog:
-
-```text
-Exigiria heartbeat do bot Python e provavelmente tabela/registro novo.
-```
-
-Não criar migration sem autorização.
-
-### 17.5 Rate limit robusto e idempotência backend
-
-Motivo para backlog:
-
-```text
-O front já bloqueia clique duplo com loadingCmd. O Worker ainda pode melhorar idempotência, mas isso deve ser planejado.
-```
-
-### 17.6 Testes automatizados amplos
-
-Backlog recomendado:
-
-```text
-- unit tests para validateSettingsPatch
-- unit tests para validateTelegramInitData
-- unit tests para command payload validation
-- smoke tests para rotas do Worker
-- testes de settingsPatchPayload no Mini App após refatoração
-```
-
-### 17.7 Versionamento front/Worker
-
-Backlog recomendado:
-
-```text
-- Mini App mostrar versão/commit
-- Worker expor versão/commit sem secrets
-- Saúde mostrar compatibilidade front/Worker
-```
-
-## 18. Política de logs
+## 19. Política de logs
 
 Pode logar:
 
@@ -880,7 +891,9 @@ payload sensível completo
 secrets
 ```
 
-## 19. Checklist final para a IA executora
+---
+
+## 20. Checklist final para a IA executora
 
 Marcar cada item como `[OK]`, `[ERRO]` ou `[NÃO EXECUTADO: motivo]`.
 
@@ -917,7 +930,9 @@ Marcar cada item como `[OK]`, `[ERRO]` ou `[NÃO EXECUTADO: motivo]`.
 [ ] Informou risco residual.
 ```
 
-## 20. Formato obrigatório de resposta
+---
+
+## 21. Formato obrigatório de resposta
 
 ```text
 RESULTADO:
@@ -932,6 +947,8 @@ RESULTADO:
   - cd miniapp && npm run build: OK/ERRO/NÃO EXECUTADO + motivo
   - cd miniapp && npm run check: OK/ERRO/NÃO EXECUTADO + motivo
   - cd worker && npm run dry-run: OK/ERRO/NÃO EXECUTADO + motivo
+- Evidências:
+  - ...
 - Achados por severidade:
   - CRÍTICO: ...
   - ALTO: ...
