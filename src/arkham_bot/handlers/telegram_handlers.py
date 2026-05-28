@@ -953,6 +953,7 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 parts.append(_arkhamdb_html_to_telegram(str(entry)))
         faq_text = "\n\n".join(parts)
+        faq_text += "\n\n" + s["fmt_view_arkhamdb"].format(code=escape(card_code))
 
         # Fetch card image
         img_bytes = None
