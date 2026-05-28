@@ -73,7 +73,6 @@ export const DEFAULT_SETTINGS = {
   daily_post_times: ['08:00'],
   daily_post_days: WEEKDAYS.map((d) => d.code),
   timezone: 'America/Sao_Paulo',
-  telegram_chat_id: '',
   ai_enabled: true,
   ai_language: 'pt-BR',
   ai_tone: 'random',
@@ -96,7 +95,7 @@ export const SETTINGS_PATCH_KEYS = [
   'daily_post_enabled', 'daily_post_times', 'daily_post_days', 'timezone',
   'ai_enabled', 'ai_auto_only', 'ai_language', 'ai_tone', 'ai_pre_message_enabled',
   'ai_pre_message_delay_seconds', 'ai_post_question_enabled', 'ai_post_question_delay_seconds', 'ai_model', 'ai_creativity',
-  'include_spoilers', 'allowed_card_types', 'day_config', 'telegram_chat_id',
+  'include_spoilers', 'allowed_card_types', 'day_config',
   'sync_schedule_enabled', 'sync_schedule_days', 'sync_schedule_time',
 ];
 
@@ -128,7 +127,6 @@ export function normalizeSettings(s = {}) {
     include_spoilers: typeof s.include_spoilers === 'boolean' ? s.include_spoilers : DEFAULT_SETTINGS.include_spoilers,
     allowed_card_types: types && types.length ? types : DEFAULT_CARD_TYPES,
     day_config: (() => { let dc = s.day_config; if (typeof dc === 'string') { try { dc = JSON.parse(dc); } catch {} } return (dc && typeof dc === 'object' && !Array.isArray(dc)) ? dc : {}; })(),
-    telegram_chat_id: typeof s.telegram_chat_id === 'string' ? s.telegram_chat_id : '',
     sync_schedule_enabled: typeof s.sync_schedule_enabled === 'boolean' ? s.sync_schedule_enabled : false,
     sync_schedule_days: (() => { const d = parseJsonArray(s.sync_schedule_days); return d && d.length ? d : ['sun']; })(),
     sync_schedule_time: typeof s.sync_schedule_time === 'string' && /^\d{2}:\d{2}$/.test(s.sync_schedule_time) ? s.sync_schedule_time : '03:00',
