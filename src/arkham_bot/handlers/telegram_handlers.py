@@ -1919,6 +1919,7 @@ def _sets_pack_buttons(packs: list[tuple[str, str]], page: int, s: dict) -> Inli
         nav.append(InlineKeyboardButton(s.get("sets_btn_next", "▶"), callback_data=f"SET_LIST_p{page + 1}"))
     if nav:
         buttons.append(nav)
+    buttons.append([InlineKeyboardButton(s.get("card_btn_close", "Fechar"), callback_data=CALLBACK_CANCEL)])
     return InlineKeyboardMarkup(buttons)
 
 
