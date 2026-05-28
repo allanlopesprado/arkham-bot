@@ -6,6 +6,9 @@
 # SSH keys
 .ssh/
 
+# Claude Code local config
+.claude/
+
 # Python environments
 venv/
 .venv/
