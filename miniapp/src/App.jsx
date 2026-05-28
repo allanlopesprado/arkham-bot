@@ -81,7 +81,7 @@ export default function App() {
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoadingState, setHistoryLoadingState] = useState(false);
   const [historyError, setHistoryError] = useState(null);
-  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [historyDate, setHistoryDate] = useState('');
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [allDaysMode, setAllDaysMode] = useState(false);
   const [savedAllDaysMode, setSavedAllDaysMode] = useState(false);
