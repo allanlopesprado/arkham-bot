@@ -1,6 +1,10 @@
 # Mini App e Worker — plano profissional de hardening, UX, menus e refatoração
 
-Este arquivo é o plano operacional canônico para elevar o Mini App administrativo e o Worker do Arkham Bot a nível profissional. Ele cobre correções obrigatórias, validações, menus, UX, segurança, RBAC, observabilidade, prevenção de erro humano, itens a remover/migrar e a refatoração completa do `miniapp/src/main.jsx`.
+Este arquivo é o plano operacional canônico para elevar o Mini App administrativo e o Worker do Arkham Bot a nível profissional. Ele cobre correções obrigatórias, validações, menus, UX, segurança, RBAC, observabilidade, prevenção de erro humano, itens a remover/migrar, validações profissionais ainda pendentes e a refatoração completa do `miniapp/src/main.jsx`.
+
+## Instrução principal para a IA executora
+
+Leia este arquivo inteiro antes de alterar qualquer código. Execute as fases na ordem indicada. Não pule validações. Não peça confirmação para tarefas já descritas aqui. Se uma etapa falhar, corrija apenas o problema diretamente relacionado à etapa e rode a validação novamente. Se uma mudança exigir migration, secret, deploy externo ou decisão de produto não descrita neste arquivo, registre como pendência e não implemente sem autorização explícita.
 
 ## Objetivo
 
@@ -876,7 +880,374 @@ grep -R "from \.supabase_client\|from \.config\|from \.local_storage\|from \.sch
 - MainButton aparece somente com alterações pendentes.
 - Ação destrutiva exige confirmação.
 
-## Ordem de execução recomendada
+## P9 — Validações profissionais ainda não executadas e que a IA deve tentar executar
+
+Esta seção lista validações que ainda não foram executadas de fato nesta auditoria. A IA executora deve rodar o máximo possível no ambiente local/servidor. O que não puder executar deve ser reportado em `Pendências` com motivo objetivo.
+
+### 9.1 Build real
+
+Rodar:
+
+```bash
+cd miniapp
+npm install
+npm run build
+npm run check
+
+cd ../worker
+npm install
+npm run dry-run
+```
+
+Critério:
+
+- Mini App compila.
+- Worker passa dry-run.
+- Nenhum warning crítico deve ser ignorado sem registro.
+
+### 9.2 Runtime local
+
+Rodar quando ambiente permitir:
+
+```bash
+cd miniapp
+npm run dev
+
+cd ../worker
+npx wrangler dev
+```
+
+Validar:
+
+- App abre localmente.
+- Front consegue chamar Worker local ou ambiente configurado.
+- Erros de CORS aparecem de forma controlada.
+
+### 9.3 Teste real no Telegram
+
+Validar dentro do Telegram, preferencialmente em iPhone e Android:
+
+```text
+admin abre
+não-admin bloqueia
+sessão expirada bloqueia
+BackButton funciona
+MainButton funciona
+safe area funciona
+tema claro funciona
+tema escuro funciona
+teclado aberto não quebra layout
+```
+
+### 9.4 Autenticação e autorização
+
+Simular ou testar:
+
+```text
+sem initData
+initData inválido
+initData expirado
+user não admin
+admin válido
+owner válido
+origin não permitido
+Worker sem TELEGRAM_BOT_TOKEN
+Supabase fora
+```
+
+Critério:
+
+- Nenhum cenário inválido pode abrir painel.
+- Mensagem deve ser amigável.
+- Worker deve retornar HTTP coerente.
+
+### 9.5 Contrato de API
+
+Validar status HTTP e JSON de:
+
+```text
+/me
+/status
+/overview
+/settings
+/commands
+/commands/:id
+/cards
+/packs
+/history
+/bot-info
+/bot-command
+/health
+```
+
+Critério:
+
+- Sucesso retorna JSON previsível.
+- Erro retorna `{ error: "codigo" }`.
+- Não há HTML, stack trace ou segredo em resposta.
+
+### 9.6 Payload inválido
+
+Enviar payloads errados e confirmar recusa:
+
+```text
+repost_card sem card_code
+skip_card sem card_code
+update_setting desconhecido
+horário inválido
+timezone inválido
+modelo IA inválido
+tipo de carta inválido
+day_config malformado
+payload com campos extras
+payload com tipos errados
+```
+
+Critério:
+
+- Worker rejeita antes de gravar.
+- Front mostra erro controlado.
+
+### 9.7 Persistência
+
+Fluxo obrigatório:
+
+```text
+alterar configuração no Mini App
+salvar
+recarregar Mini App
+confirmar valor salvo
+confirmar Supabase atualizado
+confirmar /status ou /overview refletindo valor
+confirmar bot Python lendo o mesmo valor quando aplicável
+```
+
+### 9.8 End-to-end real
+
+Testar fluxos completos:
+
+```text
+buscar carta > postar agora > comando entra na fila > bot processa > mensagem sai no Telegram > histórico registra
+alterar agenda > salvar > bot respeita próxima execução
+sync ArkhamDB > comando entra > bot processa > banco atualiza
+repost_card > comando processa > mensagem sai
+skip_card > ciclo avança corretamente
+```
+
+### 9.9 Regressão do bot Python
+
+Rodar:
+
+```bash
+python -m compileall -q .
+python main.py healthcheck
+pytest -q
+```
+
+Testar comandos reais:
+
+```text
+/status
+/cotd
+/search Roland
+/faq 01001
+/card 01001
+```
+
+### 9.10 Visual e responsivo
+
+Validar em:
+
+```text
+iPhone pequeno
+iPhone grande
+Android
+Telegram tema claro
+Telegram tema escuro
+fonte ampliada
+teclado aberto em inputs
+safe area com notch
+scroll longo em telas grandes
+```
+
+### 9.11 Estados vazios
+
+Validar telas com dados ausentes:
+
+```text
+sem comandos na fila
+sem histórico
+sem packs
+sem cartas
+sem target_chats
+sem settings
+sem bot_admins
+sem last_sync
+sem erros recentes
+```
+
+Critério:
+
+- Nenhuma tela quebra.
+- Cada tela exibe empty state útil.
+
+### 9.12 Erros controlados
+
+Simular:
+
+```text
+Worker offline
+Supabase 500
+Supabase timeout
+ArkhamDB fora
+CORS errado
+sem internet
+JSON inválido
+resposta vazia
+```
+
+Critério:
+
+- App não trava.
+- Usuário recebe ação recomendada.
+- Detalhe técnico não expõe segredo.
+
+### 9.13 Concorrência
+
+Testar ou raciocinar e registrar:
+
+```text
+dois admins salvando settings ao mesmo tempo
+duplo clique em Postar agora
+dois sync_arkhamdb simultâneos
+cancelar comando enquanto bot processa
+salvar agenda enquanto bot lê configuração
+```
+
+Critério:
+
+- Não duplicar comandos por clique duplo.
+- Não gerar estado salvo enganoso.
+- Conflitos devem ser reduzidos ou documentados.
+
+### 9.14 Segurança
+
+Validar:
+
+```text
+nenhum service role no front
+nenhum token no bundle
+nenhum initData logado
+CORS fechado
+admin validado no Worker
+payload validado no Worker
+roles respeitadas
+owner-only em admins futuros
+sem stack trace público
+```
+
+Comandos úteis:
+
+```bash
+grep -R "SUPABASE_SERVICE_ROLE_KEY\|TELEGRAM_BOT_TOKEN\|x-telegram-init-data\|authorization" -n miniapp/src || true
+grep -R "console.log\|console.error\|console.warn" -n miniapp/src worker/src || true
+```
+
+### 9.15 Observabilidade
+
+Confirmar se é possível responder:
+
+```text
+qual foi o último erro?
+qual foi o último comando?
+quem executou?
+quando executou?
+qual payload seguro foi usado?
+qual foi a última postagem?
+qual será a próxima postagem?
+o bot Python está vivo?
+o Worker está vivo?
+o Supabase está respondendo?
+```
+
+Se não for possível, registrar como pendência.
+
+### 9.16 Rollback
+
+Validar estratégia:
+
+```bash
+git log --oneline -n 10
+git status
+git diff
+git revert <commit>
+```
+
+Não executar revert sem necessidade. Apenas confirmar que os commits são pequenos o suficiente para rollback seguro.
+
+### 9.17 CI/CD
+
+Validar GitHub Actions ou registrar pendência:
+
+```text
+instala dependências Python
+roda pytest
+roda compileall
+roda miniapp build
+roda worker dry-run
+falha se build quebrar
+não expõe secrets nos logs
+```
+
+### 9.18 Acessibilidade mínima
+
+Validar:
+
+```text
+labels em inputs
+botões com texto
+contraste aceitável
+estado disabled visível
+não depender só de cor
+área de toque adequada
+mensagens compreensíveis
+```
+
+### 9.19 Performance
+
+Verificar:
+
+```text
+tamanho do bundle
+tempo de abertura no Telegram
+tempo de /overview
+tempo de /cards search
+tempo de /history
+tempo de /packs
+cache de packs
+chamadas repetidas desnecessárias
+```
+
+### 9.20 Documentação operacional mínima
+
+Validar se há instrução clara para:
+
+```text
+deploy Mini App
+deploy Worker
+configurar ALLOWED_ORIGINS
+configurar BotFather Web App URL
+configurar Supabase
+adicionar admin
+descobrir chat_id
+descobrir message_thread_id de tópico Telegram
+validar bot em produção
+fazer rollback
+```
+
+Se faltar, registrar como pendência. Não alterar README sem autorização explícita.
+
+## P10 — Ordem de execução recomendada
 
 ```text
 P0 — Segurança e estabilidade imediata
@@ -888,7 +1259,10 @@ P5 — Refatoração do main.jsx
 P6 — Remover/migrar/manter
 P7 — Diagnóstico avançado futuro
 P8 — Checklist final
+P9 — Validações profissionais ainda pendentes
 ```
+
+A IA executora deve priorizar primeiro o que pode quebrar segurança ou operação. Melhorias visuais e refatoração estrutural vêm depois de build e runtime estáveis.
 
 ## Formato de resposta obrigatório da IA executora
 
@@ -899,13 +1273,18 @@ RESULTADO:
 - Correções aplicadas:
   - ...
 - Validações executadas:
-  - python -m compileall -q .: OK/ERRO
-  - python main.py healthcheck: OK/ERRO
-  - cd miniapp && npm run build: OK/ERRO
-  - cd miniapp && npm run check: OK/ERRO
-  - cd worker && npm run dry-run: OK/ERRO
+  - python -m compileall -q .: OK/ERRO/NÃO EXECUTADO + motivo
+  - python main.py healthcheck: OK/ERRO/NÃO EXECUTADO + motivo
+  - pytest -q: OK/ERRO/NÃO EXECUTADO + motivo
+  - cd miniapp && npm run build: OK/ERRO/NÃO EXECUTADO + motivo
+  - cd miniapp && npm run check: OK/ERRO/NÃO EXECUTADO + motivo
+  - cd worker && npm run dry-run: OK/ERRO/NÃO EXECUTADO + motivo
+- Validações manuais necessárias:
+  - ...
 - Achados adicionais:
   - ...
 - Pendências:
   - ...
+- Risco residual:
+  - baixo/médio/alto + justificativa
 ```
