@@ -6,7 +6,6 @@ from telegram import ReplyParameters, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from ..core.config import TELEGRAM_CHAT_ID
 from ..core.permissions import admin_source, is_admin_user
 from ..i18n import get_strings
 from .common import (
@@ -98,7 +97,6 @@ def _collect_status_payload(update: Update) -> dict:
         MISTRAL_API_KEY,
         OPENAI_API_KEY,
         SUPABASE_ENABLED,
-        TELEGRAM_CHAT_ID,
         TIMEZONE,
     )
     from ..services.local_storage import load_json_file
