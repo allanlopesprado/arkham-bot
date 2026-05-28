@@ -18,9 +18,16 @@ strings: dict = {
     "help_status_cmd": "- <code>/status</code> - operational status",
 
     # /status
-    "status_title": "<b>Arkham Bot - Online</b>",
-    "status_uptime": "Uptime: {uptime}",
-    "status_cards": "Cards: {cards_count}",
+    "status_title": "🤖 <b>Arkham Bot</b>",
+    "status_uptime": "⏱ Uptime: <code>{uptime}</code>",
+    "status_local_time": "🕐 Local time: <code>{local_time}</code>",
+    "status_catalog": "📦 Catalog: <code>{cards_count}</code> cards · <code>{packs_count}</code> packs · <code>{taboo_count}</code> taboos",
+    "status_next_post": "📅 Next post: <code>{next_post}</code>",
+    "status_last_post": "✅ Last post: <code>{card_code}</code> ({post_status})",
+    "status_no_last_post": "📭 No posts recorded this session",
+    "status_post_disabled": "⏸ Automatic posting disabled",
+    "status_pending_commands": "🗂 Queue: <code>{count}</code> pending command(s)",
+    "status_supabase": "🗄 Supabase: <code>{status}</code>",
 
     # /card
     "card_choose_pack": "Choose a pack to search for the card:",

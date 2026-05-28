@@ -300,9 +300,38 @@ def _format_status(payload: dict) -> str:
     s = get_strings()
     lines = [
         s["status_title"],
+        "",
         s["status_uptime"].format(uptime=payload["uptime"]),
-        s["status_cards"].format(cards_count=payload["cards_count"]),
+        s["status_local_time"].format(local_time=payload["local_time"]),
+        "",
+        s["status_catalog"].format(
+            cards_count=payload["cards_count"],
+            packs_count=payload["packs_count"],
+            taboo_count=payload.get("taboo_count", "-"),
+        ),
+        "",
     ]
+
+    if payload.get("daily_post_enabled"):
+        next_post = payload.get("next_post", "-")
+        lines.append(s["status_next_post"].format(next_post=next_post))
+    else:
+        lines.append(s["status_post_disabled"])
+
+    last_code = payload.get("last_daily_post_card_code", "-")
+    last_status = payload.get("last_daily_post_status", "-")
+    if last_code and last_code != "-":
+        lines.append(s["status_last_post"].format(card_code=last_code, post_status=last_status))
+    else:
+        lines.append(s["status_no_last_post"])
+
+    if payload.get("is_admin"):
+        lines.append("")
+        lines.append(s["status_supabase"].format(status=payload.get("supabase_status", "-")))
+        pending = payload.get("pending_commands", "-")
+        if pending not in ("-", "0"):
+            lines.append(s["status_pending_commands"].format(count=pending))
+
     return "\n".join(lines)
 
 

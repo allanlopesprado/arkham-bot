@@ -18,9 +18,16 @@ strings: dict = {
     "help_status_cmd": "- <code>/status</code> - status operacional",
 
     # /status
-    "status_title": "<b>Arkham Bot - Online</b>",
-    "status_uptime": "Uptime: {uptime}",
-    "status_cards": "Cartas: {cards_count}",
+    "status_title": "🤖 <b>Arkham Bot</b>",
+    "status_uptime": "⏱ Uptime: <code>{uptime}</code>",
+    "status_local_time": "🕐 Hora local: <code>{local_time}</code>",
+    "status_catalog": "📦 Catálogo: <code>{cards_count}</code> cartas · <code>{packs_count}</code> pacotes · <code>{taboo_count}</code> taboos",
+    "status_next_post": "📅 Próximo post: <code>{next_post}</code>",
+    "status_last_post": "✅ Último post: <code>{card_code}</code> ({post_status})",
+    "status_no_last_post": "📭 Nenhum post registrado nesta sessão",
+    "status_post_disabled": "⏸ Postagem automática desativada",
+    "status_pending_commands": "🗂 Fila: <code>{count}</code> comando(s) pendente(s)",
+    "status_supabase": "🗄 Supabase: <code>{status}</code>",
 
     # /card
     "card_choose_pack": "Escolha um pacote para buscar a carta:",

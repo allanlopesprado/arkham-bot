@@ -6,14 +6,24 @@ from arkham_bot.handlers import telegram_handlers
 def test_format_status_includes_key_fields():
     payload = {
         "uptime": "2h 3m",
+        "local_time": "2026-05-28 08:30:00 BRT",
         "cards_count": "1234",
+        "packs_count": "42",
+        "taboo_count": "5",
+        "daily_post_enabled": True,
+        "next_post": "em 1h 30m",
+        "last_daily_post_card_code": "01001",
+        "last_daily_post_status": "success",
+        "is_admin": False,
     }
 
     text = telegram_handlers._format_status(payload)
 
-    assert "Online" in text
     assert "2h 3m" in text
     assert "1234" in text
+    assert "42" in text
+    assert "01001" in text
+    assert "em 1h 30m" in text
 
 
 def test_format_uptime_is_compact(monkeypatch):
