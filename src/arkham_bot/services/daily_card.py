@@ -326,7 +326,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
 
         while telegram_attempts > 0:
             try:
-                caption = format_card_caption(card, is_interactive=False)
+                caption = format_card_caption(card, is_interactive=not is_scheduled)
                 card_image_bytes.seek(0)
 
                 if ai_pre_message and not pre_message_sent:
@@ -401,7 +401,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         except Exception:
                             continue
 
-                back_caption = format_card_back_caption(card, back_text_raw, is_interactive=False)
+                back_caption = format_card_back_caption(card, back_text_raw, is_interactive=not is_scheduled)
 
                 if found_back_image:
                     try:
