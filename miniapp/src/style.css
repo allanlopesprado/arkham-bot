@@ -215,7 +215,7 @@ input, select { outline: none; }
 
 /* ── Icon ─────────────────────────────────────────────────────────────────── */
 
-.icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--hint); }
+.icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--hint); display: block; }
 
 /* Nav row icons: white */
 .row-action > .icon:first-child { color: var(--text); }
