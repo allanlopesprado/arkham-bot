@@ -64,7 +64,8 @@ Variáveis gerenciadas pelo Mini App via Supabase — **não precisam estar no `
 | `DAILY_POST_ENABLED` | Postagem diária ativa |
 | `DAILY_POST_TIMES` | Horários de postagem |
 | `DAILY_POST_DAYS` | Dias da semana |
-| `TELEGRAM_CHAT_ID` | Canal de destino |
+
+> `TELEGRAM_CHAT_ID` foi **removido**. Destinos de postagem vêm exclusivamente da tabela `target_chats`. O bot auto-detecta grupos quando adicionado e exibe na seção "Bot adicionado a novos grupos" do Mini App.
 
 ### Worker (`worker/wrangler.toml` + secrets)
 
@@ -189,9 +190,15 @@ supabase/migrations/202605260002_fix_arkham_cards_schema.sql
 supabase/migrations/202605270001_p3_admins_destinations_audit.sql
 supabase/migrations/20260528_worker_hardening_schema.sql
 supabase/migrations/20260528_telegram_topics_support.sql
+supabase/migrations/20260528_claim_bot_commands_rpc.sql
+supabase/migrations/20260528_pending_destinations.sql
 ```
 
-A migration `20260528_telegram_topics_support.sql` substitui `UNIQUE(chat_id)` por `UNIQUE(chat_id, message_thread_id)` na tabela `target_chats`, habilitando múltiplos tópicos por grupo no Telegram.
+| Migration | O que faz |
+|---|---|
+| `20260528_telegram_topics_support.sql` | Troca `UNIQUE(chat_id)` → `UNIQUE(chat_id, message_thread_id)` em `target_chats` |
+| `20260528_claim_bot_commands_rpc.sql` | Cria RPC `claim_bot_commands` com `FOR UPDATE SKIP LOCKED` — evita execução dupla |
+| `20260528_pending_destinations.sql` | Cria tabela `pending_destinations` — grupos aguardando confirmação no Mini App |
 
 ## Sincronização ArkhamDB
 

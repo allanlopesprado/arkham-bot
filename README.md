@@ -1,114 +1,151 @@
 # Arkham Bot
 
-Bot Telegram para **Arkham Horror: The Card Game**, com postagem diária automática de cartas, painel administrativo e seleção por IA.
+Bot para Telegram dedicado a **Arkham Horror: The Card Game**. Posta uma carta do dia com seleção por IA, suporta múltiplos destinos (incluindo tópicos de grupos), e vem com um painel administrativo React acessível diretamente no Telegram.
 
-## Componentes
+---
 
-| Componente | Tecnologia | URL de produção |
+## Arquitetura
+
+```
+Telegram Bot (Python — Oracle Linux)
+  ├── long polling — recebe comandos dos usuários
+  ├── scheduler interno — posta carta diária nos horários configurados
+  ├── command_worker — consome fila bot_commands a cada 30s
+  └── heartbeat — registra sinal de vida no Supabase a cada 60s
+
+Cloudflare Worker (JavaScript)
+  ├── valida initData do Telegram (HMAC-SHA256)
+  ├── serve API REST para o Mini App
+  └── insere comandos na fila bot_commands
+
+Mini App React (Cloudflare Pages)
+  ├── painel administrativo dentro do Telegram
+  └── comunica-se exclusivamente com o Worker (sem secrets)
+
+Supabase (PostgreSQL + PostgREST)
+  └── banco compartilhado: cartas, fila, configurações, histórico, admins
+```
+
+---
+
+## Comandos do Bot
+
+| Comando | Descrição |
+|---|---|
+| `/start` | Ajuda com descrição de todos os comandos |
+| `/status` | Status operacional: uptime, próximo post, último card, Supabase |
+| `/card` | Busca guiada por pack (paginado) → número → imagem com stats |
+| `/search <nome>` | Busca livre de cartas por nome com paginação |
+| `/faq <código>` | FAQ oficial da carta (cache local, TTL 7 dias) |
+| `/taboo` | Lista taboo atual com restrições e erratas (paginada, 5/página) |
+| `/decklist <id>` | Deck do ArkhamDB: imagem do investigador + lista agrupada por tipo |
+| `/sets` | Navega cartas por set/expansão (paginado, 10/página) |
+| `/cotd` | Histórico de cartas do dia por ano/mês |
+
+---
+
+## Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Bot | Python 3.11+, python-telegram-bot v22 |
+| Worker | Cloudflare Workers (JavaScript ES Modules) v1.3.0 |
+| Mini App | React 18 + Vite 5 |
+| Banco | Supabase (PostgreSQL + PostgREST) |
+| Deploy bot | Oracle Linux, systemd, GitHub Actions |
+| Deploy Worker | Wrangler CLI |
+| Deploy Mini App | Cloudflare Pages (CI automático via GitHub) |
+
+---
+
+## Provedores de IA
+
+O bot seleciona a carta do dia e gera mensagens de abertura/encerramento usando IA. Provedores suportados:
+
+| Provedor | Modelos | Variável |
 |---|---|---|
-| Bot Python | python-telegram-bot, long polling | Oracle Linux (`/opt/arkham_bot`) |
-| Cloudflare Worker | JavaScript (Cloudflare Workers) | `arkham-bot-worker.homerlab.workers.dev` |
-| Mini App Admin | React 18 + Vite (Cloudflare Pages) | `arkham-bot-miniapp.pages.dev` |
-| Banco de dados | Supabase (PostgreSQL REST) | `uqtmwnjxrxiylstbezhy.supabase.co` |
+| Google Gemini | `gemini-2.5-flash` ★, `gemini-2.0-flash`, `gemini-2.5-pro` | `GEMINI_API_KEY` |
+| OpenAI | `gpt-4o-mini`, `gpt-4o`, `gpt-4.1-mini`, `gpt-4.1` | `OPENAI_API_KEY` |
+| Groq | `llama-3.3-70b-versatile` ★, `llama-3.1-8b-instant` | `GROQ_API_KEY` |
+| Mistral | `mistral-small-latest`, `mistral-medium-latest` | `MISTRAL_API_KEY` |
 
-## O que o bot faz
+★ = padrão do provedor. Basta ter a chave de um único provedor.
 
-- Posta uma carta aleatória de Arkham Horror todo dia, nos horários configurados
-- Usa IA (Gemini, OpenAI, Groq ou Mistral) para escolher a carta com contexto narrativo
-- Aceita comandos administrativos via Mini App: postar agora, pular carta, pausar, sincronizar dados
-- Expõe `/card`, `/search`, `/faq`, `/taboo`, `/decklist`, `/sets`, `/cotd` para usuários no Telegram
-- Mantém histórico de postagens, fila de comandos e auditoria de ações administrativas no Supabase
-
-## Documentação
-
-- [Documentação técnica](docs/technical.md) — arquitetura, módulos, endpoints, schema
-- [Operação e deploy](docs/operations.md) — setup, deploy, monitoramento, troubleshooting
+---
 
 ## Estrutura do Repositório
 
 ```
 .
-├── main.py                    # Entrada do backend Python
-├── src/arkham_bot/            # Pacote principal do bot
-│   ├── core/                  # Config, logging, permissions, rate limiter
-│   ├── clients/               # Cliente ArkhamDB
-│   ├── formatters/            # Formatação de legendas (HTML Telegram)
-│   ├── handlers/              # Handlers Telegram e command_worker
-│   ├── repositories/          # Acesso ao Supabase (uma classe por tabela)
-│   ├── services/              # daily_card, scheduler, heartbeat
-│   ├── ai/                    # Seleção de carta por IA
-│   └── i18n/                  # Strings PT/EN
-├── scripts/                   # sync_arkhamdb.py, backup_supabase.sh
-├── tests/                     # Testes unitários (pytest)
-├── supabase/migrations/       # Schema SQL (aplicar manualmente no Supabase)
-├── worker/                    # Cloudflare Worker (src/index.js)
-├── miniapp/                   # Mini App React/Vite
-├── deploy/systemd/            # arkham-bot.service
-└── .github/workflows/         # test.yml, deploy-oracle.yml
+├── main.py                        # Entrada principal do bot
+├── src/arkham_bot/
+│   ├── core/                      # Config, logging, permissões, Supabase client
+│   ├── clients/                   # ArkhamDB API
+│   ├── formatters/                # HTML para Telegram
+│   ├── handlers/                  # Comandos Telegram + command worker
+│   │   ├── common.py              # Utilitários compartilhados e caches
+│   │   ├── registry.py            # Registro de todos os handlers
+│   │   ├── status_handler.py      # /start, /status
+│   │   ├── card_handler.py        # /card
+│   │   ├── search_handler.py      # /search
+│   │   ├── sets_handler.py        # /sets
+│   │   ├── taboo_handler.py       # /taboo
+│   │   ├── faq_handler.py         # /faq
+│   │   ├── decklist_handler.py    # /decklist
+│   │   ├── cotd_handler.py        # /cotd
+│   │   └── command_worker.py      # Consumer da fila de comandos
+│   ├── repositories/              # Acesso às tabelas Supabase
+│   ├── services/                  # Scheduler, daily_card, heartbeat, IA
+│   ├── ai/                        # Seletor de carta por IA (4 provedores)
+│   └── i18n/                      # Strings PT-BR e EN
+├── worker/src/index.js            # Cloudflare Worker (API + auth)
+├── miniapp/src/                   # React Mini App
+├── scripts/                       # healthcheck.py, sync_arkhamdb.py
+├── supabase/migrations/           # 8 migrations SQL em ordem cronológica
+├── deploy/systemd/                # arkham-bot.service
+└── .github/workflows/             # CI (test.yml) + CD (deploy-oracle.yml)
 ```
 
-## Setup Local
+---
 
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+## Documentação
+
+- **[docs/technical.md](docs/technical.md)** — Arquitetura detalhada, tabelas Supabase, Worker endpoints, fluxos
+- **[docs/operations.md](docs/operations.md)** — Deploy, variáveis de ambiente, troubleshooting, backup
+- **[docs/PENDENCIAS.md](docs/PENDENCIAS.md)** — Itens pendentes priorizados
+- **[SECURITY.md](SECURITY.md)** — Modelo de segurança e práticas adotadas
+- **[CHANGELOG.md](CHANGELOG.md)** — Histórico de versões
+
+---
+
+## Quick Start
+
+```bash
+# 1. Clone e instale dependências
+git clone https://github.com/allanlopesprado/arkham-bot
+cd arkham-bot
+python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements-dev.txt
 pip install -e .
+
+# 2. Configure variáveis
 cp .env.example .env
-# editar .env com TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-```
+# edite .env com TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
-## Comandos
+# 3. Valide
+python main.py healthcheck
 
-```powershell
-# Validação
-python -m compileall -q .
-python -m pytest -q
-python main.py healthcheck --strict
-
-# Rodar o bot
+# 4. Execute
 python main.py interactive
-
-# Postar carta específica
-python main.py 01001
-
-# Sincronizar cartas do ArkhamDB
-python scripts/sync_arkhamdb.py --dry-run
-python scripts/sync_arkhamdb.py
 ```
 
-## Worker
+---
 
-```powershell
-cd worker
-npm install
-npm run dry-run    # valida sem deployar
-npm run deploy     # deploy para Cloudflare Workers
-```
+## Versões
 
-## Mini App
-
-O Mini App faz deploy automático via Cloudflare Pages em cada push para `main`.
-
-Build local:
-
-```powershell
-cd miniapp
-npm install
-$env:VITE_COMMANDS_API_URL="https://arkham-bot-worker.homerlab.workers.dev"
-npm run build
-```
-
-## Deploy
-
-- **Bot Python**: automático via `deploy-oracle.yml` em push para `main` (alterações em `src/`, `main.py`, `requirements.txt`)
-- **Worker**: manual com `npm run deploy` em `worker/`
-- **Mini App**: automático via Cloudflare Pages em push para `main`
-
-## Segurança
-
-- `.env` nunca deve ser commitado
-- `SUPABASE_SERVICE_ROLE_KEY` e `TELEGRAM_BOT_TOKEN` ficam apenas no servidor Oracle, secrets do Worker e secrets do GitHub Actions
-- O Mini App não contém secrets — opera via Worker autenticado com `initData` Telegram
-- CORS restringe o Worker à origem `arkham-bot-miniapp.pages.dev`
-- Logs mascaram tokens e chaves automaticamente
+| Componente | Versão |
+|---|---|
+| Bot Python | 0.1.0 |
+| Worker | 1.3.0 |
+| Mini App | 1.2.0 |
+| Testes automatizados | 54 (pytest) |

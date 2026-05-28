@@ -42,18 +42,29 @@ Supabase
 │   ├── formatters/
 │   │   └── text_formatters.py       # Formatação de legendas de carta (HTML Telegram)
 │   ├── handlers/
+│   │   ├── common.py                # Utilitários compartilhados, caches in-memory (10 min)
+│   │   ├── registry.py              # Registro de todos os handlers no Application
 │   │   ├── command_worker.py        # Executa comandos da fila bot_commands
-│   │   └── telegram_handlers.py     # Handlers de comandos Telegram (/card, /search, etc.)
+│   │   ├── status_handler.py        # /start, /status
+│   │   ├── card_handler.py          # /card (ConversationHandler com paginação)
+│   │   ├── search_handler.py        # /search (ConversationHandler com paginação)
+│   │   ├── sets_handler.py          # /sets (paginado, 10/página)
+│   │   ├── taboo_handler.py         # /taboo (paginado, 5/página)
+│   │   ├── faq_handler.py           # /faq (cache-on-demand, TTL 7 dias)
+│   │   ├── decklist_handler.py      # /decklist (cache Supabase, TTL 24h)
+│   │   ├── cotd_handler.py          # /cotd (histórico por ano/mês)
+│   │   └── telegram_handlers.py     # Shim de compatibilidade (re-exporta todos os módulos)
 │   ├── repositories/
 │   │   ├── admins_repo.py           # bot_admins
 │   │   ├── audit_repo.py            # audit_logs
 │   │   ├── cards_repo.py            # arkham_cards
 │   │   ├── commands_repo.py         # bot_commands
 │   │   ├── factions_repo.py         # arkham_factions
-│   │   ├── faq_repo.py              # arkham_faq
+│   │   ├── faq_repo.py              # arkham_faq (cache-on-demand)
 │   │   ├── history_repo.py          # bot_posting_history
 │   │   ├── packs_repo.py            # arkham_packs
-│   │   ├── settings_repo.py         # bot_settings
+│   │   ├── pending_destinations_repo.py # pending_destinations
+│   │   ├── settings_repo.py         # bot_settings (cache 60s)
 │   │   └── taboos_repo.py           # arkham_taboos
 │   ├── services/
 │   │   ├── card_provider.py         # Seleciona carta para postagem (aleatória ou por ciclo)
@@ -303,14 +314,15 @@ Todas as migrations estão em `supabase/migrations/` em ordem cronológica. Deve
 
 | Tabela | Conteúdo |
 |---|---|
-| `bot_settings` | Configurações key-value do bot e do scheduler |
-| `target_chats` | Destinos de postagem com `chat_id`, `message_thread_id` (tópicos), soft-delete |
+| `bot_settings` | Configurações key-value do bot e do scheduler (cache 60s no Python) |
+| `target_chats` | Destinos de postagem — **única fonte de destinos** (telegram_chat_id removido) |
+| `pending_destinations` | Grupos onde o bot foi adicionado aguardando confirmação no Mini App |
 | `bot_admins` | Admins com role (`owner`, `admin`, `viewer`) |
 | `bot_commands` | Fila de comandos do Mini App para o bot |
 | `bot_posted_cards` | Registro de cartas já postadas (controle de ciclo) |
 | `bot_posting_history` | Histórico de cada postagem (source, card_code, timestamp) |
 | `bot_errors` | Log de erros do bot |
-| `audit_logs` | Auditoria de ações administrativas (add/remove admin/destino) |
+| `audit_logs` | Auditoria de ações administrativas (add/remove admin/destino/settings/commands) |
 
 ### `target_chats` — suporte a tópicos
 
@@ -322,7 +334,7 @@ RLS está habilitado em todas as tabelas. O backend Python e o Worker usam `SUPA
 
 ## Cloudflare Worker
 
-Código em `worker/src/index.js`. Versão atual: **v1.1.0**.
+Código em `worker/src/index.js`. Versão atual: **v1.3.0**.
 
 URL de produção: `https://arkham-bot-worker.homerlab.workers.dev`
 
@@ -383,7 +395,9 @@ Antes de inserir em `bot_commands`, verifica se existe registro com mesmo `(user
 Ações que geram registro em `audit_logs`:
 
 - `admin_added` / `admin_removed`
-- `destination_added` / `destination_removed`
+- `destination_added` / `destination_removed` / `destination_updated` / `destination_added_from_pending`
+- `settings_updated`
+- `command_submitted` / `command_cancelled`
 
 ## Mini App React
 
@@ -394,8 +408,11 @@ Deploy: automático via **Cloudflare Pages** conectado ao repositório GitHub. Q
 ### Stack
 
 - React 18 + Vite 5
+- Ícones: **Lucide React** (tree-shaken, ~30 ícones importados)
 - Sem bibliotecas de estado externas
-- CSS custom com variáveis Telegram (`--tg-theme-*`)
+- CSS custom com variáveis Telegram (`--tg-theme-*`) + variáveis próprias (`--warn`, `--warn-bg`, `--toggle-knob`)
+- Hierarquia de fontes: 19px / 14px / 13px / 12px / 11px
+- Paddings padronizados: `8px 14px` em todos os rows
 
 ### Módulos (`miniapp/src/`)
 
