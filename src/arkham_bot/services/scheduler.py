@@ -143,13 +143,15 @@ async def daily_scheduler_loop() -> None:
                         continue
                     if _is_due(now, post_time, state, before_seconds=before_seconds):
                         logger.info("daily_post_due")
-                        result = await post_daily_card(is_scheduled=True)
                         today_iso = now.date().isoformat()
-                        # Keep only slots from today to avoid unbounded growth
+                        # Mark slot as claimed BEFORE posting so a restart mid-post
+                        # (e.g. during the AI pre-message delay) does not re-fire.
                         posted_slots = [s for s in state.get("posted_slots", []) if s.startswith(today_iso)]
                         posted_slots.append(_slot_key(today_iso, post_time))
+                        state["posted_slots"] = posted_slots
+                        _save_state(state)
+                        result = await post_daily_card(is_scheduled=True)
                         state.update({
-                            "posted_slots": posted_slots,
                             "last_daily_post_date": today_iso,
                             "last_daily_post_time": post_time,
                             "last_daily_post_status": "success" if result.success else "failed",
