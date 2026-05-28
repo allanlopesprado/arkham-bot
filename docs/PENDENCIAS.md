@@ -1,87 +1,47 @@
 # Pendências e Melhorias Futuras
 
 > Última atualização: 28/05/2026  
-> Itens ordenados por prioridade dentro de cada categoria.
+> Itens marcados com 🔧 são do lado do **mantenedor/servidor** e não podem ser resolvidos só em código.
 
 ---
 
-## 🔴 Alta Prioridade
-
-### Infraestrutura
+## 🔧 Requer ação do mantenedor
 
 - **Backup do Supabase não está agendado**  
-  O script `scripts/backup_supabase.sh` existe mas nunca foi configurado como cron ou timer systemd no servidor Oracle. Qualquer perda de dados no Supabase não tem recuperação automática.  
-  _Ação: configurar `systemd timer` ou `cron` no Oracle para executar o script periodicamente._
-
-- **Comandos `failed` no Supabase não geram notificação**  
-  Quando um comando da fila (`post_now`, `sync_arkhamdb`, etc.) atinge o limite de tentativas e vai para `failed`, nenhum admin é alertado. O problema só é descoberto ao verificar o Mini App ou o banco.  
-  _Ação: adicionar lógica em `command_worker.py` para notificar admins via Telegram quando um comando vai para `failed`._
-
----
-
-## 🟡 Média Prioridade
-
-### Funcionalidades
-
-- **`download_image_async` sem retry**  
-  A função síncrona `download_image_sync` tem o decorator `@network_retry_sync` com backoff exponencial. A versão assíncrona `download_image_async` não tem — uma falha de rede transiente durante postagem agendada faz a carta não ser enviada sem nova tentativa.  
-  _Ação: adicionar retry assíncrono (ex: `tenacity.AsyncRetrying`) em `download_image_async`._
-
-- ~~**Cache do `/decklist` não invalida após sync**~~ ✅ corrigido em `c43d0df`
-
-- ~~**`/cotd` não tem reply à mensagem do usuário**~~ ✅ já tinha reply
-- ~~**`/status` e `/help` não fazem reply**~~ ✅ corrigido em `c43d0df`
-
-### Segurança
+  O script `scripts/backup_supabase.sh` existe mas nunca foi configurado. Qualquer perda de dados no Supabase não tem recuperação automática.  
+  _Configurar `systemd timer` ou `cron` no Oracle para executar periodicamente._
 
 - **`TELEGRAM_BOT_TOKEN` exposto em URLs de log do Cloudflare**  
-  A Telegram Bot API usa o token na URL (`/bot{TOKEN}/sendMessage`). Se o Cloudflare tiver logging de requests habilitado, o token fica exposto nos logs.  
-  _Ação: verificar configurações de log no painel Cloudflare e habilitar Log Scrubbing para mascarar o padrão `bot[0-9]+:[A-Za-z0-9_-]+` nas URLs._
+  A Telegram Bot API usa o token na URL. Se o Cloudflare tiver logging habilitado, o token fica visível nos logs.  
+  _Verificar painel Cloudflare → habilitar Log Scrubbing com padrão `bot[0-9]+:[A-Za-z0-9_-]+`._
 
-- **initData não tem proteção contra replay dentro da janela de 24h**  
-  A mesma `initData` pode ser reutilizada durante 24h. Um atacante que interceptar uma requisição pode repeti-la.  
-  _Ação (opcional/avançado): implementar nonce store com TTL curto (ex: 5 min) no Worker usando Cloudflare KV para marcar initData já usadas._
+- **Supabase CLI não está linkado ao projeto**  
+  `supabase/config.toml` não existe. Migrations precisam ser aplicadas manualmente via SQL Editor.  
+  _Criar `supabase/config.toml` e rodar `supabase link --project-ref uqtmwnjxrxiylstbezhy`._
 
 ---
 
-## 🟢 Baixa Prioridade
+## 🟡 Pendências técnicas (implementáveis em código)
 
-### Cobertura de Testes
-
-- **`faq_repo.py` sem testes**  
-  As funções `get_cached_faq_codes()`, `upsert_faq()` e `get_faq_by_code()` não têm cobertura de testes unitários.
-
-- **Scheduler: slot-claiming sem teste dedicado**  
-  A lógica de `posted_slots` (anti-duplicata em restart) é crítica mas não tem teste unitário isolado. `test_scheduler_logic.py` cobre parte, mas não o cenário de restart mid-post.
-
-- **Multi-destino sem teste de falha parcial**  
-  Se o primeiro destino postar com sucesso mas o segundo falhar, o comportamento não está testado. O código continua em loop mas pode deixar histórico inconsistente.
-
-### Melhorias de UX
-
-- **`/card` e `/sets` são funcionalmente equivalentes**  
-  `/card` exige digitar o número da carta; `/sets` permite clicar diretamente no nome. Considerar deprecar `/card` em favor de `/sets` ou transformar `/card` em alias.  
-  _Decisão pendente do mantenedor._
-
-- ~~**Descrição longa no `/decklist` truncada sem indicador**~~ ✅ corrigido em `c43d0df`
-
-- **`/faq` sem título da carta acima do FAQ**  
-  O FAQ exibe o texto da regra mas não mostra o nome da carta em destaque antes do texto. O título fica apenas no topo da imagem.  
-  _Ação (opcional): adicionar `<b>Carta: {nome}</b>` como primeira linha do texto do FAQ._
-
-### Manutenção
-
-- **Worker versão manual**  
-  `APP_VERSION` em `worker/src/index.js` é atualizado manualmente. Inconsistência entre código e versão declarada pode ocorrer.  
-  _Ação: automatizar leitura da versão a partir de `package.json` ou git tag._
-
-- **Supabase CLI não está linkado ao projeto**  
-  `supabase/config.toml` não existe. Migrations precisam ser aplicadas manualmente via SQL Editor. Não há como usar `supabase db push` ou diff.  
-  _Ação: criar `supabase/config.toml` com `project_id` e linkar via `supabase link`._
+- **initData sem proteção contra replay (24h)**  
+  A mesma `initData` pode ser reutilizada em qualquer momento dentro da janela de 24h.  
+  _Implementar nonce store com TTL curto no Worker usando Cloudflare KV._
 
 - **`arkham_decklists_cache` nunca é populada**  
-  A tabela existe no schema mas nenhum código a lê ou escreve. O `/decklist` sempre busca da API do ArkhamDB.  
-  _Ação: implementar cache de decklists na tabela, ou remover a tabela do schema se não for usar._
+  A tabela existe mas nenhum código a usa. `/decklist` sempre vai à API do ArkhamDB.  
+  _Implementar cache da decklist na tabela após primeiro fetch, ou remover a tabela._
+
+---
+
+## 🟢 Decisões pendentes do mantenedor
+
+- **`/card` vs `/sets`**  
+  Os dois comandos são funcionalmente equivalentes. `/sets` é mais intuitivo (clique direto no nome); `/card` exige digitar número.  
+  _Decidir se depreca `/card` ou mantém os dois._
+
+- **`/faq` sem título da carta antes do texto**  
+  O nome da carta só aparece na imagem, não no texto do FAQ.  
+  _Decidir se adiciona `<b>{nome}</b>` como cabeçalho do texto._
 
 ---
 
@@ -100,6 +60,12 @@
 | /faq com imagem reply + formatação HTML | `541b056` |
 | /status redesenhado | `e506dbf` |
 | /taboo paginado (5/página) | `c4e6fff` |
-| Cache in-memory de cartas (10 min) | `5007975` |
-| Alerta de falha diária para admins | `b76f1b7` |
-| 15+ bugs corrigidos (callbacks, rate limiter, etc.) | vários |
+| Cache in-memory de cartas (10 min) + invalidação após sync | `5007975` |
+| Alerta de falha diária para admins (i18n) | `b76f1b7` |
+| Alerta de comandos failed para admins (i18n) | atual |
+| download_image_async com retry | atual |
+| Testes: faq_repo (8 casos) | atual |
+| Testes: scheduler slot-claiming (4 casos) | atual |
+| /status e /help com reply ao usuário | `c43d0df` |
+| Descrição /decklist com indicador de truncamento | `c43d0df` |
+| 20+ bugs corrigidos (callbacks, rate limiter, etc.) | vários |

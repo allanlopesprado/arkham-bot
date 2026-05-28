@@ -163,7 +163,11 @@ async def bot_commands_loop() -> None:
                         mark_command_retrying(command_id, error, delay_seconds=BOT_COMMANDS_RETRY_DELAY_SECONDS, result=result)
                     else:
                         mark_command_failed(command_id, error, result=result)
-                        await _notify_admins(f"Arkham Bot command failed after {attempt_count} attempts: {command_type}\n{error}")
+                        from ..i18n import get_strings
+                        from ..repositories.settings_repo import get_setting as _gs
+                        _lang = _gs("ai_language", "pt-BR")
+                        _s = get_strings(_lang)
+                        await _notify_admins(_s["command_failed_alert"].format(command_type=command_type or "?", attempts=attempt_count, error=error))
                     create_audit_log(command_type or "unknown", "system_job", command.get("payload"), result, command.get("requested_by_telegram_user_id"), command.get("requested_by_name"))
         except asyncio.CancelledError:
             logger.info("bot_commands_worker_stopped")

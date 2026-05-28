@@ -150,6 +150,7 @@ strings: dict = {
     ),
     "daily_post_failed_alert": "⚠️ <b>Arkham Bot</b> — falha na postagem diária.\n<code>{error}</code>",
     "daily_post_failed_unknown": "erro desconhecido",
+    "command_failed_alert": "⚠️ <b>Arkham Bot</b> — comando <code>{command_type}</code> falhou após {attempts} tentativa(s).\n<code>{error}</code>",
 
     # text_formatters.py
     "fmt_exceptional": "⚡ Exceptional",

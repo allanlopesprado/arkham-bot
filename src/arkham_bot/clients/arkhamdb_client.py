@@ -2,7 +2,7 @@ import logging
 
 import httpx
 import requests
-from tenacity import retry, retry_if_exception, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, retry_if_exception_type, stop_after_attempt, wait_exponential, AsyncRetrying
 
 from .arkhamdb_models import (
     ArkhamDBHTTPError,
@@ -160,8 +160,14 @@ def download_image_sync(url):
 
 
 async def download_image_async(url):
-    """Downloads an image asynchronously (Interactive Mode)."""
-    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = await client.get(url)
-        response.raise_for_status()
-        return response.content
+    """Downloads an image asynchronously with retry (Interactive Mode)."""
+    async for attempt in AsyncRetrying(
+        wait=wait_exponential(multiplier=INITIAL_BACKOFF, min=2, max=30),
+        stop=stop_after_attempt(MAX_RETRIES),
+        reraise=True,
+    ):
+        with attempt:
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                return response.content
