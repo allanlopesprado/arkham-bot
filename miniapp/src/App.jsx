@@ -64,6 +64,8 @@ export default function App() {
   const [addingDest, setAddingDest] = useState(false);
   const [addDestResult, setAddDestResult] = useState(null);
   const [testingDest, setTestingDest] = useState(null);
+  const [resolvingDest, setResolvingDest] = useState(false);
+  const destResolveTimer = useRef(null);
 
   const [commandsError, setCommandsError] = useState(null);
   const [historySourceFilter, setHistorySourceFilter] = useState('all');
@@ -736,6 +738,24 @@ export default function App() {
       if (ok) { haptic('notification', 'success'); fetchDestinations(); }
       else { haptic('notification', 'error'); }
     } catch { haptic('notification', 'error'); }
+  }
+
+  function handleDestChatIdChange(digits) {
+    setDestChatId(digits);
+    clearTimeout(destResolveTimer.current);
+    if (!digits || digits.replace(/[^0-9]/g, '').length < 6) return;
+    destResolveTimer.current = setTimeout(async () => {
+      const chatId = `-${digits.replace(/[^0-9]/g, '')}`;
+      setResolvingDest(true);
+      try {
+        const { ok, json } = await apiFetch(`/destinations/resolve?chat_id=${encodeURIComponent(chatId)}`);
+        if (ok && json.name && !destTitle) {
+          setDestTitle(json.name);
+          haptic('selection');
+        }
+      } catch {}
+      finally { setResolvingDest(false); }
+    }, 800);
   }
 
   function formatHeartbeatAge(secondsAgo, c) {
@@ -1419,7 +1439,7 @@ export default function App() {
           </Section>
 
           <Section title={copy.addDestination}>
-            <ChatIdInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={setDestChatId} placeholder="100123456789" />
+            <ChatIdInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={handleDestChatIdChange} placeholder="100123456789" loading={resolvingDest} />
             <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
             <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
             <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />

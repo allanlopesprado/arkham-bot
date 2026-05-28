@@ -1178,6 +1178,32 @@ async function handleAddDestination(request, env, user, ao) {
   }
 }
 
+async function handleResolveDestination(request, env, ao) {
+  const url = new URL(request.url);
+  const chatId = url.searchParams.get('chat_id');
+  if (!chatId || !/^-?\d+$/.test(chatId)) {
+    return withCors(jsonResponse({ ok: false, error: 'invalid_chat_id' }, 400), ao);
+  }
+  const botToken = env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return withCors(jsonResponse({ ok: false, error: 'bot_token_not_configured' }, 500), ao);
+  try {
+    const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/getChat?chat_id=${encodeURIComponent(chatId)}`);
+    const tgJson = await tgResp.json().catch(() => ({}));
+    if (!tgResp.ok || !tgJson.ok) {
+      return withCors(jsonResponse({ ok: false, error: 'chat_not_found', detail: tgJson.description || '' }), ao);
+    }
+    const chat = tgJson.result || {};
+    return withCors(jsonResponse({
+      ok: true,
+      name: chat.title || chat.username || chat.first_name || '',
+      type: chat.type || '',
+      username: chat.username || null,
+    }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'resolve_failed' }, 502), ao);
+  }
+}
+
 async function handleUpdateDestination(request, env, user, ao, destId) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -1370,6 +1396,11 @@ export default {
       const auth = await requireAdmin(request, env, ao, '/destinations');
       if (auth.response) return auth.response;
       return handleAddDestination(request, env, auth.user, ao);
+    }
+    if (pathname === '/destinations/resolve' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/destinations/resolve');
+      if (auth.response) return auth.response;
+      return handleResolveDestination(request, env, ao);
     }
     const destTestMatch = pathname.match(/^\/destinations\/([^/]+)\/test$/);
     if (destTestMatch && request.method === 'POST') {

@@ -139,7 +139,7 @@ export function StackedInputRow({ label, value, onChange, placeholder, hint, inp
   );
 }
 
-export function ChatIdInputRow({ value, onChange, placeholder, label }) {
+export function ChatIdInputRow({ value, onChange, placeholder, label, loading }) {
   function handleChange(e) {
     const digits = e.target.value.replace(/[^0-9]/g, '');
     onChange(digits ? `-${digits}` : '');
@@ -161,6 +161,7 @@ export function ChatIdInputRow({ value, onChange, placeholder, label }) {
           autoCapitalize="none"
           spellCheck={false}
         />
+        {loading && <Spinner />}
       </div>
     </div>
   );
