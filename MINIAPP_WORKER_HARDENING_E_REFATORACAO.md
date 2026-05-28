@@ -1,8 +1,8 @@
-# Mini App e Worker — ordem de serviço técnica de nível profissional
+# Mini App e Worker — validação integral e ordem de execução profissional
 
-Este arquivo é uma ordem de serviço técnica, um contrato de qualidade e uma matriz de aceite para corrigir e evoluir o Mini App administrativo e o Worker do Arkham Bot. Ele foi validado contra o código real do projeto e deve ser tratado pela IA executora como instrução obrigatória, não como sugestão.
+Este documento é uma ordem de serviço técnica, um contrato de qualidade e uma matriz de aceite para corrigir e evoluir o Mini App administrativo e o Worker do Arkham Bot. Ele foi validado contra o código real do projeto e cobre **todas as fases descritas**: P0, P1, P2 e P3.
 
-A prioridade é corrigir problemas confirmados sem gerar regressão. Melhorias maiores ficam separadas em fases posteriores.
+A regra principal é: **P0 é execução imediata; P1 e P2 são fases aplicáveis após P0; P3 é backlog validado, mas bloqueado sem autorização explícita**.
 
 ---
 
@@ -11,25 +11,121 @@ A prioridade é corrigir problemas confirmados sem gerar regressão. Melhorias m
 A IA executora deve:
 
 ```text
-1. Ler este arquivo inteiro antes de alterar qualquer código.
-2. Executar primeiro apenas P0.
-3. Fazer a menor alteração correta possível.
-4. Preservar comportamento existente que não esteja explicitamente marcado como problema.
-5. Não criar endpoints, migrations, tabelas, telas novas complexas ou mudanças estruturais fora da fase autorizada.
-6. Rodar validações e registrar evidências.
-7. Se algo não puder ser validado, responder NÃO EXECUTADO + motivo.
-8. Não declarar sucesso sem comando executado ou evidência manual.
-9. Não misturar correção, refatoração e melhoria visual no mesmo passo.
-10. Não executar backlog P3 sem autorização explícita.
+1. Ler este arquivo inteiro antes de alterar código.
+2. Validar o plano inteiro, não apenas P0.
+3. Executar somente P0 nesta rodada, salvo autorização explícita para P1/P2/P3.
+4. Tratar P1 e P2 como fases planejadas, aplicáveis e validadas, mas não automáticas.
+5. Tratar P3 como backlog técnico, não como tarefa autorizada.
+6. Não criar migrations, endpoints novos, tabelas, telas complexas ou refatoração ampla durante P0.
+7. Registrar evidências dos testes executados.
+8. Declarar NÃO EXECUTADO quando não houver ambiente, permissão ou escopo autorizado.
+9. Não declarar sucesso sem comando, diff, teste ou evidência manual.
+10. Parar se um critério de bloqueio for atingido.
 ```
-
-Este documento substitui qualquer decisão genérica da IA. Se houver conflito entre este arquivo e uma interpretação automática, este arquivo prevalece.
 
 ---
 
-## 2. Escopo desta execução
+## 2. Validação integral do documento contra o projeto real
 
-### Executar agora: P0
+### 2.1 P0 — válido e obrigatório agora
+
+P0 contém problemas confirmados no código atual. Deve ser executado agora.
+
+```text
+STATUS: APLICÁVEL AGORA
+RISCO DE NÃO FAZER: ALTO/CRÍTICO
+TIPO: correção e hardening mínimo
+AUTORIZADO NESTA RODADA: SIM
+```
+
+Itens P0 confirmados:
+
+```text
+- Auth gate do Mini App faz fail-open quando /me falha.
+- saveSettings loga payload completo e day_config.
+- miniapp/package.json não tem script check.
+- /status usa requireAuth, não requireAdmin.
+- /packs busca ArkhamDB pública sem tentar arkham_packs local primeiro.
+- Wrappers Python devem ser validados para evitar regressão de imports legados.
+```
+
+### 2.2 P1 — válido, aplicável, mas não automático
+
+P1 contém melhorias incrementais em telas e fluxos existentes. Ele faz sentido contra o projeto real, mas só deve ser executado depois que P0 estiver estável.
+
+```text
+STATUS: APLICÁVEL DEPOIS DE P0
+RISCO DE NÃO FAZER AGORA: BAIXO/MÉDIO
+TIPO: melhoria incremental sem mudança grande de arquitetura
+AUTORIZADO NESTA RODADA: NÃO, salvo pedido explícito
+```
+
+P1 é válido porque o Mini App já tem:
+
+```text
+- Home.
+- Postagem.
+- Configurações.
+- IA.
+- Banco.
+- Fila.
+- Histórico.
+- Manutenção.
+- Saúde.
+- Idioma.
+- target_chats vindo no overview.
+```
+
+P1 não deve criar endpoints novos nem migrations.
+
+### 2.3 P2 — válido como refatoração planejada
+
+P2 é a refatoração de `miniapp/src/main.jsx`. Ela é tecnicamente correta porque o arquivo concentra responsabilidades demais, mas não deve ser misturada com P0.
+
+```text
+STATUS: APLICÁVEL APÓS P0 E P1
+RISCO DE FAZER AGORA: MÉDIO/ALTO
+TIPO: refatoração estrutural
+AUTORIZADO NESTA RODADA: NÃO, salvo pedido explícito
+```
+
+P2 só deve começar quando:
+
+```text
+- P0 passou.
+- build/check/dry-run passaram.
+- fluxos manuais básicos foram validados ou pendências foram registradas.
+- não há erro crítico aberto.
+```
+
+### 2.4 P3 — válido como backlog, bloqueado para execução automática
+
+P3 contém evoluções profissionais futuras. Ele é tecnicamente válido, mas depende de decisões, endpoints, schema ou arquitetura.
+
+```text
+STATUS: BACKLOG VALIDADO
+RISCO DE FAZER AGORA: ALTO
+TIPO: evolução arquitetural/produto
+AUTORIZADO NESTA RODADA: NÃO
+```
+
+P3 não deve ser executado porque pode exigir:
+
+```text
+- migrations.
+- endpoints novos.
+- novas telas CRUD.
+- regras owner-only.
+- heartbeat Python.
+- alterações de deploy.
+- testes automatizados mais amplos.
+```
+
+---
+
+## 3. Escopo autorizado desta execução
+
+### 3.1 Executar agora: P0
 
 ```text
 - Corrigir auth fail-open no Mini App.
@@ -41,61 +137,49 @@ Este documento substitui qualquer decisão genérica da IA. Se houver conflito e
 - Rodar validações técnicas obrigatórias.
 ```
 
-### Não executar agora
+### 3.2 Validar, mas não executar agora: P1/P2/P3
 
-```text
-- CRUD de Administradores.
-- CRUD de Destinos.
-- /ai-models.
-- /bot-runtime.
-- /health/deep.
-- migrations.
-- novas tabelas.
-- refatoração completa do main.jsx.
-- testes automatizados amplos.
-- alterações em README.md.
-- alterações em workflows.
-- alterações em wrangler.toml.
-- alterações em .env ou secrets.
-```
-
-Esses itens são backlog/fase posterior.
+A IA deve validar se P1/P2/P3 continuam coerentes com o projeto real e registrar recomendações, mas não implementar essas fases sem autorização explícita.
 
 ---
 
-## 3. Diagnóstico confirmado no código real
+## 4. Arquivos permitidos e proibidos em P0
+
+### Pode alterar
 
 ```text
-CONFIRMADO
-- miniapp/src/main.jsx concentra Telegram helpers, API client, i18n, settings, componentes e telas.
-- O Mini App já possui base Telegram funcional: haptic, popup, MainButton, BackButton, tema e safe area.
-- O Mini App já possui Home, Postagem, Configurações, IA, Banco, Fila, Histórico, Manutenção, Saúde e Idioma.
-- O Worker já valida initData do Telegram por HMAC.
-- O Worker já consulta bot_admins para identificar role owner/admin.
-- O Worker já valida boa parte dos settings.
-- O Worker já protege a maioria das rotas administrativas com requireAdmin.
-- Os wrappers Python em src/arkham_bot/handlers/ já existem e estão corretos.
-
-BUGS / AJUSTES CONFIRMADOS
-- Auth gate do Mini App faz fail-open: se /me falha, cai em setAuthState('ready').
-- saveSettings loga payload completo e day_config no console.
-- miniapp/package.json não tem script check.
-- /status usa requireAuth, não requireAdmin.
-- /packs busca ArkhamDB pública diretamente e não tenta arkham_packs no Supabase primeiro.
-
-NÃO É BUG P0
-- main.jsx grande é dívida técnica, não bug operacional imediato.
-- CRUD de Administradores exige endpoints novos.
-- CRUD de Destinos exige endpoints novos.
-- /bot-runtime e /health/deep exigem desenho de runtime/heartbeat.
-- Rate limit robusto no Worker é melhoria planejada, não correção mínima.
+miniapp/src/main.jsx
+miniapp/package.json
+worker/src/index.js
 ```
+
+### Pode validar, mas não alterar salvo erro direto nos wrappers
+
+```text
+src/arkham_bot/handlers/supabase_client.py
+src/arkham_bot/handlers/config.py
+src/arkham_bot/handlers/local_storage.py
+src/arkham_bot/handlers/scheduler.py
+```
+
+### Não alterar em P0
+
+```text
+README.md
+docs/**
+supabase/migrations/**
+src/arkham_bot/**, exceto wrappers se compileall apontar erro direto
+worker/wrangler.toml
+worker/wrangler.toml.example
+.env*
+.github/workflows/**
+```
+
+Se a IA achar que precisa alterar arquivo proibido, deve registrar como pendência e parar essa parte.
 
 ---
 
-## 4. Requisitos rastreáveis de P0
-
-Cada alteração de P0 deve ser vinculada a um requisito abaixo.
+## 5. Requisitos rastreáveis de P0
 
 ```text
 REQ-P0-001 — Auth fail-closed
@@ -125,7 +209,7 @@ P0 não pode alterar migrations, README, workflows, .env, wrangler.toml ou backe
 
 ---
 
-## 5. Matriz requisito × arquivo × validação
+## 6. Matriz requisito × arquivo × validação
 
 ```text
 REQ-P0-001
@@ -160,42 +244,6 @@ REQ-P0-008
 Escopo: repositório
 Validação: git diff --name-only deve listar apenas arquivos autorizados, salvo justificativa explícita.
 ```
-
----
-
-## 6. Arquivos permitidos e proibidos em P0
-
-### Pode alterar
-
-```text
-miniapp/src/main.jsx
-miniapp/package.json
-worker/src/index.js
-```
-
-### Pode validar, mas não alterar salvo erro direto
-
-```text
-src/arkham_bot/handlers/supabase_client.py
-src/arkham_bot/handlers/config.py
-src/arkham_bot/handlers/local_storage.py
-src/arkham_bot/handlers/scheduler.py
-```
-
-### Não alterar em P0
-
-```text
-README.md
-docs/**
-supabase/migrations/**
-src/arkham_bot/**, exceto wrappers se compileall apontar erro direto
-worker/wrangler.toml
-worker/wrangler.toml.example
-.env*
-.github/workflows/**
-```
-
-Se a IA achar que precisa alterar arquivo proibido, deve registrar como pendência e parar essa parte.
 
 ---
 
@@ -237,31 +285,7 @@ Correções P0 atacam principalmente:
 
 ---
 
-## 8. Definition of Done de P0
-
-P0 só está concluído se todos estes itens estiverem OK ou documentados com erro objetivo:
-
-```text
-- REQ-P0-001 atendido.
-- REQ-P0-002 atendido.
-- REQ-P0-003 atendido.
-- REQ-P0-004 atendido.
-- REQ-P0-005 atendido.
-- REQ-P0-006 atendido.
-- REQ-P0-007 atendido.
-- REQ-P0-008 atendido.
-- python -m compileall -q . passou.
-- python main.py healthcheck passou ou warnings esperados foram registrados.
-- cd miniapp && npm run build passou.
-- cd miniapp && npm run check passou.
-- cd worker && npm run dry-run passou.
-- Evidências foram reportadas.
-- Backlog P3 não foi executado sem autorização.
-```
-
----
-
-## 9. Critérios de bloqueio
+## 8. Critérios de bloqueio
 
 A execução deve parar e reportar ERRO se ocorrer:
 
@@ -279,7 +303,7 @@ A execução deve parar e reportar ERRO se ocorrer:
 
 ---
 
-## 10. P0.1 — Validar wrappers Python
+## 9. P0.1 — Validar wrappers Python
 
 Validar estes arquivos:
 
@@ -324,7 +348,7 @@ Se algum wrapper estiver diferente, corrigir apenas o wrapper divergente. Não r
 
 ---
 
-## 11. P0.2 — Corrigir auth fail-open no Mini App
+## 10. P0.2 — Corrigir auth fail-open no Mini App
 
 Arquivo:
 
@@ -404,17 +428,9 @@ Critérios de aceite:
 - Falha de /me não abre painel.
 ```
 
-Armadilhas:
-
-```text
-- Não usar auth_error para ausência de Telegram.
-- Não fechar o app automaticamente em auth_error; mostrar mensagem ajuda diagnóstico.
-- Não refatorar todo o Auth Gate nesta fase.
-```
-
 ---
 
-## 12. P0.3 — Remover logs sensíveis de saveSettings
+## 11. P0.3 — Remover logs sensíveis de saveSettings
 
 Arquivo:
 
@@ -453,21 +469,9 @@ Critério:
 Produção não deve logar payload completo, telegram_chat_id, day_config, initData, token, service role ou header.
 ```
 
-Validar:
-
-```bash
-grep -R "\[saveSettings\]\|saveSettings.*console" -n miniapp/src || true
-```
-
-Resultado aceitável:
-
-```text
-Nenhum resultado, ou apenas logs protegidos por import.meta.env.DEV e sem payload sensível.
-```
-
 ---
 
-## 13. P0.4 — Adicionar script check no Mini App
+## 12. P0.4 — Adicionar script check no Mini App
 
 Arquivo:
 
@@ -496,15 +500,9 @@ Resultado esperado:
 }
 ```
 
-Critério:
-
-```text
-npm run build e npm run check executam com sucesso.
-```
-
 ---
 
-## 14. P0.5 — Tornar /status admin-only
+## 13. P0.5 — Tornar /status admin-only
 
 Arquivo:
 
@@ -539,17 +537,9 @@ return handleStatus(request, env, ao);
 
 Não alterar `/health`. Ele deve continuar simples e público.
 
-Critérios:
-
-```text
-- Admin recebe status.
-- Não-admin recebe unauthorized.
-- /health continua respondendo { ok: true }.
-```
-
 ---
 
-## 15. P0.6 — Fazer /packs preferir Supabase com fallback ArkhamDB
+## 14. P0.6 — Fazer /packs preferir Supabase com fallback ArkhamDB
 
 Arquivo:
 
@@ -592,157 +582,53 @@ Resposta fallback recomendada:
 { ok: true, packs, source: 'arkhamdb' }
 ```
 
-Implementação orientativa:
+---
 
-```javascript
-async function handleGetPacks(env, ao) {
-  const now = Date.now();
-  if (_packsCache.payload && now - _packsCache.ts < PACKS_CACHE_TTL_MS) {
-    return withCors(jsonResponse(_packsCache.payload), ao);
-  }
-
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      const rows = await fetchSupabaseJson(
-        env,
-        '/rest/v1/arkham_packs?select=code,name,cycle_position,position,chapter,total&order=cycle_position.asc,position.asc&limit=500',
-      );
-      if (Array.isArray(rows) && rows.length > 0) {
-        const packs = rows.map((p) => ({
-          code: p.code,
-          name: p.name || p.code,
-          cycle_position: p.cycle_position ?? null,
-          position: p.position ?? null,
-          chapter: p.chapter ?? 1,
-          total: p.total ?? 0,
-        }));
-        _packsCache.payload = { ok: true, packs, source: 'supabase' };
-        _packsCache.ts = now;
-        return withCors(jsonResponse(_packsCache.payload), ao);
-      }
-    } catch {
-      // fallback ArkhamDB abaixo; não logar service role nem headers
-    }
-  }
-
-  // manter fallback ArkhamDB existente aqui
-}
-```
-
-Critérios:
+## 15. Plano de testes de P0
 
 ```text
-- Se arkham_packs tem dados, /packs retorna source='supabase'.
-- Se Supabase falhar, /packs ainda funciona via ArkhamDB.
-- Se ArkhamDB falhar também, retorna packs_fetch_failed.
-- Nenhum header ou service role é logado.
+TC-P0-001 — python -m compileall -q .
+Esperado: exit code 0.
+
+TC-P0-002 — python main.py healthcheck
+Esperado: OK ou warnings esperados por falta de ambiente real.
+
+TC-P0-003 — cd miniapp && npm run build
+Esperado: build concluído.
+
+TC-P0-004 — cd miniapp && npm run check
+Esperado: build concluído.
+
+TC-P0-005 — cd worker && npm run dry-run
+Esperado: dry-run concluído.
+
+TC-P0-006 — grep setAuthState('ready')
+Esperado: não existir fail-open ligado ao /me.
+
+TC-P0-007 — grep saveSettings logs
+Esperado: nenhum payload/day_config sensível logado.
+
+TC-P0-008 — grep secrets no front
+Esperado: nenhum service role/token/authorization no front.
+
+TC-P0-009 — teste manual admin abre Mini App
+Esperado: painel abre.
+
+TC-P0-010 — teste manual não-admin bloqueado
+Esperado: painel não abre.
+
+TC-P0-011 — teste manual /me falhando
+Esperado: auth_error e painel bloqueado.
+
+TC-P0-012 — teste /packs
+Esperado: Supabase se houver dados; fallback ArkhamDB se Supabase falhar/vazio.
 ```
 
 ---
 
-## 16. Plano de testes de P0
+## 16. Evidência obrigatória
 
-### TC-P0-001 — Build Python
-
-```text
-Comando: python -m compileall -q .
-Espera: exit code 0.
-Falha bloqueia P0: sim.
-```
-
-### TC-P0-002 — Healthcheck Python
-
-```text
-Comando: python main.py healthcheck
-Espera: OK ou warnings esperados por ambiente sem credenciais reais.
-Falha bloqueia P0: sim, se erro indicar regressão de código.
-```
-
-### TC-P0-003 — Build Mini App
-
-```text
-Comando: cd miniapp && npm run build
-Espera: build concluído.
-Falha bloqueia P0: sim.
-```
-
-### TC-P0-004 — Check Mini App
-
-```text
-Comando: cd miniapp && npm run check
-Espera: build concluído.
-Falha bloqueia P0: sim.
-```
-
-### TC-P0-005 — Worker dry-run
-
-```text
-Comando: cd worker && npm run dry-run
-Espera: dry-run concluído.
-Falha bloqueia P0: sim.
-```
-
-### TC-P0-006 — Busca de fail-open
-
-```text
-Comando: grep -R "setAuthState('ready')" -n miniapp/src || true
-Espera: não existir catch de /me liberando ready.
-Falha bloqueia P0: sim se ainda existir fail-open.
-```
-
-### TC-P0-007 — Busca de logs sensíveis
-
-```text
-Comando: grep -R "\[saveSettings\]\|saveSettings.*console" -n miniapp/src || true
-Espera: nenhum log sensível de payload/day_config.
-Falha bloqueia P0: sim se payload sensível ainda for logado.
-```
-
-### TC-P0-008 — Busca de secrets no front
-
-```text
-Comando: grep -R "SUPABASE_SERVICE_ROLE_KEY\|TELEGRAM_BOT_TOKEN\|x-telegram-init-data\|authorization" -n miniapp/src || true
-Espera: nenhum service role/token/authorization no front. x-telegram-init-data pode aparecer apenas como header esperado de authHeaders.
-Falha bloqueia P0: sim se token/service role/authorization aparecer no front.
-```
-
-### TC-P0-009 — Validação manual admin
-
-```text
-Ação: abrir Mini App como admin.
-Espera: painel abre.
-Falha bloqueia P0: sim se ambiente real disponível.
-```
-
-### TC-P0-010 — Validação manual não-admin
-
-```text
-Ação: abrir Mini App como usuário não admin.
-Espera: painel não abre.
-Falha bloqueia P0: sim se ambiente real disponível.
-```
-
-### TC-P0-011 — Validação manual /me falhando
-
-```text
-Ação: simular Worker fora, CORS inválido ou falha de /me.
-Espera: Mini App mostra auth_error e não abre painel.
-Falha bloqueia P0: sim se ambiente permitir simulação.
-```
-
-### TC-P0-012 — Validação /packs
-
-```text
-Ação: chamar /packs com auth admin válida.
-Espera: se arkham_packs tem dados, source='supabase'; se não, fallback ArkhamDB funciona.
-Falha bloqueia P0: sim se /packs quebrar.
-```
-
----
-
-## 17. Evidência obrigatória
-
-No resultado final, a IA deve registrar evidência para cada validação:
+No resultado final, a IA deve registrar para cada validação:
 
 ```text
 - ID do teste.
@@ -763,7 +649,7 @@ Não aceitar como evidência:
 
 ---
 
-## 18. Plano de rollback de P0
+## 17. Plano de rollback de P0
 
 Se algum erro crítico aparecer após as alterações:
 
@@ -789,35 +675,97 @@ Não fazer rollback automático sem reportar. Informar qual commit/arquivo seria
 
 ---
 
-## 19. P1 — Melhorias incrementais aplicáveis depois de P0
+## 18. P1 — validação integral das melhorias incrementais
 
-Estas melhorias são aplicáveis ao projeto atual, mas não devem bloquear P0.
+P1 é validado como **aplicável depois de P0**, mas não autorizado nesta rodada.
 
-```text
-- Separar Agenda de Configurações reaproveitando código existente.
-- Melhorar estados vazios e erros nas telas atuais.
-- Melhorar Fila sem endpoints novos.
-- Melhorar Histórico sem mudar schema.
-- Melhorar visualização de Destinos usando target_chats já vindo no overview.
-- Melhorar Saúde usando /status, /overview, /health e /bot-info.
-```
-
-Restrições P1:
+### 18.1 Agenda separada de Configurações
 
 ```text
+VALIDAÇÃO: aplicável.
+MOTIVO: o Mini App já tem settings/day_detail e regras de day_config.
+CONDIÇÃO DE ENTRADA: P0 concluído e build estável.
+RESTRIÇÕES:
 - Não mudar day_config.
 - Não mudar settingsPatchPayload.
 - Não mudar nomes de settings.
+- Não criar endpoint novo.
+```
+
+### 18.2 Estados vazios e erros nas telas atuais
+
+```text
+VALIDAÇÃO: aplicável.
+MOTIVO: telas já existem e podem receber loading/empty/error sem mudar arquitetura.
+CONDIÇÃO DE ENTRADA: P0 concluído.
+RESTRIÇÕES:
+- Não mudar contrato de API.
+- Não alterar Worker.
+```
+
+### 18.3 Melhorar Fila
+
+```text
+VALIDAÇÃO: aplicável.
+MOTIVO: /commands e cancelamento já existem.
+CONDIÇÃO DE ENTRADA: P0 concluído.
+RESTRIÇÕES:
+- Não criar retry endpoint.
+- Não cancelar processing.
+- Não mostrar JSON bruto por padrão.
+```
+
+### 18.4 Melhorar Histórico
+
+```text
+VALIDAÇÃO: aplicável.
+MOTIVO: /history já existe com data, offset e query possível.
+CONDIÇÃO DE ENTRADA: P0 concluído.
+RESTRIÇÕES:
+- Não mudar schema.
+- Não criar exportação agora.
+```
+
+### 18.5 Melhorar Destinos sem CRUD
+
+```text
+VALIDAÇÃO: aplicável de forma limitada.
+MOTIVO: overview já retorna target_chats.
+CONDIÇÃO DE ENTRADA: P0 concluído.
+RESTRIÇÕES:
 - Não criar /destinations.
-- Não criar /admins.
-- Não criar migrations.
+- Não criar tela CRUD completa.
+- Apenas melhorar exibição/seleção usando dados existentes.
+```
+
+### 18.6 Melhorar Saúde com dados existentes
+
+```text
+VALIDAÇÃO: aplicável.
+MOTIVO: /status, /overview, /health e /bot-info já existem.
+CONDIÇÃO DE ENTRADA: P0 concluído.
+RESTRIÇÕES:
+- Não criar /bot-runtime.
+- Não criar /health/deep.
+- Não criar tabela de heartbeat.
 ```
 
 ---
 
-## 20. P2 — Refatoração do main.jsx
+## 19. P2 — validação integral da refatoração do main.jsx
 
-Executar somente depois de P0 passar e P1 não estar quebrado.
+P2 é validado como **tecnicamente correto**, mas não autorizado nesta rodada.
+
+```text
+VALIDAÇÃO: aplicável depois de P0/P1.
+MOTIVO: main.jsx concentra responsabilidades demais.
+RISCO: médio/alto se feito junto com P0.
+CONDIÇÃO DE ENTRADA:
+- P0 concluído.
+- P1 sem regressão ou explicitamente adiado.
+- npm run build estável.
+- comportamento funcional congelado antes da extração.
+```
 
 Ordem segura:
 
@@ -841,44 +789,61 @@ Ordem segura:
 17. Rodar npm run build e npm run check.
 ```
 
-Proibido durante refatoração:
+Proibido durante P2:
 
 ```text
-- mudar endpoints
-- mudar payloads
-- mudar nomes de settings
-- mudar UX junto com extração
-- alterar Worker
-- alterar backend Python
+- mudar endpoints.
+- mudar payloads.
+- mudar nomes de settings.
+- mudar UX junto com extração.
+- alterar Worker.
+- alterar backend Python.
 ```
 
 ---
 
-## 21. P3 — Backlog futuro, não executar sem autorização
+## 20. P3 — validação integral do backlog futuro
+
+P3 é tecnicamente válido, mas bloqueado sem autorização explícita.
 
 ```text
-- CRUD de Administradores.
-- CRUD de Destinos.
-- /ai-models.
-- /bot-runtime.
-- /health/deep.
-- Rate limit robusto e idempotência backend.
-- Testes automatizados amplos.
-- Versionamento front/Worker.
+STATUS: backlog validado.
+AUTORIZADO AGORA: não.
 ```
 
-Motivos:
+Itens:
 
 ```text
-- Exigem endpoints novos.
-- Podem exigir migrations.
-- Alteram arquitetura operacional.
-- Não são necessários para corrigir P0.
+CRUD de Administradores
+- Válido, mas exige endpoints /admins e regra owner-only.
+- Pode exigir auditoria e proteção contra remover último owner.
+
+CRUD de Destinos
+- Válido, mas exige endpoints /destinations, /test-message e regras de destino padrão.
+
+/ai-models
+- Válido para remover duplicidade de modelos no front/Worker.
+- Não é bug P0.
+
+/bot-runtime e /health/deep
+- Válido para observabilidade real.
+- Exige heartbeat Python e possivelmente tabela nova.
+
+Rate limit robusto e idempotência backend
+- Válido para maturidade operacional.
+- Não deve ser improvisado sem desenho de chave/idempotência.
+
+Testes automatizados amplos
+- Válido, mas melhor após P0 e eventual refatoração.
+
+Versionamento front/Worker
+- Válido para diagnóstico em produção.
+- Não é bloqueador P0.
 ```
 
 ---
 
-## 22. Política de logs
+## 21. Política de logs
 
 Pode logar:
 
@@ -904,13 +869,14 @@ secrets
 
 ---
 
-## 23. Checklist final para a IA executora
+## 22. Checklist final integral
 
 Marcar cada item como `[OK]`, `[ERRO]` ou `[NÃO EXECUTADO: motivo]`.
 
 ```text
 [ ] Leu este arquivo inteiro.
-[ ] Não executou backlog P3 sem autorização.
+[ ] Validou o documento inteiro, não apenas P0.
+[ ] Não executou P1/P2/P3 sem autorização.
 [ ] Alterou somente arquivos permitidos para P0.
 [ ] Validou wrappers Python.
 [ ] Corrigiu auth fail-open.
@@ -919,18 +885,10 @@ Marcar cada item como `[OK]`, `[ERRO]` ou `[NÃO EXECUTADO: motivo]`.
 [ ] Adicionou script check no miniapp/package.json.
 [ ] Tornou /status admin-only.
 [ ] Ajustou /packs para Supabase com fallback ArkhamDB.
-[ ] Rodou TC-P0-001.
-[ ] Rodou TC-P0-002.
-[ ] Rodou TC-P0-003.
-[ ] Rodou TC-P0-004.
-[ ] Rodou TC-P0-005.
-[ ] Rodou TC-P0-006.
-[ ] Rodou TC-P0-007.
-[ ] Rodou TC-P0-008.
-[ ] Executou ou registrou pendência de TC-P0-009.
-[ ] Executou ou registrou pendência de TC-P0-010.
-[ ] Executou ou registrou pendência de TC-P0-011.
-[ ] Executou ou registrou pendência de TC-P0-012.
+[ ] Executou ou registrou TC-P0-001 até TC-P0-012.
+[ ] Validou P1 como aplicável, mas não executado.
+[ ] Validou P2 como aplicável, mas não executado.
+[ ] Validou P3 como backlog, mas não executado.
 [ ] Classificou achados por severidade.
 [ ] Informou risco residual.
 [ ] Incluiu evidências no resultado final.
@@ -938,13 +896,13 @@ Marcar cada item como `[OK]`, `[ERRO]` ou `[NÃO EXECUTADO: motivo]`.
 
 ---
 
-## 24. Formato obrigatório de resposta
+## 23. Formato obrigatório de resposta
 
 ```text
 RESULTADO:
 - Arquivos alterados:
   - ...
-- Requisitos atendidos:
+- Requisitos P0 atendidos:
   - REQ-P0-001: OK/ERRO/NÃO EXECUTADO + evidência
   - REQ-P0-002: OK/ERRO/NÃO EXECUTADO + evidência
   - REQ-P0-003: OK/ERRO/NÃO EXECUTADO + evidência
@@ -953,7 +911,7 @@ RESULTADO:
   - REQ-P0-006: OK/ERRO/NÃO EXECUTADO + evidência
   - REQ-P0-007: OK/ERRO/NÃO EXECUTADO + evidência
   - REQ-P0-008: OK/ERRO/NÃO EXECUTADO + evidência
-- Testes executados:
+- Testes P0 executados:
   - TC-P0-001: OK/ERRO/NÃO EXECUTADO + evidência
   - TC-P0-002: OK/ERRO/NÃO EXECUTADO + evidência
   - TC-P0-003: OK/ERRO/NÃO EXECUTADO + evidência
@@ -966,6 +924,11 @@ RESULTADO:
   - TC-P0-010: OK/ERRO/NÃO EXECUTADO + evidência
   - TC-P0-011: OK/ERRO/NÃO EXECUTADO + evidência
   - TC-P0-012: OK/ERRO/NÃO EXECUTADO + evidência
+- Validação integral do arquivo:
+  - P0: APLICÁVEL/EXECUTADO/NÃO EXECUTADO + motivo
+  - P1: APLICÁVEL/NÃO EXECUTADO + motivo
+  - P2: APLICÁVEL/NÃO EXECUTADO + motivo
+  - P3: BACKLOG/NÃO EXECUTADO + motivo
 - Achados por severidade:
   - CRÍTICO: ...
   - ALTO: ...
@@ -973,10 +936,6 @@ RESULTADO:
   - BAIXO: ...
 - Arquivos fora do escopo alterados:
   - nenhum / listar e justificar
-- Itens P1 recomendados após P0:
-  - ...
-- Backlog P3 não executado:
-  - ...
 - Pendências manuais:
   - ...
 - Plano de rollback se necessário:
