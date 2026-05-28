@@ -722,7 +722,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.user_data.clear()
         return ConversationHandler.END
 
-    pack_code = data.split('_')[1]
+    pack_code = data[len("SEARCH_"):]
     packs = await asyncio.to_thread(_get_cached_pack_list)
     pack_entry = next((p for p in packs if p['prefix'] == pack_code), None)
     if not pack_entry:
@@ -1804,8 +1804,11 @@ async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     # Recover original query from current message text
     msg_text = query.message.text or ""
     raw_query = ""
-    if "«" in msg_text and "»" in msg_text:
-        raw_query = msg_text.split("«")[1].split("»")[0]
+    try:
+        if "«" in msg_text and "»" in msg_text:
+            raw_query = msg_text.split("«")[1].split("»")[0]
+    except (IndexError, ValueError):
+        pass
     markup, text = _search_page(results, page=page, query=raw_query)
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
@@ -2162,8 +2165,12 @@ async def cotd_year_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def cotd_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    year_str, month_str = query.data.replace('COTD_MONTH_', '').split('_')
-    year, month = int(year_str), int(month_str)
+    try:
+        year_str, month_str = query.data.replace('COTD_MONTH_', '').split('_')
+        year, month = int(year_str), int(month_str)
+    except (ValueError, IndexError):
+        await query.edit_message_text(get_strings()["taboo_session_expired"])
+        return
     s = get_strings()
     cards = await asyncio.to_thread(_cotd_fetch_cards, year, month)
     if not cards:
