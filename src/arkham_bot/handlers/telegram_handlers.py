@@ -1106,18 +1106,32 @@ def _taboo_categories() -> dict[str, tuple[str, str]]:
     }
 
 
-def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict) -> tuple[str, InlineKeyboardMarkup]:
-    """Builds the taboo list selection message and buttons."""
+_TABOO_PAGE_SIZE = 5
+
+
+def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+    """Builds the taboo list selection message and buttons with pagination."""
     s = get_strings()
     sorted_lists = sorted(taboos, key=lambda t: t.get('date_start', ''), reverse=True)
+    total = len(sorted_lists)
+    start = page * _TABOO_PAGE_SIZE
+    page_lists = sorted_lists[start:start + _TABOO_PAGE_SIZE]
     lines = [s["taboo_lists_title"], s["taboo_lists_subtitle"]]
     buttons = []
-    for i, t in enumerate(sorted_lists):
+    for i, t in enumerate(page_lists):
         raw = t.get('date_start', '')[:10]
         date = f"{raw[8:10]}/{raw[5:7]}/{raw[:4]}" if len(raw) == 10 else raw
-        tid = t.get('id', i)
-        label = f"{date}{s['taboo_list_current_prefix'] if i == 0 else ''}"
+        tid = t.get('id', start + i)
+        is_current = (start + i == 0)
+        label = f"{date}  {s['taboo_list_current_prefix'].strip()}" if is_current else date
         buttons.append([InlineKeyboardButton(label, callback_data=f"TABOO_LIST_{tid}")])
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(s.get("sets_btn_prev", "◀"), callback_data=f"TABOO_PAGE_{page - 1}"))
+    if start + _TABOO_PAGE_SIZE < total:
+        nav.append(InlineKeyboardButton(s.get("sets_btn_next", "▶"), callback_data=f"TABOO_PAGE_{page + 1}"))
+    if nav:
+        buttons.append(nav)
     buttons.append([InlineKeyboardButton(s["taboo_btn_close"], callback_data=CALLBACK_CANCEL)])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
@@ -1235,8 +1249,31 @@ async def taboo_lists_back_callback(update: Update, context: ContextTypes.DEFAUL
         s = get_strings()
         await query.answer(s["taboo_session_expired"], show_alert=True)
         return
-    text, markup = _taboo_list_menu_text_and_buttons(all_lists, name_map)
-    await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+    text, markup = _taboo_list_menu_text_and_buttons(all_lists, name_map, page=0)
+    try:
+        await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+    except TelegramBadRequest:
+        pass
+
+
+async def taboo_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Navigates taboo list pages."""
+    query = update.callback_query
+    await query.answer()
+    try:
+        page = int(query.data.replace("TABOO_PAGE_", ""))
+    except ValueError:
+        page = 0
+    all_lists = context.bot_data.get('taboo_all_lists', [])
+    name_map = context.bot_data.get('taboo_name_map', {})
+    if not all_lists:
+        await query.answer(get_strings()["taboo_session_expired"], show_alert=True)
+        return
+    text, markup = _taboo_list_menu_text_and_buttons(all_lists, name_map, page=page)
+    try:
+        await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+    except TelegramBadRequest:
+        pass
 
 
 def _taboo_name(name_map: dict, code: str) -> str:
@@ -2232,6 +2269,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler("taboo", taboo_command))
     application.add_handler(CallbackQueryHandler(taboo_list_select_callback, pattern=r'^TABOO_LIST_'))
     application.add_handler(CallbackQueryHandler(taboo_lists_back_callback, pattern=r'^TABOO_LISTS$'))
+    application.add_handler(CallbackQueryHandler(taboo_page_callback, pattern=r'^TABOO_PAGE_'))
     application.add_handler(CallbackQueryHandler(taboo_category_callback, pattern=r'^TABOO_CAT_'))
     application.add_handler(CallbackQueryHandler(taboo_card_callback, pattern=r'^TABOO_CARD_'))
     application.add_handler(CallbackQueryHandler(taboo_back_callback, pattern=r'^TABOO_BACK$'))
