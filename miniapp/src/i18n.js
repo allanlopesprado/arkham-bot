@@ -109,7 +109,7 @@ export const I18N = {
     defaultChat: 'Chat padrão',
     // settings sections
     noDestinationsInPost: 'Nenhum destino cadastrado.',
-    goToDestinations: 'Gerenciar destinos',
+    goToDestinations: 'Destinos',
     noDestinationsWarning: 'Nenhum destino configurado. O bot não irá postar até você adicionar e confirmar um grupo.',
     removeTime: 'Remover horário',
     dailyPost: 'Postagem diária',
@@ -225,7 +225,7 @@ export const I18N = {
     adminRemoveFailed: 'Falha ao remover administrador.',
     ownerRequired: 'Apenas owners podem gerenciar administradores.',
     // destinations manage
-    destinationsManageTab: 'Gerenciar destinos',
+    destinationsManageTab: 'Destinos',
     addDestination: 'Adicionar destino',
     destinationChatIdLabel: 'Chat ID',
     destinationChatIdPlaceholder: 'ex: -100123456789',
@@ -433,7 +433,7 @@ export const I18N = {
     destination: 'Destination',
     defaultChat: 'Default chat',
     noDestinationsInPost: 'No destinations configured.',
-    goToDestinations: 'Manage destinations',
+    goToDestinations: 'Destinations',
     noDestinationsWarning: 'No destinations configured. The bot will not post until you add and confirm a group.',
     removeTime: 'Remove time',
     dailyPost: 'Daily post',
@@ -550,7 +550,7 @@ export const I18N = {
     adminRemoveFailed: 'Failed to remove administrator.',
     ownerRequired: 'Only owners can manage administrators.',
     // destinations manage
-    destinationsManageTab: 'Manage destinations',
+    destinationsManageTab: 'Destinations',
     addDestination: 'Add destination',
     destinationChatIdLabel: 'Chat ID',
     destinationChatIdPlaceholder: 'e.g. -100123456789',
