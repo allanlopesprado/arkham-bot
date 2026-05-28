@@ -652,34 +652,56 @@ def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]
         return 0, 0, 0, [], set()
 
 
+_CARD_PAGE_SIZE = 10
+
+
+def _card_pack_buttons(packs: list, page: int, s: dict) -> InlineKeyboardMarkup:
+    start = page * _CARD_PAGE_SIZE
+    page_packs = packs[start:start + _CARD_PAGE_SIZE]
+    buttons = [
+        [InlineKeyboardButton(f"{p['display_name']} ({p['card_count']})", callback_data=f"SEARCH_{p['prefix']}")]
+        for p in page_packs
+    ]
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(s.get("sets_btn_prev", "◀"), callback_data=f"CARD_LIST_p{page - 1}"))
+    if start + _CARD_PAGE_SIZE < len(packs):
+        nav.append(InlineKeyboardButton(s.get("sets_btn_next", "▶"), callback_data=f"CARD_LIST_p{page + 1}"))
+    if nav:
+        buttons.append(nav)
+    buttons.append([InlineKeyboardButton(s["card_btn_close"], callback_data=CALLBACK_CANCEL)])
+    return InlineKeyboardMarkup(buttons)
+
+
 async def card_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """
-    Sends a message with inline buttons, listing each pack on a separate line
-    for better visualization. Includes a Close button.
-    """
+    """Lists packs with pagination for card search."""
     if not await _check_rate_limit(update):
         return ConversationHandler.END
 
     packs = await asyncio.to_thread(_get_cached_pack_list)
-    keyboard_layout = []
-
-    for pack in packs:
-        label = f"{pack['display_name']} ({pack['card_count']})"
-        button = InlineKeyboardButton(label, callback_data=f"SEARCH_{pack['prefix']}")
-        keyboard_layout.append([button])
-
     s = get_strings()
-    close_button = InlineKeyboardButton(s["card_btn_close"], callback_data=CALLBACK_CANCEL)
-    keyboard_layout.append([close_button])
-
-    reply_markup = InlineKeyboardMarkup(keyboard_layout)
-
     await update.message.reply_text(
         s["card_choose_pack"],
-        reply_markup=reply_markup,
+        reply_markup=_card_pack_buttons(packs, 0, s),
         reply_parameters=ReplyParameters(message_id=update.message.message_id),
     )
+    return CHOOSING_CARD_NUMBER
 
+
+async def card_list_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Navigates pack list pages in /card."""
+    query = update.callback_query
+    await query.answer()
+    try:
+        page = int(query.data.replace("CARD_LIST_p", ""))
+    except ValueError:
+        page = 0
+    packs = await asyncio.to_thread(_get_cached_pack_list)
+    s = get_strings()
+    await query.edit_message_text(
+        s["card_choose_pack"],
+        reply_markup=_card_pack_buttons(packs, page, s),
+    )
     return CHOOSING_CARD_NUMBER
 
 
@@ -2169,6 +2191,7 @@ def register_handlers(application):
         entry_points=[CommandHandler("card", card_command)],
         states={
             CHOOSING_CARD_NUMBER: [
+                CallbackQueryHandler(card_list_page_callback, pattern=r'^CARD_LIST_p'),
                 CallbackQueryHandler(button_callback, pattern='^SEARCH_'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_card_number)
             ],
