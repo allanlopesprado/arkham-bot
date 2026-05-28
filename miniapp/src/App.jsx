@@ -186,7 +186,7 @@ export default function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', database: 'home', schedule: 'settings', admins: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', database: 'home', schedule: 'settings', admins: 'home', destinations: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -815,6 +815,7 @@ export default function App() {
             <Row icon="server"   label={copy.health}       onClick={() => setActiveTab('health')} value={workerValue} badgeTone={workerTone} />
             <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
             {me?.role === 'owner' && <Row icon="shield" label={copy.adminsTab} onClick={() => setActiveTab('admins')} />}
+            <Row icon="send" label={copy.destinationsManageTab} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
           </Section>
         </>
       )}
@@ -1396,6 +1397,58 @@ export default function App() {
       )}
 
       {/* ── DESTINATIONS MANAGE ── */}
+      {activeTab === 'destinations' && (
+        <>
+          <Section title={copy.destinationsManageTab}>
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={fetchDestinations} />
+            {destError && <Row icon="info" label={String(destError)} value="err" badgeTone="err" />}
+            {!destLoading && !destError && destList.length === 0 && <Row icon="send" label={copy.noDestinations} />}
+            {destList.map((dest) => (
+              <div key={dest.id} className="row" style={{ justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                  <span className="row-label">{dest.title || dest.chat_id}</span>
+                  <span className="row-caption">{dest.chat_id}{dest.message_thread_id ? ` · thread ${dest.message_thread_id}` : ''}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    disabled={testingDest === dest.id}
+                    onClick={() => testDestination(dest.id)}
+                    aria-label={copy.testDestination}
+                  >{testingDest === dest.id ? <Spinner /> : <Icon name="send" />}</button>
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    onClick={async () => {
+                      const confirmed = await tgShowPopup({
+                        message: copy.confirmRemoveDestination(dest.title),
+                        buttons: [
+                          { id: 'confirm', type: 'destructive', text: copy.popupConfirm },
+                          { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+                        ],
+                      });
+                      if (confirmed === 'confirm') removeDestination(dest.id);
+                    }}
+                    aria-label={copy.removeDestination}
+                  ><Icon name="x" /></button>
+                </div>
+              </div>
+            ))}
+          </Section>
+
+          <Section title={copy.addDestination}>
+            <StackedInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={setDestChatId} placeholder={copy.destinationChatIdPlaceholder} inputMode="numeric" />
+            <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
+            <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
+            <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
+            {addDestResult && (
+              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} value={addDestResult.ok ? 'ok' : 'err'} badgeTone={addDestResult.ok ? 'ok' : 'err'} caption={addDestResult.friendly} />
+            )}
+          </Section>
+        </>
+      )}
+
       {/* ── APP SETTINGS ── */}
       {activeTab === 'app_settings' && (
         <Section title={copy.chooseLanguage}>

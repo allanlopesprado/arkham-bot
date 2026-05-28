@@ -1747,7 +1747,8 @@ def register_handlers(application):
             CommandHandler("cancel", cancel_conversation),
             CommandHandler("start", start_command),
             CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"),
-        ]
+        ],
+        per_message=False,
     )
 
     application.add_handler(CommandHandler("start", start_command))
@@ -1773,6 +1774,7 @@ def register_handlers(application):
             CommandHandler("start", start_command),
             CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"),
         ],
+        per_message=False,
     )
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(search_card_selected, pattern=r'^CARD_SELECT_'))

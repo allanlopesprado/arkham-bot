@@ -701,8 +701,8 @@ async function handleGetPacks(env, ao) {
           return withCors(jsonResponse(_packsCache.payload), ao);
         }
       }
-    } catch (_) {
-      // fall through to ArkhamDB
+    } catch (err) {
+      safeLog({ path: '/packs', method: 'GET', initData_present: null, initData_length: null, telegram_user_id_present: null, admin: null, status: 'supabase_fallback', error: String(err?.message || err) });
     }
   }
 
@@ -1086,7 +1086,7 @@ async function handleRemoveAdmin(request, env, user, ao, targetUserId) {
 
 async function handleGetDestinations(env, ao) {
   try {
-    const url = `${supabaseBase(env)}/rest/v1/target_chats?select=id,chat_id,title,message_thread_id,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
+    const url = `${supabaseBase(env)}/rest/v1/target_chats?select=id,chat_id,title,message_thread_id,enabled,added_by_user_id,added_by_name,created_at,updated_at&enabled=eq.true&order=created_at.asc`;
     const resp = await fetch(url, { headers: supabaseHeaders(env) });
     if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destinations_fetch_failed' }, 502), ao);
     const destinations = await resp.json();
@@ -1108,6 +1108,9 @@ async function handleAddDestination(request, env, user, ao) {
       enabled: true,
       added_by_user_id: user.id,
       added_by_name: user.name || '',
+      removed_by_user_id: null,
+      removed_by_name: null,
+      removed_at: null,
     };
     const url = `${supabaseBase(env)}/rest/v1/target_chats?on_conflict=chat_id`;
     const resp = await fetch(url, {
