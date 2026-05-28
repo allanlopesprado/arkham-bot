@@ -1438,7 +1438,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if card and card.get('type_name') and ctype not in type_labels:
                 type_labels[ctype] = card['type_name']
             link = f"<a href='https://arkhamdb.com/card/{code}'>{cname}</a>"
-            prefix = f"×{qty} · " if qty > 1 else "· "
+            prefix = f"×{qty} · "
             grouped.setdefault(ctype, []).append(f"{prefix}{link}")
             total_cards += qty
 
