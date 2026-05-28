@@ -45,6 +45,12 @@ _pack_list_cache: list[dict] = []
 _pack_list_cache_ts: float = 0.0
 _PACK_LIST_TTL = 3600.0  # 1 hour
 
+_cards_cache: list[dict] = []
+_cards_cache_ts: float = 0.0
+_cards_encounter_cache: list[dict] = []
+_cards_encounter_cache_ts: float = 0.0
+_CARDS_CACHE_TTL = 600.0  # 10 minutes
+
 
 def _get_cached_pack_list() -> list[dict]:
     global _pack_list_cache, _pack_list_cache_ts
@@ -60,12 +66,24 @@ BOT_STARTED_AT = datetime.now(UTC)
 
 
 async def _fetch_all_cards(include_encounter: bool = False) -> list[dict]:
-    """DB-first card list fetch with API fallback."""
+    """DB-first card list fetch with in-memory cache (TTL 10 min) and API fallback."""
+    import time
+    global _cards_cache, _cards_cache_ts, _cards_encounter_cache, _cards_encounter_cache_ts
+    cache = _cards_encounter_cache if include_encounter else _cards_cache
+    cache_ts = _cards_encounter_cache_ts if include_encounter else _cards_cache_ts
+    if cache and (time.monotonic() - cache_ts) < _CARDS_CACHE_TTL:
+        return cache
     from ..repositories.cards_repo import get_all_cards
     from ..clients.arkhamdb_client import fetch_all_cards_sync
     try:
         cards = await asyncio.to_thread(get_all_cards, include_encounter)
         if cards:
+            if include_encounter:
+                _cards_encounter_cache[:] = cards
+                _cards_encounter_cache_ts = time.monotonic()
+            else:
+                _cards_cache[:] = cards
+                _cards_cache_ts = time.monotonic()
             return cards
     except Exception as exc:
         logger.warning(f"DB get_all_cards failed: {exc}")
@@ -1417,7 +1435,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(s["decklist_usage"])
         return
     from ..clients.arkhamdb_client import fetch_decklist_sync
-    from ..repositories.cards_repo import get_all_cards as _get_all_cards
+    pass  # use cached _fetch_all_cards below
 
     raw_arg = context.args[0].strip()
     match = re.search(r"(\d+)", raw_arg)
@@ -1449,7 +1467,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
 
         # Build card list grouped by type
-        all_cards = await asyncio.to_thread(_get_all_cards, True)
+        all_cards = await _fetch_all_cards(include_encounter=True)
         card_map = {c['code']: c for c in all_cards if c.get('code')}
 
         TYPE_ORDER = ['investigator', 'asset', 'event', 'skill', 'enemy', 'treachery', 'location']

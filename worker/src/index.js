@@ -1,4 +1,4 @@
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.3.0';
 
 const AI_PROVIDERS = [
   { value: 'gemini', labelPt: 'Google Gemini', labelEn: 'Google Gemini', models: [

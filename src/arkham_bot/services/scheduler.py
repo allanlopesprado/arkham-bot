@@ -166,6 +166,7 @@ async def daily_scheduler_loop() -> None:
                             logger.info("daily_post_success")
                         else:
                             logger.error(f"daily_post_failure: {result.error}")
+                            await _notify_admins_failure(result.error)
                     else:
                         logger.debug("daily_post_skipped_not_due")
 
@@ -196,6 +197,24 @@ async def daily_scheduler_loop() -> None:
 
 
 _background_tasks: list[asyncio.Task] = []
+
+
+async def _notify_admins_failure(error: str | None) -> None:
+    """Sends a Telegram message to all configured admins when daily post fails."""
+    from ..core.config import TELEGRAM_BOT_TOKEN, ADMIN_TELEGRAM_USER_IDS
+    if not TELEGRAM_BOT_TOKEN or not ADMIN_TELEGRAM_USER_IDS:
+        return
+    try:
+        from telegram import Bot
+        bot = Bot(token=TELEGRAM_BOT_TOKEN)
+        msg = f"⚠️ <b>Arkham Bot</b> — falha na postagem diária.\n<code>{error or 'erro desconhecido'}</code>"
+        for uid in ADMIN_TELEGRAM_USER_IDS:
+            try:
+                await bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.warning(f"notify_admins_failure_error: {exc}")
 
 
 async def start_daily_scheduler(application) -> None:
