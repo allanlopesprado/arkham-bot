@@ -1,10 +1,10 @@
-# Mini App e Worker — auditoria de workarounds, pendências e plano sem gambiarra
+# Mini App e Worker — auditoria de workarounds, erros operacionais e pendências
 
 Este arquivo é a documentação operacional canônica desta auditoria do Mini App administrativo, Worker Cloudflare, Supabase e integrações adjacentes do Arkham Bot.
 
 Regra principal desta revisão: **não aceitar workaround, wrapper paralelo, proxy interno, rota duplicada, arquivo intermediário ou desvio de arquitetura para mascarar problema real**.
 
-As correções devem ser feitas diretamente nos arquivos responsáveis, preservando a arquitetura existente.
+As correções devem ser feitas diretamente nos arquivos responsáveis, preservando a arquitetura existente. Qualquer solução que funcione por fora do fluxo real deve ser tratada como gambiarra até prova contrária.
 
 ---
 
@@ -41,17 +41,13 @@ Systemd confirmado:
 /opt/arkham_bot/venv/bin/python /opt/arkham_bot/main.py interactive
 ```
 
-Resultado: o ambiente de execução está funcional. As pendências restantes são de código, schema/constraint e hardening.
+Resultado: o ambiente de execução está funcional. As pendências restantes são de código, schema/constraint, secrets/deploy e limpeza operacional.
 
 ---
 
-## 2. Auditoria adicional desta conversa
+## 2. Ajustes feitos nesta conversa e classificação
 
-Esta seção consolida o que aconteceu durante a conversa atual, separando correções reais, validações, tentativas rejeitadas e pendências.
-
-### 2.1 Ajustes feitos por aqui que NÃO são workaround
-
-#### Heartbeat imediato
+### 2.1 Heartbeat imediato
 
 Arquivo:
 
@@ -87,7 +83,7 @@ Baixo. A validação posterior confirmou compileall, healthcheck e pytest OK.
 
 ---
 
-#### Formatação do package.json do Mini App
+### 2.2 Formatação do package.json do Mini App
 
 Arquivo:
 
@@ -122,7 +118,7 @@ Baixo. Mini App build/check passou depois.
 
 ---
 
-#### Correção de ambiente Node 22
+### 2.3 Node 22
 
 Local:
 
@@ -152,7 +148,7 @@ Baixo, desde que Node 22 continue instalado e package-lock.json validado seja ve
 
 ---
 
-#### Correção de arkham_packs no Supabase
+### 2.4 arkham_packs no Supabase
 
 Banco:
 
@@ -201,7 +197,7 @@ Baixo para /packs, desde que futuras sincronizações continuem populando essas 
 
 ---
 
-#### Preparação de target_chats para soft delete
+### 2.5 target_chats preparado para soft delete
 
 Banco:
 
@@ -239,154 +235,33 @@ Médio, porque o código do Worker ainda não foi alterado.
 
 ---
 
-### 2.2 Ajustes/condições que são dívida técnica ou operação pendente
+## 3. Erros operacionais do assistente nesta conversa
 
-#### Dois virtualenvs no servidor
+Esta seção registra o que foi feito ou sugerido de forma inadequada durante a conversa, para não repetir.
 
-Locais:
+### ERR-001 — Proposta de wrapper `worker/src/hardened.js`
+
+O que aconteceu:
 
 ```text
-/opt/arkham_bot/venv
-/opt/arkham_bot/.venv
+Foi sugerido criar worker/src/hardened.js para interceptar rotas problemáticas e delegar ao Worker original.
 ```
 
 Classificação:
 
 ```text
-DÍVIDA OPERACIONAL
-```
-
-Motivo:
-
-```text
-O serviço systemd usa /opt/arkham_bot/venv.
-Durante a validação foi criado/ativado .venv.
-Dois ambientes Python no mesmo projeto podem causar validação em um ambiente e execução em outro.
-```
-
-Estado validado:
-
-```text
-/opt/arkham_bot/venv está OK.
-filelock existe nesse venv.
-pytest existe nesse venv.
-healthcheck OK.
-42 passed.
-systemd active/running.
-```
-
-Ação correta:
-
-```bash
-sudo systemctl show arkham-bot -p ExecStart -p WorkingDirectory -p User
-/opt/arkham_bot/venv/bin/python -m pytest -q /opt/arkham_bot
-cd /opt/arkham_bot
-rm -rf .venv
-```
-
-Status:
-
-```text
-PENDENTE OPCIONAL
-```
-
----
-
-#### package-lock.json alterados por npm install
-
-Arquivos:
-
-```text
-miniapp/package-lock.json
-worker/package-lock.json
-```
-
-Classificação:
-
-```text
-PENDÊNCIA DE VERSIONAMENTO
-```
-
-Motivo:
-
-```text
-Node 22 e npm install podem ter atualizado lockfiles.
-Se o build/dry-run validado depende desses locks, eles devem ser versionados.
-```
-
-Ação correta:
-
-```bash
-cd /opt/arkham_bot
-git status
-git diff -- miniapp/package-lock.json worker/package-lock.json | head -80
-git add miniapp/package-lock.json worker/package-lock.json
-git commit -m "chore: update npm lockfiles after node 22 validation"
-git push
-```
-
-Status:
-
-```text
-VERIFICAR SE JÁ FOI COMMITADO
-```
-
----
-
-#### Kernel pendente no Ubuntu
-
-Indicação do sistema durante atualização:
-
-```text
-Running kernel: 6.14.0-1016-oracle
-Expected kernel: 6.17.0-1014-oracle
-```
-
-Classificação:
-
-```text
-PENDÊNCIA OPERACIONAL
-NÃO É BLOQUEANTE PARA APP/WORKER AGORA
-```
-
-Ação correta:
-
-```text
-Agendar reboot controlado da instância em janela segura.
-```
-
-Status:
-
-```text
-PENDENTE OPERACIONAL
-```
-
----
-
-### 2.3 Tentativa rejeitada que NÃO deve ser retomada
-
-#### hardened.js / wrapper Worker
-
-Durante a conversa foi considerada a criação de:
-
-```text
-worker/src/hardened.js
-```
-
-com mudança de entrada do Worker para interceptar rotas e delegar ao `index.js` original.
-
-Classificação:
-
-```text
+ERRO DO ASSISTENTE
 WORKAROUND REJEITADO
 NÃO APLICAR
 ```
 
-Motivo:
+Por que foi errado:
 
 ```text
-Criaria uma camada paralela para corrigir sintomas em vez de corrigir worker/src/index.js diretamente.
-Isso tornaria a arquitetura menos clara, duplicaria lógica de autenticação/CORS e aumentaria a dívida técnica.
+Criaria camada paralela para corrigir sintomas em vez de corrigir worker/src/index.js diretamente.
+Duplicaria lógica de CORS/autenticação/autorização.
+Aumentaria complexidade e dívida técnica.
+Poderia esconder bugs reais do Worker principal.
 ```
 
 Estado real verificado:
@@ -394,6 +269,7 @@ Estado real verificado:
 ```text
 worker/src/hardened.js não existe no repositório.
 worker/wrangler.toml continua apontando para src/index.js.
+Nenhum wrapper foi aplicado.
 ```
 
 Regra permanente:
@@ -414,150 +290,265 @@ CANCELADO / NÃO APLICADO
 
 ---
 
-## 3. Banco Supabase validado
+### ERR-002 — Risco de substituir arquivo grande/truncado pelo conector GitHub
 
-### 3.1 Tabelas principais existentes
-
-Foram confirmadas no schema real:
+O que aconteceu:
 
 ```text
-arkham_packs
-audit_logs
-bot_admins
-bot_commands
-bot_errors
-bot_posted_cards
-bot_posting_history
-bot_settings
-target_chats
+Foi cogitado corrigir worker/src/index.js diretamente via GitHub update_file.
+O arquivo é grande e as leituras pelo conector foram truncadas.
+```
+
+Classificação:
+
+```text
+RISCO OPERACIONAL IDENTIFICADO
+NÃO EXECUTAR UPDATE CEGO
+```
+
+Por que seria errado:
+
+```text
+Substituir arquivo grande sem ter conteúdo completo pode apagar código não lido.
+A ferramenta update_file substitui o arquivo inteiro, não aplica patch parcial.
+```
+
+Regra correta:
+
+```text
+Para worker/src/index.js, usar patch local no servidor ou diff completo obtido de clone local.
+Nunca substituir o arquivo inteiro a partir de conteúdo truncado.
 ```
 
 Status:
 
 ```text
-OK
+NENHUMA SUBSTITUIÇÃO CEGA FOI APLICADA
 ```
 
 ---
 
-### 3.2 arkham_packs corrigido
+### ERR-003 — Sugestão de patch manual sem entregar diff validável completo
 
-Foram adicionadas/populadas colunas:
+O que aconteceu:
 
 ```text
-cycle_position
-position
-chapter
-total
+Foi sugerido editar manualmente handleDeleteDestination() no nano.
 ```
 
-Validação retornou:
+Classificação:
 
 ```text
-total_packs: 114
-sem_cycle_position: 0
-sem_position: 0
-sem_chapter: 0
-sem_total: 0
+PROCESSO ACEITÁVEL EM EMERGÊNCIA
+MAS NÃO IDEAL
 ```
 
-Motivo:
+Por que é risco:
 
 ```text
-O Worker tenta usar arkham_packs no Supabase antes de cair para ArkhamDB.
-Sem essas colunas, /packs falharia no Supabase e cairia sempre no fallback externo.
+Edição manual pode gerar erro humano.
+Fica mais difícil auditar exatamente o que mudou.
+Pode divergir do repositório se não houver git diff antes do commit.
+```
+
+Forma correta daqui para frente:
+
+```text
+Gerar patch/diff explícito e pequeno.
+Aplicar localmente com git apply quando possível.
+Depois rodar npm run dry-run e git diff.
+```
+
+Comandos esperados:
+
+```bash
+cd /opt/arkham_bot
+git diff -- worker/src/index.js
+cd /opt/arkham_bot/worker
+npm run dry-run
 ```
 
 Status:
 
 ```text
-OK
+PENDÊNCIA DE PROCESSO
 ```
 
 ---
 
-### 3.3 target_chats preparado para soft delete
+### ERR-004 — Criação/uso de `.venv` quando systemd usava `venv`
 
-Foram adicionadas colunas:
+O que aconteceu:
 
 ```text
-removed_at
-removed_by_name
-removed_by_user_id
+Foi orientado criar/usar /opt/arkham_bot/.venv durante validação.
+Depois foi confirmado que o systemd usa /opt/arkham_bot/venv.
 ```
 
-Motivo:
+Classificação:
 
 ```text
-O Worker ainda faz DELETE físico em destinos.
-Para corrigir sem perda de histórico, o banco precisa aceitar PATCH com enabled=false e metadados de remoção.
+ERRO OPERACIONAL PARCIAL
+GEROU DÍVIDA DE AMBIENTE DUPLICADO
+```
+
+Por que é problema:
+
+```text
+Dois virtualenvs no mesmo projeto confundem instalação e validação.
+Pode-se instalar dependência em .venv enquanto o serviço roda em venv.
+```
+
+Estado atual:
+
+```text
+/opt/arkham_bot/venv está validado e é o ambiente correto do systemd.
+/opt/arkham_bot/.venv é redundante se ainda existir.
+```
+
+Ação correta:
+
+```bash
+sudo systemctl show arkham-bot -p ExecStart -p WorkingDirectory -p User
+/opt/arkham_bot/venv/bin/python -m pytest -q /opt/arkham_bot
+cd /opt/arkham_bot
+rm -rf .venv
 ```
 
 Status:
 
 ```text
-BANCO OK
-CÓDIGO PENDENTE
+PENDENTE OPCIONAL DE LIMPEZA
 ```
 
 ---
 
-### 3.4 Constraint problemática em target_chats
+### ERR-005 — Afirmar “ambiente OK” antes de resolver pendências de código
 
-Constraint real encontrada:
-
-```text
-target_chats_chat_id_key | UNIQUE | chat_id
-```
-
-Problema:
+O que aconteceu:
 
 ```text
-Essa constraint impede múltiplos registros para o mesmo chat_id.
-Grupos com tópicos do Telegram usam o mesmo chat_id com message_thread_id diferente.
+Foi corretamente validado que o ambiente estava OK, mas isso não significa que a aplicação estava completamente corrigida.
 ```
 
-Risco:
+Classificação:
 
 ```text
-Não será possível cadastrar múltiplos tópicos do mesmo grupo como destinos independentes.
-O Worker atual também usa on_conflict=chat_id, reforçando a limitação.
+RISCO DE COMUNICAÇÃO
 ```
 
-Correção correta:
+Por que pode confundir:
 
 ```text
-Alterar banco e Worker juntos.
-Não remover a constraint antes de ajustar o código.
+Ambiente OK não equivale a hardening completo.
+Dependências, tests e systemd passam, mas Worker/Mini App ainda têm pendências funcionais.
 ```
 
-SQL futuro recomendado, somente junto da alteração do Worker:
-
-```sql
-alter table public.target_chats
-  drop constraint if exists target_chats_chat_id_key;
-
-create unique index if not exists target_chats_chat_id_thread_id_key
-on public.target_chats (chat_id, coalesce(message_thread_id, 0));
-```
-
-E no Worker trocar:
+Regra correta:
 
 ```text
-on_conflict=chat_id
+Separar sempre:
+- ambiente validado
+- banco validado
+- código corrigido
+- deploy validado
 ```
-
-por estratégia compatível com unicidade composta.
 
 Status:
 
 ```text
-PENDENTE
+REGISTRADO
 ```
 
 ---
 
-## 4. Workarounds, atalhos e dívida técnica identificados
+### ERR-006 — SQL de unicidade com `coalesce(message_thread_id, 0)` precisa de cautela
+
+O que aconteceu:
+
+```text
+Foi sugerida futura unicidade por chat_id + coalesce(message_thread_id, 0).
+```
+
+Classificação:
+
+```text
+POTENCIAL ARMADILHA TÉCNICA
+```
+
+Por que exige cautela:
+
+```text
+Um índice único com expressão pode não casar diretamente com on_conflict do PostgREST da forma esperada.
+PostgREST normalmente trabalha melhor com constraint/colunas explícitas para upsert.
+```
+
+Correção mais segura:
+
+```text
+Antes de alterar constraint, validar estratégia com PostgREST/Supabase.
+Preferir uma coluna normalizada explícita, por exemplo thread_key, ou constraint composta real em colunas simples, se compatível.
+```
+
+Opções a validar antes de executar:
+
+```text
+1. Usar UNIQUE(chat_id, message_thread_id) e tratar null corretamente na aplicação.
+2. Criar coluna generated/stored thread_key = coalesce(message_thread_id, 0) e UNIQUE(chat_id, thread_key).
+3. Evitar upsert por on_conflict e fazer fluxo explícito: buscar destino por chat_id + thread_id, depois PATCH ou POST.
+```
+
+Regra:
+
+```text
+Não aplicar SQL de constraint de tópicos sem ajustar e validar o Worker junto.
+```
+
+Status:
+
+```text
+PENDENTE DE DESENHO CORRETO
+```
+
+---
+
+### ERR-007 — Busca textual por termos de gambiarra não prova ausência de gambiarra
+
+O que aconteceu:
+
+```text
+Foram buscados termos como workaround, hack, TODO, FIXME, stub, fallback, legacy, temporary.
+```
+
+Classificação:
+
+```text
+EVIDÊNCIA FRACA
+```
+
+Por que é insuficiente:
+
+```text
+Workaround pode existir sem esses termos no código.
+A validação precisa ser estrutural: fluxo, dependências, contratos, schema e runtime.
+```
+
+Regra:
+
+```text
+Não concluir “sem workaround” apenas por busca textual.
+Usar leitura de código e testes comportamentais.
+```
+
+Status:
+
+```text
+REGISTRADO
+```
+
+---
+
+## 4. Workarounds, atalhos e dívida técnica existentes no projeto
 
 ### WRK-001 — Fallback de admin via variável de ambiente
 
@@ -581,14 +572,6 @@ Por que é workaround:
 ```text
 Administração deveria depender da tabela bot_admins como fonte canônica.
 Fallback por env pode mascarar falha de Supabase e criar comportamento diferente entre produção, homologação e debug.
-```
-
-Risco:
-
-```text
-- Permissão administrativa fora do banco.
-- Dificulta auditoria.
-- Pode permitir admin mesmo quando Supabase está quebrado.
 ```
 
 Ação correta:
@@ -627,14 +610,6 @@ Por que pode ser workaround:
 Se Supabase deveria ser fonte primária confiável, fallback externo pode mascarar erro de schema, sincronização ou dados vazios.
 ```
 
-Risco:
-
-```text
-- Diferença de dados entre Supabase e ArkhamDB.
-- Falha intermitente externa pode afetar painel.
-- Problemas no banco podem passar despercebidos.
-```
-
 Ação correta:
 
 ```text
@@ -650,9 +625,9 @@ PENDENTE
 
 ---
 
-### WRK-003 — OAuth ArkhamDB marcado como stub/futuro
+### WRK-003 — OAuth ArkhamDB como stub/futuro
 
-Local conhecido pelo histórico do projeto:
+Local:
 
 ```text
 src/arkham_bot/arkhamdb_oauth.py
@@ -701,31 +676,20 @@ src/arkham_bot/handlers/scheduler.py
 Descrição:
 
 ```text
-Wrappers foram criados para preservar imports relativos antigos usados por telegram_handlers.py.
+Wrappers preservam imports relativos antigos usados por telegram_handlers.py.
 ```
 
 Por que pode ser dívida técnica:
 
 ```text
-Resolve o erro de import sem refatorar completamente os imports antigos.
+Resolve erro de import sem refatorar completamente os imports antigos.
 Não é necessariamente incorreto, mas mantém compatibilidade em vez de limpar a origem do acoplamento.
-```
-
-Risco:
-
-```text
-- Novos arquivos podem importar o wrapper em vez do módulo canônico.
-- Dificulta entender a arquitetura real.
 ```
 
 Ação correta:
 
 ```text
-Planejar refatoração futura para trocar imports antigos pelos módulos canônicos:
-- core/supabase_client.py
-- core/config.py
-- services/local_storage.py
-- services/scheduler.py
+Planejar refatoração futura para trocar imports antigos pelos módulos canônicos.
 Depois remover wrappers se não houver mais uso.
 ```
 
@@ -734,128 +698,6 @@ Status:
 ```text
 ACEITO TEMPORARIAMENTE
 PENDENTE DE LIMPEZA FUTURA
-```
-
----
-
-### WRK-005 — Dois virtualenvs no servidor
-
-Locais:
-
-```text
-/opt/arkham_bot/venv
-/opt/arkham_bot/.venv
-```
-
-Descrição:
-
-```text
-Foi criado .venv durante validação, mas o systemd usa /opt/arkham_bot/venv.
-O venv do systemd está funcional.
-```
-
-Por que é dívida operacional:
-
-```text
-Dois ambientes Python podem gerar confusão.
-```
-
-Risco:
-
-```text
-- Instalar dependência em .venv e o serviço continuar usando venv.
-- Validar em um ambiente e executar em outro.
-```
-
-Ação correta:
-
-```text
-Padronizar um único venv operacional.
-Como systemd usa /opt/arkham_bot/venv e ele está validado, considerar remover .venv após confirmar que não está em uso.
-```
-
-Status:
-
-```text
-PENDENTE DE LIMPEZA OPERACIONAL
-```
-
----
-
-### WRK-006 — Processo manual de patch local por limitação do conector
-
-Descrição:
-
-```text
-Foi sugerido aplicar patch localmente em worker/src/index.js porque o conector GitHub substitui arquivo inteiro e o arquivo é grande.
-```
-
-Classificação:
-
-```text
-NÃO É WORKAROUND DE CÓDIGO
-É PROCESSO OPERACIONAL ACEITÁVEL SE O PATCH FOR DIRETO NO ARQUIVO REAL
-```
-
-Risco:
-
-```text
-- Aplicação manual pode gerar erro humano.
-- Precisa ser validada com npm run dry-run antes de commit/push.
-```
-
-Regra:
-
-```text
-Patch local é aceitável somente se alterar diretamente worker/src/index.js.
-Não é aceitável criar arquivo paralelo, wrapper ou entrada alternativa.
-```
-
-Status:
-
-```text
-ACEITÁVEL COM VALIDAÇÃO
-```
-
----
-
-### WRK-007 — Busca textual por termos explícitos não prova ausência de workaround
-
-Durante esta revisão, buscas por termos como:
-
-```text
-workaround
-hack
-TODO
-FIXME
-stub
-fallback
-legacy
-gambiarra
-dívida técnica
-temporary
-```
-
-não retornaram resultados relevantes no índice consultado.
-
-Classificação:
-
-```text
-EVIDÊNCIA FRACA
-NÃO PROVA AUSÊNCIA
-```
-
-Motivo:
-
-```text
-Workaround pode existir sem usar esses termos.
-A validação precisa continuar por leitura estrutural de código e comportamento.
-```
-
-Status:
-
-```text
-REGISTRADO
 ```
 
 ---
@@ -892,12 +734,6 @@ Trocar DELETE por PATCH:
 - removed_at=now
 ```
 
-Por que precisa corrigir:
-
-```text
-Evita perda de histórico operacional e permite auditoria/reversão.
-```
-
 Status:
 
 ```text
@@ -929,14 +765,7 @@ A função usa env.SUPABASE_URL.replace(...) sem guarda explícita no início.
 Correção correta:
 
 ```text
-Adicionar no início de handleBotCommand, antes de usar Supabase:
-if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return backend_not_configured.
-```
-
-Por que precisa corrigir:
-
-```text
-Evita erro não padronizado se Worker estiver com env incompleto.
+Adicionar backend_not_configured antes de usar Supabase.
 ```
 
 Status:
@@ -971,13 +800,6 @@ Correção correta:
 
 ```text
 Registrar safeLog sanitizado quando audit_logs falhar.
-Não vazar token, initData ou payload sensível.
-```
-
-Por que precisa corrigir:
-
-```text
-Ações administrativas não podem falhar sem rastreabilidade mínima.
 ```
 
 Status:
@@ -1016,12 +838,6 @@ Parsear rows[0].value como fonte primária.
 Usar updated_at apenas como fallback.
 ```
 
-Por que precisa corrigir:
-
-```text
-Se updated_at não refletir o valor real, o painel pode indicar status errado do bot.
-```
-
 Status:
 
 ```text
@@ -1049,15 +865,9 @@ Isso quebra paginação e pode ocultar resultados incorretamente.
 Correção correta:
 
 ```text
-Worker /history aceitar source=manual|scheduled|command|auto|all.
+Worker /history aceitar source.
 Mini App enviar source na query.
 Remover filtro local quando source não for all.
-```
-
-Por que precisa corrigir:
-
-```text
-Filtro com paginação deve ocorrer no banco, não na tela.
 ```
 
 Status:
@@ -1085,15 +895,8 @@ Problema:
 Correção correta:
 
 ```text
-Decidir explicitamente:
-- se catálogo de modelos é público, documentar; ou
-- se faz parte do painel admin, proteger com requireAdmin.
-```
-
-Recomendação:
-
-```text
-Proteger com requireAdmin, pois é endpoint do painel administrativo.
+Decidir explicitamente: público documentado ou protegido por requireAdmin.
+Recomendação: proteger, por ser endpoint do painel administrativo.
 ```
 
 Status:
@@ -1125,12 +928,6 @@ Criar estado api_not_configured ou usar auth_error.
 Não renderizar painel administrativo sem API configurada.
 ```
 
-Por que precisa corrigir:
-
-```text
-Painel administrativo deve falhar fechado, não abrir em modo visual sem backend.
-```
-
 Status:
 
 ```text
@@ -1141,7 +938,7 @@ PENDENTE
 
 ### PEND-008 — Unauthorized mostra LoadingGate
 
-Arquivo:
+Arquivos:
 
 ```text
 miniapp/src/App.jsx
@@ -1161,12 +958,6 @@ Correção correta:
 Criar UnauthorizedGate com texto claro.
 ```
 
-Por que precisa corrigir:
-
-```text
-Usuário sem permissão não deve ver tela infinita de carregamento.
-```
-
 Status:
 
 ```text
@@ -1175,7 +966,7 @@ PENDENTE
 
 ---
 
-### PEND-009 — target_chats ainda não suporta múltiplos tópicos do mesmo grupo
+### PEND-009 — target_chats não suporta múltiplos tópicos do mesmo grupo
 
 Arquivos:
 
@@ -1195,13 +986,7 @@ Correção correta:
 
 ```text
 Mudar constraint e código juntos.
-Permitir múltiplos registros por chat_id quando message_thread_id for diferente.
-```
-
-Por que precisa corrigir:
-
-```text
-Telegram topics usam mesmo chat_id e message_thread_id diferente.
+Validar estratégia de upsert com PostgREST antes de aplicar.
 ```
 
 Status:
@@ -1233,17 +1018,10 @@ AVISO NÃO CRÍTICO
 PENDÊNCIA DE LIMPEZA FUTURA
 ```
 
-Risco:
-
-```text
-Pode haver comportamento não ideal em callbacks dentro de ConversationHandler.
-Não bloqueia runtime, pois bot subiu, scheduler iniciou e testes passaram.
-```
-
 Ação correta:
 
 ```text
-Revisar ConversationHandler de card_conv_handler e search_conv_handler.
+Revisar card_conv_handler e search_conv_handler.
 Decidir explicitamente per_message/per_chat/per_user conforme comportamento desejado.
 ```
 
@@ -1255,7 +1033,7 @@ PENDENTE BAIXO
 
 ---
 
-### PEND-011 — Cloudflare Worker sem SUPABASE_SERVICE_ROLE_KEY visível no dry-run
+### PEND-011 — Secrets reais do Cloudflare precisam ser validados
 
 Durante dry-run, bindings exibidos:
 
@@ -1264,19 +1042,7 @@ env.SUPABASE_URL
 env.ALLOWED_ORIGINS
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` não apareceu no resumo.
-
-Classificação:
-
-```text
-PENDÊNCIA DE VALIDAÇÃO DE SECRET
-```
-
-Possível motivo:
-
-```text
-Wrangler pode ocultar secrets no dry-run, ou o secret pode não estar configurado no ambiente Cloudflare.
-```
+`SUPABASE_SERVICE_ROLE_KEY` e `TELEGRAM_BOT_TOKEN` não foram confirmados visualmente no resumo.
 
 Ação correta:
 
@@ -1285,7 +1051,7 @@ cd /opt/arkham_bot/worker
 npx wrangler secret list
 ```
 
-Verificar se existe:
+Secrets esperados:
 
 ```text
 SUPABASE_SERVICE_ROLE_KEY
@@ -1311,16 +1077,10 @@ miniapp/package-lock.json
 worker/package-lock.json
 ```
 
-Motivo:
-
-```text
-npm install com Node 22 atualizou locks.
-Se foram validados, devem ser versionados para reprodutibilidade.
-```
-
 Comandos:
 
 ```bash
+cd /opt/arkham_bot
 git status
 git diff -- miniapp/package-lock.json worker/package-lock.json | head -80
 git add miniapp/package-lock.json worker/package-lock.json
@@ -1337,24 +1097,12 @@ VERIFICAR
 
 ### OPS-002 — Limpar .venv duplicado
 
-Motivo:
-
-```text
-Systemd usa /opt/arkham_bot/venv.
-.venv foi criado durante validação e pode confundir.
-```
-
-Ação opcional:
-
-```bash
-cd /opt/arkham_bot
-rm -rf .venv
-```
-
-Somente depois de confirmar:
+Comandos:
 
 ```bash
 sudo systemctl show arkham-bot -p ExecStart
+cd /opt/arkham_bot
+rm -rf .venv
 ```
 
 Status:
@@ -1365,63 +1113,18 @@ PENDENTE OPCIONAL
 
 ---
 
-### OPS-003 — Kernel pendente no Ubuntu
-
-Durante atualização do Node, o sistema indicou kernel pendente:
-
-```text
-Running kernel: 6.14.0-1016-oracle
-Expected kernel: 6.17.0-1014-oracle
-```
+### OPS-003 — Reboot controlado por kernel pendente
 
 Ação:
 
 ```text
-Agendar reboot controlado da instância quando possível.
-Não é bloqueante para o Worker/Mini App, mas é pendência operacional.
+Agendar reboot da instância em janela segura.
 ```
 
 Status:
 
 ```text
 PENDENTE OPERACIONAL
-```
-
----
-
-### OPS-004 — Validar secrets reais do Worker antes de deploy
-
-Motivo:
-
-```text
-Dry-run passou, mas isso não garante que secrets de produção estejam configurados corretamente no Cloudflare.
-```
-
-Comandos:
-
-```bash
-cd /opt/arkham_bot/worker
-npx wrangler secret list
-```
-
-Secrets esperados:
-
-```text
-SUPABASE_SERVICE_ROLE_KEY
-TELEGRAM_BOT_TOKEN
-```
-
-Variáveis não secret esperadas:
-
-```text
-SUPABASE_URL
-ALLOWED_ORIGINS
-```
-
-Status:
-
-```text
-PENDENTE
 ```
 
 ---
@@ -1446,6 +1149,7 @@ Proibido:
 - Criar wrapper de rotas.
 - Alterar wrangler.toml para apontar para arquivo intermediário.
 - Duplicar handlers.
+- Substituir index.js inteiro a partir de conteúdo truncado.
 ```
 
 ---
@@ -1466,9 +1170,9 @@ Proibido:
 Somente depois de corrigir Worker:
 
 ```text
-1. Alterar constraint UNIQUE(chat_id).
-2. Criar unicidade composta chat_id + message_thread_id.
-3. Ajustar on_conflict no Worker.
+1. Definir estratégia correta para múltiplos tópicos.
+2. Validar compatibilidade com PostgREST upsert/on_conflict.
+3. Alterar constraint ou fluxo de POST/PATCH.
 4. Testar cadastro de dois tópicos do mesmo grupo.
 ```
 
@@ -1508,6 +1212,13 @@ Systemd:
 sudo systemctl restart arkham-bot
 sudo systemctl status arkham-bot --no-pager
 journalctl -u arkham-bot -n 80 --no-pager
+```
+
+Cloudflare secrets:
+
+```bash
+cd /opt/arkham_bot/worker
+npx wrangler secret list
 ```
 
 ---
