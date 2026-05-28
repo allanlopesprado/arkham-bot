@@ -8,9 +8,7 @@ from urllib.parse import urljoin
 
 from PIL import Image
 from telegram import Update
-from telegram.constants import ParseMode
 
-from ..clients.arkhamdb_client import download_image_async
 from ..core.config import BASE_URL, EXTENSIONS_TO_TRY
 from ..core.permissions import is_admin_user
 from ..core.rate_limiter import rate_limiter
@@ -228,7 +226,6 @@ async def _check_rate_limit(update: Update) -> bool:
 
 
 def _chunks(text: str, size: int = 3900) -> list[str]:
-    import re
     if len(text) <= size:
         return [text]
 
@@ -284,7 +281,6 @@ def _chunks(text: str, size: int = 3900) -> list[str]:
 
 def _arkhamdb_html_to_telegram(html: str) -> str:
     """Convert ArkhamDB HTML to the subset supported by Telegram."""
-    import re
     icon_map = {
         '': '[reação]', '': '[livre]', '': '[ação]',
         '': '[automático]', '': '[guardião]', '': '[sobrevivente]',

@@ -380,7 +380,7 @@ def _append_footer(lines: list, card: dict, code: str):
         end_lines.append(s['fmt_pack'].format(name=_e(pack_name), position=position))
 
     if end_lines:
-        lines.append("\n" + "\n".join(f"<i>{l}</i>" for l in end_lines))
+        lines.append("\n" + "\n".join(f"<i>{line}</i>" for line in end_lines))
 
     lines.append(s['fmt_view_arkhamdb'].format(code=code))
 

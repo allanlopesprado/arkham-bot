@@ -195,10 +195,6 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data.clear()
         return ConversationHandler.END
 
-    packs = _get_cached_pack_list()
-    pack_entry = next((p for p in packs if p['prefix'] == pack_code), None)
-    pack_name = pack_entry['display_name'] if pack_entry else f"code {pack_code}"
-
     full_card_id = f"{pack_code}{card_number}"
     user_msg_id = update.message.message_id
     user_reply = ReplyParameters(message_id=user_msg_id)
@@ -269,7 +265,7 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_parameters=user_reply,
             )
 
-        if card_data.get('double_sided') == True and message:
+        if card_data.get('double_sided') and message:
             back_image_src = card_data.get('backimagesrc')
             back_text_raw = card_data.get('back_text')
             back_flavor_raw = card_data.get('back_flavor')

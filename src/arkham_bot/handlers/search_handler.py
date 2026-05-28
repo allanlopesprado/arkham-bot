@@ -1,5 +1,4 @@
 import asyncio
-import io
 import logging
 import re
 from html import escape

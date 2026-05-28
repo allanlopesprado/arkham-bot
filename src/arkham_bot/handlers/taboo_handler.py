@@ -224,7 +224,6 @@ async def taboo_list_select_callback(update: Update, context: ContextTypes.DEFAU
     await query.answer()
     tid = query.data.replace("TABOO_LIST_", "")
     all_lists = context.bot_data.get('taboo_all_lists', [])
-    name_map = context.bot_data.get('taboo_name_map', {})
     taboo = next((t for t in all_lists if str(t.get('id', '')) == tid), None)
     if not taboo:
         s = get_strings()

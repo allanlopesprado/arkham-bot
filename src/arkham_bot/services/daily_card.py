@@ -179,7 +179,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
             # ai_auto_only=True: IA roda APENAS em posts agendados; posts manuais ignoram IA mesmo com ai_enabled=True
             ai_allowed = ai_enabled and (is_scheduled or not ai_auto_only)
 
-            from ..core.config import AI_DAILY_CARD_ENABLED, GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY
+            from ..core.config import GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY
             _has_key = any([GEMINI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY])
             logger.info(
                 f"AI config: enabled_db={ai_enabled} auto_only={ai_auto_only} "
@@ -209,9 +209,9 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     else:
                         logger.warning(f"AI commentary returned None for manual post: {card_code}")
                 elif ai_enabled and ai_auto_only and not is_scheduled:
-                    logger.info(f"AI skipped for manual post: ai_auto_only=True")
+                    logger.info("AI skipped for manual post: ai_auto_only=True")
                 else:
-                    logger.info(f"AI skipped for manual post: ai_enabled=False")
+                    logger.info("AI skipped for manual post: ai_enabled=False")
 
             if card is None:
                 all_cards = load_card_cache()
@@ -319,7 +319,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     # IA retornou None (timeout/erro de API) mas está habilitada; usa aleatório para não perder o post do dia
                     card = random.choice(unposted_cards)
                     if ai_allowed:
-                        logger.warning(f"AI returned None for daily card — falling back to random.")
+                        logger.warning("AI returned None for daily card — falling back to random.")
                     logger.info(f"Random Card Selected: {card.get('name')} ({card.get('code')}).")
                 card_code = card.get('code')
 

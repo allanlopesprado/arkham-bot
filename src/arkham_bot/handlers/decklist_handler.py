@@ -1,4 +1,3 @@
-import asyncio
 import io
 import logging
 import re
@@ -55,7 +54,6 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date_str = ''
         if date_upd:
             try:
-                from datetime import timezone as _tz
                 dt = datetime.fromisoformat(date_upd.replace('Z', '+00:00'))
                 date_str = dt.strftime('%d/%m/%Y')
             except Exception:

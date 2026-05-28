@@ -18,7 +18,7 @@ def _request_with_retry(client: httpx.Client, method: str, url: str, **kwargs) -
                 continue
             response.raise_for_status()
             return response
-        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+        except (httpx.TimeoutException, httpx.NetworkError):
             if attempt == _MAX_RETRIES:
                 raise
             time.sleep(2 ** attempt)

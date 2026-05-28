@@ -815,7 +815,6 @@ export default function App() {
   const workerTone = sysStatus?.ok ? 'ok' : 'err';
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
-  const searchNotFoundLabel = copy.searchNotFound || copy.noHistory;
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
@@ -906,7 +905,7 @@ export default function App() {
             </div>
 
             {!searchingCards && cardQuery.trim().length >= 2 && cardResults.length === 0 && (
-              <Row icon="info" label={copy.searchNotFound || copy.noHistory} />
+              <Row icon="info" label={copy.searchNotFound} />
             )}
             {cardResults.length > 0 && cardResults.map((card) => (
               <CardResult
