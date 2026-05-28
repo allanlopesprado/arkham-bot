@@ -1,0 +1,1519 @@
+// ─── App ──────────────────────────────────────────────────────────────────────
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { tg, initData, tgUser, haptic, tgShowPopup } from './telegram.js';
+import { getBotPhotoUrl, getApiBase, apiFetch } from './api.js';
+import { WEEKDAYS, ALL_CARD_TYPES, deriveCycles, TIMEZONES, I18N, resolveError, readLangStorage, writeLangStorage, getInitialLanguage } from './i18n.js';
+import { AI_TONES, AI_PROVIDERS, AI_MODELS, _providerOfModel, DEFAULT_SETTINGS, normalizeSettings, settingsPatchPayload, isValidTimeValue, validateTimes, settingsEqual, DELAY_OPTIONS, formatDelay } from './settings.js';
+import { Icon } from './icons.jsx';
+import {
+  Spinner, Badge, Notice, Section, Row, MenuRow, DangerRow,
+  ToggleRow, InputRow, StackedInputRow, ChatIdInputRow, SelectRow, StackedSelectRow,
+  DayScheduleRow, CommandRow, CardResult,
+  LoadingGate, NoTelegramGate, AuthErrorGate,
+} from './components.jsx';
+
+export default function App() {
+  const [language, setLanguage] = useState(getInitialLanguage);
+  const copy = I18N[language];
+
+  const [authState, setAuthState] = useState('loading');
+  const [me, setMe] = useState(null);
+  const [botInfo, setBotInfo] = useState(null);
+  const [sysStatus, setSysStatus] = useState(null);
+  const [overview, setOverview] = useState(null);
+  const [commands, setCommands] = useState([]);
+
+  // Settings state: current (edited) and saved (last confirmed from server)
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [savedSettings, setSavedSettings] = useState(DEFAULT_SETTINGS);
+  const [pendingTime, setPendingTime] = useState(DEFAULT_SETTINGS.daily_post_times[0]);
+
+  const [result, setResult] = useState(null);
+  const [settingsResult, setSettingsResult] = useState(null);
+  const [cardCode, setCardCode] = useState('');
+  const [cardQuery, setCardQuery] = useState('');
+  const [cardResults, setCardResults] = useState([]);
+  const [targetChatId, setTargetChatId] = useState('');
+  const [activeTab, setActiveTab] = useState('home');
+  const [activeDayCode, setActiveDayCode] = useState(null);
+  const [packs, setPacks] = useState([]);
+  const [packsLoading, setPacksLoading] = useState(false);
+  const [packsError, setPacksError] = useState(false);
+
+  const [aiProviders, setAiProviders] = useState([]);
+  const [botRuntime, setBotRuntime] = useState(null);
+
+  // Admins state
+  const [admins, setAdmins] = useState([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [adminsError, setAdminsError] = useState(null);
+  const [adminUserId, setAdminUserId] = useState('');
+  const [adminName, setAdminName] = useState('');
+  const [adminRole, setAdminRole] = useState('admin');
+  const [addingAdmin, setAddingAdmin] = useState(false);
+  const [addAdminResult, setAddAdminResult] = useState(null);
+
+  // Destinations manage state
+  const [destList, setDestList] = useState([]);
+  const [destLoading, setDestLoading] = useState(false);
+  const [destError, setDestError] = useState(null);
+  const [destChatId, setDestChatId] = useState('');
+  const [destTitle, setDestTitle] = useState('');
+  const [destThread, setDestThread] = useState('');
+  const [addingDest, setAddingDest] = useState(false);
+  const [addDestResult, setAddDestResult] = useState(null);
+  const [testingDest, setTestingDest] = useState(null);
+
+  const [commandsError, setCommandsError] = useState(null);
+  const [historySourceFilter, setHistorySourceFilter] = useState('all');
+
+  const [loadingCmd, setLoadingCmd] = useState(null);
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [loadingOverview, setLoadingOverview] = useState(false);
+  const [loadingCommands, setLoadingCommands] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [searchingCards, setSearchingCards] = useState(false);
+  const [cancellingCommand, setCancellingCommand] = useState(null);
+
+  const searchTimerRef = useRef(null);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoadingState, setHistoryLoadingState] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [allDaysMode, setAllDaysMode] = useState(false);
+  const [savedAllDaysMode, setSavedAllDaysMode] = useState(false);
+
+  const apiConfigured = Boolean(getApiBase());
+  const isAdmin = me?.admin === true;
+  const actionsDisabled = !isAdmin || !apiConfigured || loadingCmd !== null;
+  const settingsDirty = !settingsEqual(settings, savedSettings) || allDaysMode !== savedAllDaysMode;
+  // Ref always holds the latest settingsDirty — safe to read inside stale async closures
+  const settingsDirtyRef = useRef(false);
+  settingsDirtyRef.current = settingsDirty;
+
+  // Enable closing confirmation when settings are dirty to prevent accidental data loss
+  useEffect(() => {
+    const app = tg();
+    if (!app) return;
+    if (settingsDirty) app.enableClosingConfirmation?.();
+    else app.disableClosingConfirmation?.();
+  }, [settingsDirty]);
+  // Ref keeps the latest saveSettings for the MainButton handler (stale closure guard)
+  const saveSettingsRef = useRef(null);
+
+  // ── Telegram setup ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const app = tg();
+    if (!app) return;
+    app.ready?.();
+    if (['android', 'ios'].includes(app.platform)) app.expand?.();
+    try { app.setHeaderColor?.('secondary_bg_color'); } catch {}
+    try { app.setBackgroundColor?.('bg_color'); } catch {}
+    try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
+
+    const applyColors = () => {
+      try { app.setHeaderColor?.('secondary_bg_color'); } catch {}
+      try { app.setBackgroundColor?.('bg_color'); } catch {}
+      try { app.setBottomBarColor?.('secondary_bg_color'); } catch {}
+    };
+    const mobileOnlyPlatforms = ['android', 'ios'];
+    const onViewportChanged = ({ isStateStable }) => {
+      if (isStateStable && mobileOnlyPlatforms.includes(app.platform)) app.expand?.();
+    };
+
+    app.onEvent?.('themeChanged', applyColors);
+    app.onEvent?.('viewportChanged', onViewportChanged);
+
+    // Fullscreen: request on mobile only (Bot API 8.0+), exit on desktop.
+    if (app.isVersionAtLeast?.('8.0')) {
+      try {
+        if (mobileOnlyPlatforms.includes(app.platform)) app.requestFullscreen?.();
+        else app.exitFullscreen?.();
+      } catch {}
+    }
+    const onFullscreenFailed = ({ error } = {}) => {
+      if (error === 'UNSUPPORTED') { try { app.exitFullscreen?.(); } catch {} }
+    };
+    const onFullscreenChanged = () => {};
+    app.onEvent?.('fullscreenFailed', onFullscreenFailed);
+    app.onEvent?.('fullscreenChanged', onFullscreenChanged);
+
+    // SettingsButton in Telegram header → jump to settings tab
+    try {
+      const sb = app.SettingsButton;
+      if (sb) {
+        sb.show?.();
+        sb.onClick?.(() => setActiveTab('settings'));
+      }
+    } catch {}
+
+    return () => {
+      app.offEvent?.('themeChanged', applyColors);
+      app.offEvent?.('viewportChanged', onViewportChanged);
+      app.offEvent?.('fullscreenFailed', onFullscreenFailed);
+      app.offEvent?.('fullscreenChanged', onFullscreenChanged);
+    };
+  }, []);
+
+  // ── Refresh when user returns to app (Telegram activated/deactivated events) ─
+  useEffect(() => {
+    const app = tg();
+    if (!app) return;
+    const onActivated = () => { fetchOverview(); fetchCommands(); };
+    app.onEvent?.('activated', onActivated);
+    return () => app.offEvent?.('activated', onActivated);
+  }, []);
+
+  // ── MainButton: shows "Save" when settings are dirty ───────────────────────
+  useEffect(() => {
+    const app = tg();
+    const btn = app?.MainButton;
+    if (!btn) return;
+
+    if ((activeTab === 'settings' || activeTab === 'day_detail' || activeTab === 'ai' || activeTab === 'database' || activeTab === 'schedule') && settingsDirty && !savingSettings) {
+      btn.setText(copy.saveSettings);
+      btn.show?.();
+      // Use ref so handler always calls the latest saveSettings regardless of re-renders
+      const handler = () => saveSettingsRef.current?.();
+      btn.onClick?.(handler);
+      return () => { btn.offClick?.(handler); btn.hide?.(); };
+    } else {
+      btn.hide?.();
+    }
+  }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
+
+  // ── BackButton ──────────────────────────────────────────────────────────────
+  const PARENT_TAB = { day_detail: 'settings', ai: 'home', language: 'home', database: 'home', schedule: 'settings', admins: 'home', destinations_manage: 'home' };
+  useEffect(() => {
+    const btn = tg()?.BackButton;
+    if (!btn) return;
+    const goBack = () => setActiveTab(PARENT_TAB[activeTab] || 'home');
+    if (activeTab === 'home') {
+      btn.hide?.();
+    } else {
+      btn.show?.();
+      btn.onClick?.(goBack);
+    }
+    return () => btn.offClick?.(goBack);
+  }, [activeTab]);
+
+  // ── Load packs when entering day_detail tab ─────────────────────────────────
+  useEffect(() => {
+    if (activeTab === 'day_detail' && packs.length === 0 && !packsLoading) {
+      setPacksLoading(true);
+      setPacksError(false);
+      apiFetch('/packs').then(({ ok, json }) => {
+        if (ok && Array.isArray(json.packs)) setPacks(json.packs);
+        else setPacksError(true);
+      }).catch(() => setPacksError(true)).finally(() => setPacksLoading(false));
+    }
+  }, [activeTab]);
+
+  // ── CloudStorage language sync ──────────────────────────────────────────────
+  useEffect(() => { readLangStorage((lang) => setLanguage(lang)); }, []);
+
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!tg() || !initData()) { setAuthState('no_telegram'); return; }
+    if (!apiConfigured) { setAuthState('ready'); return; }
+
+    apiFetch('/me').then(({ ok, json }) => {
+      if (ok && json?.admin === true) {
+        setMe(json);
+        setAuthState('ready');
+        fetchStatus();
+        fetchOverview();
+        fetchCommands();
+        fetchBotInfo();
+        fetchAiProviders();
+        fetchBotRuntime();
+      } else {
+        const msg = copy.errors.unauthorized?.[0] || 'Access denied.';
+        const app = tg();
+        if (app?.showAlert) app.showAlert(msg, () => app.close?.());
+        else app?.close?.();
+        setAuthState('unauthorized');
+      }
+    }).catch(() => setAuthState('auth_error'));
+  }, []);
+
+  // ── Auto-load settings when entering settings or ai tab ────────────────────
+  useEffect(() => {
+    if ((activeTab === 'settings' || activeTab === 'ai' || activeTab === 'database' || activeTab === 'schedule') && !settingsDirty) fetchSettings();
+    if (activeTab === 'database') { fetchOverview(); fetchStatus(); }
+  }, [activeTab]);
+
+  // ── Auto-load history when entering history tab ─────────────────────────────
+  useEffect(() => {
+    if (activeTab === 'history') fetchHistoryItems(historyDate, 0);
+    if (activeTab === 'admins') fetchAdmins();
+    if (activeTab === 'destinations_manage') fetchDestinations();
+    if (activeTab === 'health') fetchBotRuntime();
+  }, [activeTab]);
+
+  // ── API calls ───────────────────────────────────────────────────────────────
+
+  async function fetchBotInfo() {
+    if (!apiConfigured) return;
+    try { const { ok, json } = await apiFetch('/bot-info'); if (ok) setBotInfo(json); }
+    catch {}
+  }
+
+  async function fetchStatus() {
+    if (!apiConfigured) return;
+    setLoadingStatus(true);
+    try { const { json } = await apiFetch('/status'); setSysStatus(json); }
+    catch { setSysStatus({ ok: false }); }
+    finally { setLoadingStatus(false); }
+  }
+
+  async function fetchOverview() {
+    if (!apiConfigured) return;
+    setLoadingOverview(true);
+    try {
+      const { ok, status, json } = await apiFetch('/overview');
+      if (ok) { setOverview(json); if (json.settings && !settingsDirtyRef.current) applySettings(json.settings); }
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
+    } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingOverview(false); }
+  }
+
+  async function fetchCommands() {
+    if (!apiConfigured) return;
+    setLoadingCommands(true);
+    setCommandsError(null);
+    try {
+      const { ok, status, json } = await apiFetch('/commands');
+      if (ok) {
+        const STATUS_ORDER = { pending: 0, retrying: 1, processing: 2, executed: 3, failed: 4, cancelled: 5 };
+        const sorted = (json.commands || []).slice().sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
+        setCommands(sorted);
+      } else {
+        setCommandsError(json.error || `HTTP ${status}`);
+      }
+    } catch { setCommandsError('network_error'); }
+    finally { setLoadingCommands(false); }
+  }
+
+  async function fetchSettings() {
+    if (!apiConfigured) return;
+    setLoadingSettings(true);
+    setSettingsResult(null);
+    try {
+      const { ok, status, json } = await apiFetch('/settings');
+      if (ok) { if (!settingsDirtyRef.current) applySettings(json.settings); }
+      else setSettingsResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
+    } catch { setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingSettings(false); }
+  }
+
+  async function saveSettings() {
+    const times = settings.daily_post_times;
+    if (!validateTimes(times)) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.invalidTime, detail: '' }); return; }
+    if (!settings.timezone.trim()) { haptic('notification', 'error'); setSettingsResult({ ok: false, friendly: copy.timezoneRequired, detail: '' }); return; }
+
+    setSavingSettings(true);
+    tg()?.MainButton?.showProgress?.(false);
+    try {
+      const body = settingsPatchPayload(settings, times);
+      const { ok, status, json } = await apiFetch('/settings', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!ok) {
+        haptic('notification', 'error');
+        const errInfo = resolveError(json.error, `HTTP ${status}`, copy, json);
+        setSettingsResult({ ok: false, ...errInfo, detail: json.error || errInfo.detail || `HTTP ${status}` });
+      } else {
+        haptic('notification', 'success');
+        applySettings(json.settings);
+        setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '' });
+      }
+    } catch {
+      haptic('notification', 'error');
+      setSettingsResult({ ok: false, friendly: copy.networkError, detail: '' });
+    } finally {
+      setSavingSettings(false);
+      tg()?.MainButton?.hideProgress?.();
+    }
+  }
+  saveSettingsRef.current = saveSettings;
+
+  async function saveSingleSetting(key, value) {
+    try {
+      const { ok } = await apiFetch('/settings', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (ok) haptic('notification', 'success');
+      else haptic('notification', 'error');
+    } catch {
+      haptic('notification', 'error');
+    }
+  }
+
+  async function cancelCommand(command) {
+    const confirmed = await tgShowPopup({
+      title: copy.cancelCommand,
+      message: copy.confirmCancel(command.command_type),
+      buttons: [
+        { id: 'confirm', type: 'destructive', text: copy.popupConfirm },
+        { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+      ],
+    });
+    if (confirmed !== 'confirm') return;
+
+    setCancellingCommand(command.id);
+    try {
+      const { ok, status, json } = await apiFetch(`/commands/${command.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      if (!ok) { haptic('notification', 'error'); setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) }); }
+      else { haptic('notification', 'success'); setResult({ ok: true, friendly: copy.commandCancelled, detail: '' }); fetchCommands(); fetchOverview(); }
+    } catch { haptic('notification', 'error'); setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setCancellingCommand(null); }
+  }
+
+  const enqueue = useCallback(async (command_type, payload = {}) => {
+    if (loadingCmd) return;
+    haptic('impact', 'light');
+    setLoadingCmd(command_type);
+    try {
+      const { ok, status, json } = await apiFetch('/bot-command', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ command_type, payload, target_chat_id: targetChatId || null }),
+      });
+      if (!ok) {
+        haptic('notification', 'error');
+        setResult({ ok: false, command_type, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
+      } else {
+        haptic('notification', 'success');
+        setResult({ ok: true, command_type: json.command?.command_type || command_type, friendly: copy.commandQueued, detail: json.command?.id ? `ID: ${json.command.id}` : '' });
+        fetchStatus(); fetchCommands(); fetchOverview();
+      }
+    } catch { haptic('notification', 'error'); setResult({ ok: false, command_type, friendly: copy.networkError, detail: '' }); }
+    finally { setLoadingCmd(null); }
+  }, [loadingCmd, targetChatId, copy]);
+
+  async function confirmEnqueue(message, command_type, payload = {}) {
+    const confirmed = await tgShowPopup({
+      message,
+      buttons: [
+        { id: 'confirm', type: 'default', text: copy.popupConfirm },
+        { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+      ],
+    });
+    if (confirmed === 'confirm') enqueue(command_type, payload);
+  }
+
+  function applySettings(next) {
+    const n = normalizeSettings(next);
+    setSettings(n);
+    setSavedSettings(n);
+    const allSelected = WEEKDAYS.every((d) => n.daily_post_days.includes(d.code));
+    setAllDaysMode(allSelected);
+    setSavedAllDaysMode(allSelected);
+    // Sync miniapp UI language from the server-side ai_language setting
+    const uiLang = n.ai_language === 'en-US' ? 'en' : 'pt';
+    setLanguage(uiLang);
+    writeLangStorage(uiLang);
+  }
+
+  function updateSetting(key, value) {
+    haptic('selection');
+    setSettings((cur) => ({ ...cur, [key]: value }));
+  }
+
+  // ── Day config helpers ──────────────────────────────────────────────────────
+
+  function getDayConfig(dayCode) {
+    return settings.day_config[dayCode] || { packs: [], types: [] };
+  }
+
+  function getTimesForDay(dayCode) {
+    if (dayCode === 'all') return settings.daily_post_times;
+    const cfg = getDayConfig(dayCode);
+    return Array.isArray(cfg.times) && cfg.times.length ? cfg.times : settings.daily_post_times;
+  }
+
+  function updateDayConfig(dayCode, updater) {
+    const baseConfig = (cfg) => ({ packs: [], types: [], ...(cfg || {}) });
+    setSettings((cur) => ({
+      ...cur,
+      day_config: {
+        ...cur.day_config,
+        [dayCode]: updater(baseConfig(cur.day_config[dayCode])),
+      },
+    }));
+  }
+
+  function addTimeForDay(dayCode) {
+    if (!isValidTimeValue(pendingTime)) return;
+    haptic('selection');
+    if (dayCode === 'all') {
+      setSettings((cur) => ({
+        ...cur,
+        daily_post_times: [...new Set([...cur.daily_post_times, pendingTime])].sort(),
+      }));
+      return;
+    }
+    updateDayConfig(dayCode, (cfg) => {
+      const base = Array.isArray(cfg.times) && cfg.times.length ? cfg.times : settings.daily_post_times;
+      return { ...cfg, times: [...new Set([...base, pendingTime])].sort() };
+    });
+  }
+
+  function removeTimeForDay(dayCode, time) {
+    haptic('selection');
+    if (dayCode === 'all') {
+      setSettings((cur) => {
+        const next = cur.daily_post_times.filter((t) => t !== time);
+        return { ...cur, daily_post_times: next.length ? next : cur.daily_post_times };
+      });
+      return;
+    }
+    updateDayConfig(dayCode, (cfg) => {
+      const base = Array.isArray(cfg.times) && cfg.times.length ? cfg.times : settings.daily_post_times;
+      return { ...cfg, times: base.filter((t) => t !== time) };
+    });
+  }
+
+  function isCycleSelectedForDay(dayCode, cyclePos) {
+    const { packs: dp } = getDayConfig(dayCode);
+    const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
+    if (!cyclePacks.length) return false;
+    return dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
+  }
+
+  function isTypeSelectedForDay(dayCode, typeCode) {
+    const { types: dt } = getDayConfig(dayCode);
+    return dt.length === 0 || dt.includes(typeCode);
+  }
+
+  function setAllWeekdays(enabled) {
+    haptic('selection');
+    setAllDaysMode(enabled);
+    setSettings((cur) => ({ ...cur, daily_post_days: enabled ? WEEKDAYS.map((d) => d.code) : cur.daily_post_days }));
+  }
+
+  function areAllCyclesSelectedForDay(dayCode) {
+    const { packs: dp } = getDayConfig(dayCode);
+    return dp.length === 0 || (packs.length > 0 && packs.every((p) => dp.includes(p.code)));
+  }
+
+  function areAllTypesSelectedForDay(dayCode) {
+    const { types: dt } = getDayConfig(dayCode);
+    return dt.length === 0 || ALL_CARD_TYPES.every((t) => dt.includes(t.code));
+  }
+
+  function setAllCyclesForDay(dayCode, enabled) {
+    haptic('selection');
+    // enabled=true → [] (all packs allowed); enabled=false → explicit list of all packs (then user unticks individually)
+    updateDayConfig(dayCode, (cfg) => ({ ...cfg, packs: enabled ? [] : packs.map((p) => p.code) }));
+  }
+
+  function setAllTypesForDay(dayCode, enabled) {
+    haptic('selection');
+    updateDayConfig(dayCode, (cfg) => ({
+      ...cfg,
+      types: enabled ? [] : ALL_CARD_TYPES.map((t) => t.code),
+    }));
+  }
+
+  function toggleCycleForDay(dayCode, cyclePos) {
+    haptic('selection');
+    const cyclePacks = packs.filter((p) => p.cycle_position === cyclePos).map((p) => p.code);
+    updateDayConfig(dayCode, (cfg) => {
+      const dp = cfg.packs;
+      const allSelected = dp.length === 0 || cyclePacks.every((pc) => dp.includes(pc));
+      let nextPacks;
+      if (allSelected) {
+        const base = dp.length === 0 ? packs.map((p) => p.code) : dp;
+        nextPacks = base.filter((pc) => !cyclePacks.includes(pc));
+      } else {
+        const base = dp.length === 0 ? packs.map((p) => p.code) : dp;
+        nextPacks = [...new Set([...base, ...cyclePacks])];
+        if (nextPacks.length === packs.length) nextPacks = [];
+      }
+      return { ...cfg, packs: nextPacks };
+    });
+  }
+
+  function toggleTypeForDay(dayCode, typeCode) {
+    haptic('selection');
+    updateDayConfig(dayCode, (cfg) => {
+      const dt = cfg.types;
+      let nextTypes;
+      if (dt.length === 0) {
+        nextTypes = ALL_CARD_TYPES.map((t) => t.code).filter((c) => c !== typeCode);
+      } else if (dt.includes(typeCode)) {
+        nextTypes = dt.filter((c) => c !== typeCode);
+        if (nextTypes.length === 0 || nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
+      } else {
+        nextTypes = [...dt, typeCode];
+        if (nextTypes.length === ALL_CARD_TYPES.length) nextTypes = [];
+      }
+      return { ...cfg, types: nextTypes };
+    });
+  }
+
+  function dayConfigSummary(dayCode, copy) {
+    const { packs: dp, types: dt } = getDayConfig(dayCode);
+    const cycles = deriveCycles(packs);
+    const activeCycles = dp.length === 0 ? 0 : cycles.filter((c) =>
+      packs.filter((p) => p.cycle_position === c.position).some((p) => dp.includes(p.code))
+    ).length;
+    const parts = [];
+    if (dp.length > 0 && activeCycles > 0) parts.push(copy.cyclesSelected(activeCycles));
+    if (dt.length > 0) parts.push(copy.typesSelected(dt.length));
+    return parts.length ? parts.join(' · ') : copy.noCycleConfig;
+  }
+
+  function handleSearchChange(e) {
+    const val = e.target.value;
+    setCardQuery(val);
+    clearTimeout(searchTimerRef.current);
+    if (val.trim().length < 2) { setCardResults([]); return; }
+    searchTimerRef.current = setTimeout(() => doSearchCards(val.trim()), 500);
+  }
+
+  async function doSearchCards(query) {
+    if (!apiConfigured) return;
+    setSearchingCards(true);
+    try {
+      const { ok, status, json } = await apiFetch(`/cards?q=${encodeURIComponent(query)}`);
+      if (ok) setCardResults(json.cards || []);
+      else setResult({ ok: false, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
+    } catch { setResult({ ok: false, friendly: copy.networkError, detail: '' }); }
+    finally { setSearchingCards(false); }
+  }
+
+  async function fetchHistoryItems(date, offset) {
+    if (!apiConfigured) return;
+    setHistoryLoadingState(true);
+    setHistoryError(null);
+    const params = new URLSearchParams({ limit: '30', offset: String(offset) });
+    if (date) params.set('date', date);
+    try {
+      const { ok, status, json } = await apiFetch(`/history?${params.toString()}`);
+      if (ok) {
+        const items = json.history || [];
+        if (offset === 0) setHistoryItems(items);
+        else setHistoryItems((prev) => [...prev, ...items]);
+        setHistoryHasMore(items.length === 30);
+      } else {
+        setHistoryError(json?.error || `HTTP ${status}`);
+      }
+    } catch {
+      setHistoryError('network_error');
+    }
+    finally { setHistoryLoadingState(false); }
+  }
+
+  async function fetchAiProviders() {
+    if (!apiConfigured) return;
+    try {
+      const { ok, json } = await apiFetch('/ai-models');
+      if (ok && Array.isArray(json.providers) && json.providers.length) setAiProviders(json.providers);
+    } catch {}
+  }
+
+  async function fetchBotRuntime() {
+    if (!apiConfigured) return;
+    try {
+      const { ok, json } = await apiFetch('/bot-runtime');
+      if (ok) setBotRuntime(json);
+    } catch {}
+  }
+
+  async function fetchAdmins() {
+    if (!apiConfigured) return;
+    setAdminsLoading(true);
+    setAdminsError(null);
+    try {
+      const { ok, json } = await apiFetch('/admins');
+      if (ok) setAdmins(json.admins || []);
+      else setAdminsError(json.error || 'admins_fetch_failed');
+    } catch { setAdminsError('network_error'); }
+    finally { setAdminsLoading(false); }
+  }
+
+  async function addAdmin() {
+    if (!adminUserId.trim()) return;
+    setAddingAdmin(true);
+    setAddAdminResult(null);
+    try {
+      const { ok, json } = await apiFetch('/admins', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ telegram_user_id: Number(adminUserId), name: adminName, role: adminRole }),
+      });
+      if (ok) {
+        setAddAdminResult({ ok: true, friendly: copy.success });
+        setAdminUserId('');
+        setAdminName('');
+        setAdminRole('admin');
+        fetchAdmins();
+      } else {
+        setAddAdminResult({ ok: false, friendly: copy.adminAddFailed || json.error });
+      }
+    } catch { setAddAdminResult({ ok: false, friendly: copy.networkError }); }
+    finally { setAddingAdmin(false); }
+  }
+
+  async function removeAdmin(targetId) {
+    try {
+      const { ok, json } = await apiFetch(`/admins/${targetId}`, { method: 'DELETE' });
+      if (ok) { haptic('notification', 'success'); fetchAdmins(); }
+      else {
+        const msg = json.error === 'cannot_remove_last_owner' ? copy.cannotRemoveLastOwner : (copy.adminRemoveFailed || json.error);
+        haptic('notification', 'error');
+        setAdminsError(msg);
+      }
+    } catch { haptic('notification', 'error'); }
+  }
+
+  async function fetchDestinations() {
+    if (!apiConfigured) return;
+    setDestLoading(true);
+    setDestError(null);
+    try {
+      const { ok, json } = await apiFetch('/destinations');
+      if (ok) setDestList(json.destinations || []);
+      else setDestError(json.error || 'destinations_fetch_failed');
+    } catch { setDestError('network_error'); }
+    finally { setDestLoading(false); }
+  }
+
+  async function addDestination() {
+    if (!destChatId.trim()) return;
+    setAddingDest(true);
+    setAddDestResult(null);
+    try {
+      const { ok, json } = await apiFetch('/destinations', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: destChatId, title: destTitle, message_thread_id: destThread ? Number(destThread) : null }),
+      });
+      if (ok) {
+        setAddDestResult({ ok: true, friendly: copy.success });
+        setDestChatId('');
+        setDestTitle('');
+        setDestThread('');
+        fetchDestinations();
+      } else {
+        setAddDestResult({ ok: false, friendly: copy.destinationAddFailed || json.error });
+      }
+    } catch { setAddDestResult({ ok: false, friendly: copy.networkError }); }
+    finally { setAddingDest(false); }
+  }
+
+  async function testDestination(destId) {
+    setTestingDest(destId);
+    try {
+      const { ok, json } = await apiFetch(`/destinations/${destId}/test`, { method: 'POST' });
+      if (ok) { haptic('notification', 'success'); setAddDestResult({ ok: true, friendly: copy.destinationTestOk }); }
+      else { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationTestFailed }); }
+    } catch { haptic('notification', 'error'); }
+    finally { setTestingDest(null); }
+  }
+
+  async function removeDestination(destId) {
+    try {
+      const { ok } = await apiFetch(`/destinations/${destId}`, { method: 'DELETE' });
+      if (ok) { haptic('notification', 'success'); fetchDestinations(); }
+      else { haptic('notification', 'error'); }
+    } catch { haptic('notification', 'error'); }
+  }
+
+  function formatHeartbeatAge(secondsAgo, c) {
+    if (secondsAgo === null) return '-';
+    if (secondsAgo < 60) return c.secondsAgo(secondsAgo);
+    return c.minutesAgo(Math.floor(secondsAgo / 60));
+  }
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
+
+  const workerValue = loadingStatus ? '…' : sysStatus?.ok ? copy.online : copy.offline;
+  const workerTone = sysStatus?.ok ? 'ok' : 'err';
+  const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
+  const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
+  const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
+
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+
+  if (authState === 'loading' || authState === 'unauthorized') return <LoadingGate />;
+  if (authState === 'no_telegram') return <NoTelegramGate copy={copy} />;
+  if (authState === 'auth_error') return <AuthErrorGate copy={copy} />;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="app">
+
+      {/* Header */}
+      <header className="app-header">
+        <div className="avatar">
+          {(botInfo?.photo_url || getBotPhotoUrl())
+            ? <img src={botInfo?.photo_url || getBotPhotoUrl()} alt={botInfo?.name || 'Bot'} className="avatar-img" />
+            : <Icon name="bot" />}
+        </div>
+        <div className="header-title">{botInfo?.name || '…'}</div>
+        {botInfo?.username && <div className="header-subtitle">@{botInfo.username}</div>}
+        {(botInfo?.short_description || botInfo?.description) && (
+          <div className="header-description">{botInfo.short_description || botInfo.description}</div>
+        )}
+      </header>
+
+      {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured}</Notice>}
+
+      {/* ── HOME ── */}
+      {activeTab === 'home' && (
+        <>
+          <Section title={copy.overviewTitle}>
+            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
+            <Row icon="cards"  label={copy.cards}  value={`${cardsValue} / ${overview?.counts?.posted_cards ?? '-'}`} />
+            <Row icon="queue"  label={copy.queue}  value={queueValue > 0 ? String(queueValue) : null} badgeTone={queueValue > 0 ? 'warn' : ''} onClick={() => setActiveTab('queue')} />
+          </Section>
+
+          <Section title={copy.actionsTitle}>
+            <Row icon="send"     label={copy.postCard}   onClick={() => setActiveTab('post')} />
+            <Row icon="clock"    label={copy.historyTab} onClick={() => setActiveTab('history')} />
+            <Row icon="settings" label={copy.settings}   onClick={() => setActiveTab('settings')} />
+          </Section>
+
+          <Section title={copy.manageTitle}>
+            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
+            <Row icon="database" label={copy.databaseTab} onClick={() => setActiveTab('database')} />
+            {me?.role === 'owner' && <Row icon="shield" label={copy.adminsTab} onClick={() => setActiveTab('admins')} />}
+            <Row icon="send" label={copy.destinationsManageTab} onClick={() => setActiveTab('destinations_manage')} />
+          </Section>
+
+          <Section title={copy.systemTitle}>
+            <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
+            <Row icon="server"   label={copy.health}       onClick={() => setActiveTab('health')} value={workerValue} badgeTone={workerTone} />
+            <Row icon="language" label={copy.chooseLanguage} onClick={() => setActiveTab('language')} value={copy.langName} />
+          </Section>
+        </>
+      )}
+
+      {/* ── POST CARD ── */}
+      {activeTab === 'post' && (
+        <>
+          <Section title={copy.postCard}>
+            <div className="row search-row">
+              <Icon name="search" />
+              <input
+                className="search-input"
+                type="search"
+                value={cardQuery}
+                onChange={handleSearchChange}
+                placeholder={copy.searchPlaceholder}
+                inputMode="text"
+              />
+              {searchingCards && <Spinner />}
+            </div>
+
+            {cardResults.length > 0 && cardResults.map((card) => (
+              <CardResult
+                key={card.code}
+                card={card}
+                selected={cardCode === card.code}
+                onSelect={(sel) => {
+                  setCardCode(sel.code);
+                  setCardQuery(`${sel.code} – ${sel.name || sel.real_name}`);
+                  setCardResults([]);
+                  haptic('impact', 'light');
+                }}
+              />
+            ))}
+          </Section>
+
+          {targetChats.length > 0 && (
+            <Section title={copy.destination}>
+              <SelectRow label={copy.destination} value={targetChatId} onChange={setTargetChatId}>
+                <option value="">{copy.defaultChat}</option>
+                {targetChats.map((chat) => (
+                  <option key={chat.chat_id} value={chat.chat_id}>{chat.title || chat.chat_id}</option>
+                ))}
+              </SelectRow>
+            </Section>
+          )}
+
+          <Section footer={!cardCode ? copy.automaticChoice : undefined}>
+            <MenuRow
+              icon="send"
+              label={copy.postNow}
+              value={cardCode || undefined}
+              loading={loadingCmd === 'post_now'}
+              disabled={actionsDisabled}
+              onClick={() => confirmEnqueue(copy.confirmPostNow(cardCode), 'post_now', cardCode ? { card_code: cardCode } : {})}
+            />
+            <MenuRow
+              icon="repeat"
+              label={copy.repostCard}
+              value={cardCode || undefined}
+              loading={loadingCmd === 'repost_card'}
+              disabled={actionsDisabled || !cardCode}
+              onClick={() => confirmEnqueue(copy.confirmRepost(cardCode), 'repost_card', { card_code: cardCode })}
+            />
+            <MenuRow
+              icon="skip"
+              label={copy.skipCard}
+              value={cardCode || undefined}
+              loading={loadingCmd === 'skip_card'}
+              disabled={actionsDisabled || !cardCode}
+              onClick={() => confirmEnqueue(copy.confirmSkip(cardCode), 'skip_card', { card_code: cardCode })}
+            />
+          </Section>
+
+          {result && (
+            <Section>
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+            </Section>
+          )}
+        </>
+      )}
+
+      {/* ── SETTINGS ── */}
+      {activeTab === 'settings' && (
+        <>
+          {/* Daily post */}
+          <Section title={copy.dailyPost}>
+            <ToggleRow label={copy.automaticPosting} checked={settings.daily_post_enabled} onChange={(v) => updateSetting('daily_post_enabled', v)} />
+            {settings.daily_post_enabled && (
+              <SelectRow label={copy.timezoneLabel} value={settings.timezone} onChange={(v) => updateSetting('timezone', v)}>
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </SelectRow>
+            )}
+          </Section>
+
+          {/* Chat ID */}
+          <Section title={copy.telegramChannel}>
+            <ChatIdInputRow
+              value={settings.telegram_chat_id}
+              onChange={(v) => updateSetting('telegram_chat_id', v)}
+              placeholder={copy.telegramChatIdPlaceholder}
+            />
+          </Section>
+
+          {/* Card filter */}
+          <Section title={copy.cardFilter} info={copy.includeSpoilersCaption}>
+            <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
+          </Section>
+
+          {/* Agenda navigation */}
+          <Section>
+            <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
+          </Section>
+
+          {settingsResult && (
+            <Section>
+              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+            </Section>
+          )}
+
+          {loadingSettings && (
+            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.checking}</span></div></Section>
+          )}
+        </>
+      )}
+
+      {/* ── DATABASE ── */}
+      {activeTab === 'database' && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        const syncDate = overview?.last_sync || sysStatus?.last_sync;
+        const daysSinceSync = syncDate ? (Date.now() - new Date(syncDate).getTime()) / 86400000 : null;
+        const isStale = daysSinceSync === null || daysSinceSync > 7;
+        return (
+          <>
+            <Section title={copy.syncArkhamDB}>
+              <MenuRow icon="sync"    label={copy.syncArkhamDB} caption={copy.syncCaption} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+              <MenuRow icon="refresh" label={copy.refreshStatus} loading={loadingOverview || loadingStatus} disabled={!apiConfigured} onClick={() => { fetchOverview(); fetchStatus(); }} />
+            </Section>
+
+            <Section title={copy.databaseStatus}>
+              <Row icon="clock" label={copy.lastSyncAt} value={syncDate ? new Date(syncDate).toLocaleString(copy.locale) : copy.neverSynced} mono={!!syncDate} badgeTone={isStale ? 'warn' : 'ok'} />
+              <Row icon="cards" label={copy.cards}      value={loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-')} />
+              <Row icon="packs" label={copy.packs}      value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
+            </Section>
+
+            <Section title={copy.syncSchedule} footer={settings.sync_schedule_enabled ? copy.syncScheduleEnabledCaption : undefined}>
+              <ToggleRow
+                label={copy.syncScheduleEnabled}
+                checked={settings.sync_schedule_enabled}
+                onChange={(v) => updateSetting('sync_schedule_enabled', v)}
+              />
+            </Section>
+
+            {settings.sync_schedule_enabled && (
+              <>
+                <Section title={copy.syncScheduleTime}>
+                  <div className="time-add-row">
+                    <span className="row-label">{copy.syncScheduleTime}</span>
+                    <input
+                      className="time-add-input"
+                      type="time"
+                      value={settings.sync_schedule_time}
+                      onChange={(e) => updateSetting('sync_schedule_time', e.target.value.slice(0, 5))}
+                    />
+                  </div>
+                </Section>
+                <Section title={copy.syncScheduleDays}>
+                  {WEEKDAYS.map((day) => (
+                    <ToggleRow
+                      key={day.code}
+                      label={day[lang]}
+                      checked={settings.sync_schedule_days.includes(day.code)}
+                      onChange={(checked) => {
+                        const next = checked
+                          ? [...new Set([...settings.sync_schedule_days, day.code])]
+                          : settings.sync_schedule_days.filter((d) => d !== day.code);
+                        updateSetting('sync_schedule_days', next.length ? next : [day.code]);
+                      }}
+                    />
+                  ))}
+                </Section>
+              </>
+            )}
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+
+            {result && (
+              <Section>
+                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+              </Section>
+            )}
+          </>
+        );
+      })()}
+
+      {activeTab === 'maintenance' && (
+        <>
+          <Section title={copy.resetCycle} footer={copy.resetCaption}>
+            <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
+          </Section>
+
+          <Section title={copy.clearQueue} footer={copy.clearQueueCaption}>
+            <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
+          </Section>
+
+          {result && (
+            <Section>
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+            </Section>
+          )}
+        </>
+      )}
+
+      {/* ── SCHEDULE ── */}
+      {activeTab === 'schedule' && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        const allEnabled = allDaysMode;
+        return (
+          <>
+            <Section title={copy.weeklySchedule}>
+              <DayScheduleRow
+                label={copy.allWeekdays}
+                subtitle={dayConfigSummary('all', copy)}
+                enabled={allEnabled}
+                onToggle={setAllWeekdays}
+                onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
+              />
+            </Section>
+            <Section title={copy.dailySchedule} footer={copy.weeklyScheduleCaption}>
+              {WEEKDAYS.map((day) => {
+                const enabled = settings.daily_post_days.includes(day.code);
+                return (
+                  <DayScheduleRow
+                    key={day.code}
+                    label={day[lang]}
+                    subtitle={enabled ? dayConfigSummary(day.code, copy) : undefined}
+                    enabled={enabled}
+                    onToggle={(v) => {
+                      setSettings((cur) => {
+                        const next = v
+                          ? [...cur.daily_post_days, day.code]
+                          : cur.daily_post_days.filter((d) => d !== day.code);
+                        return { ...cur, daily_post_days: [...new Set(next)] };
+                      });
+                      haptic('selection');
+                    }}
+                    onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
+                    disabled={allEnabled}
+                  />
+                );
+              })}
+            </Section>
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ── QUEUE ── */}
+      {activeTab === 'queue' && (() => {
+        const pendingCount = commands.filter((c) => ['pending', 'retrying'].includes(c.status)).length;
+        const totalCount = commands.length;
+        const summaryFooter = !loadingCommands && !commandsError && totalCount > 0 ? copy.queueStatusSummary(pendingCount, totalCount) : undefined;
+        return (
+          <>
+            <Section title={copy.commandQueue} footer={summaryFooter}>
+              <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
+              {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}
+              {!commandsError && commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
+              {commands.map((cmd) => (
+                <CommandRow key={cmd.id} command={cmd} onCancel={cancelCommand} loading={cancellingCommand === cmd.id} copy={copy} />
+              ))}
+            </Section>
+          </>
+        );
+      })()}
+
+      {/* ── DAY DETAIL ── */}
+      {activeTab === 'day_detail' && activeDayCode && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        const dayLabel = activeDayCode === 'all'
+          ? copy.configureAllWeekdays
+          : WEEKDAYS.find((d) => d.code === activeDayCode)?.[lang] || activeDayCode;
+        const cycles = deriveCycles(packs);
+        return (
+          <>
+            <header className="section-header-standalone">{dayLabel}</header>
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+
+            <Section title={copy.postTimes}>
+              <div className="time-add-row">
+                <span className="row-label">{copy.postTime}</span>
+                <input
+                  className="time-add-input"
+                  type="time"
+                  value={getTimesForDay(activeDayCode)[0] || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.slice(0, 5);
+                    if (!val) return;
+                    if (activeDayCode === 'all') {
+                      setSettings((cur) => ({
+                        ...cur,
+                        daily_post_times: cur.daily_post_times.length > 0
+                          ? cur.daily_post_times.map((t, i) => (i === 0 ? val : t))
+                          : [val],
+                      }));
+                    } else {
+                      updateDayConfig(activeDayCode, (cfg) => ({ ...cfg, times: [val] }));
+                    }
+                  }}
+                />
+              </div>
+            </Section>
+
+            {/* Cycles */}
+            <Section title={copy.cyclesToday}>
+              {packsLoading && <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div>}
+              {packsError && !packsLoading && <Row icon="info" label={copy.packsFailed} />}
+              {!packsLoading && !packsError && (
+                <ToggleRow
+                  label={copy.allCycles}
+                  checked={areAllCyclesSelectedForDay(activeDayCode)}
+                  onChange={(v) => setAllCyclesForDay(activeDayCode, v)}
+                />
+              )}
+              {!packsLoading && !packsError && cycles.map((cycle) => (
+                <ToggleRow
+                  key={cycle.position}
+                  label={cycle.name}
+                  checked={isCycleSelectedForDay(activeDayCode, cycle.position)}
+                  onChange={() => toggleCycleForDay(activeDayCode, cycle.position)}
+                />
+              ))}
+            </Section>
+
+            {/* Card types */}
+            <Section title={copy.typesToday}>
+              <ToggleRow
+                label={copy.allTypes}
+                checked={areAllTypesSelectedForDay(activeDayCode)}
+                onChange={(v) => setAllTypesForDay(activeDayCode, v)}
+              />
+              {ALL_CARD_TYPES.map((type) => (
+                <ToggleRow
+                  key={type.code}
+                  label={type[lang]}
+                  checked={isTypeSelectedForDay(activeDayCode, type.code)}
+                  onChange={() => toggleTypeForDay(activeDayCode, type.code)}
+                />
+              ))}
+            </Section>
+
+          </>
+        );
+      })()}
+
+      {/* ── HISTORY ── */}
+      {activeTab === 'history' && (
+        <>
+          <Section title={copy.historyTitle}>
+            <div className="history-toolbar">
+              <div className="history-source-filter">
+                {[['all', copy.sourceAll], ['scheduled', copy.sourceScheduled], ['manual', copy.sourceManual]].map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className={`source-filter-btn${historySourceFilter === val ? ' active' : ''}`}
+                    onClick={() => { haptic('selection'); setHistorySourceFilter(val); }}
+                  >{label}</button>
+                ))}
+              </div>
+              <div className="history-date-wrap">
+                <Icon name="clock" />
+                <input
+                  className="history-date-input"
+                  type="date"
+                  value={historyDate}
+                  onChange={(e) => { setHistoryDate(e.target.value); fetchHistoryItems(e.target.value, 0); }}
+                />
+                {historyDate && (
+                  <button className="history-clear-btn" type="button" onClick={() => { setHistoryDate(''); fetchHistoryItems('', 0); }} aria-label={copy.clearFilter}>
+                    <Icon name="x" />
+                  </button>
+                )}
+              </div>
+              <button className="history-refresh-btn" type="button" onClick={() => fetchHistoryItems(historyDate, 0)} disabled={!apiConfigured} aria-label={copy.refreshQueue}>
+                {historyLoadingState ? <Spinner /> : <Icon name="refresh" />}
+              </button>
+            </div>
+          </Section>
+
+          {(() => {
+            const filteredItems = historySourceFilter === 'all'
+              ? historyItems
+              : historyItems.filter((p) => p.source === historySourceFilter);
+            return (
+              <Section footer={!historyLoadingState && !historyError ? copy.postsOnDate(filteredItems.length, historyDate) : undefined}>
+                {historyError && <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />}
+                {!historyLoadingState && !historyError && filteredItems.length === 0 && (
+                  <Row icon="cards" label={copy.noHistory} />
+                )}
+                {filteredItems.map((post) => {
+                  const friendlyStatus = copy.postStatusLabels[post.status] || post.status;
+                  const tone = post.status?.startsWith('POSTED') ? 'ok' : post.status?.startsWith('FAIL') ? 'err' : '';
+                  const srcTone = post.source === 'scheduled' ? 'ok' : 'warn';
+                  const srcLabel = post.source === 'scheduled' ? copy.scheduledPost : post.source === 'manual' ? copy.manualPost : null;
+                  const arkhamUrl = post.card_code ? `https://arkhamdb.com/card/${post.card_code}` : null;
+                  const timeStr = post.created_at ? new Date(post.created_at).toLocaleTimeString(copy.locale, { hour: '2-digit', minute: '2-digit' }) : null;
+                  return (
+                    <div key={post.id} className="history-item">
+                      <div className="history-item-main">
+                        {arkhamUrl ? (
+                          <a className="history-item-name row-link" href={arkhamUrl} target="_blank" rel="noopener noreferrer">
+                            {post.card_name || post.card_code}
+                          </a>
+                        ) : (
+                          <span className="history-item-name">{post.card_name || post.card_code}</span>
+                        )}
+                        <div className="history-item-footer">
+                          <span className="history-item-meta">{[post.card_code, timeStr].filter(Boolean).join(' · ')}</span>
+                          <div className="history-item-badges">
+                            {srcLabel && <Badge tone={srcTone}>{srcLabel}</Badge>}
+                            <Badge tone={tone}>{friendlyStatus}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {historyHasMore && (
+                  <MenuRow icon="refresh" label={copy.loadMore} loading={historyLoadingState} disabled={!apiConfigured} onClick={() => fetchHistoryItems(historyDate, historyItems.length)} />
+                )}
+              </Section>
+            );
+          })()}
+        </>
+      )}
+
+      {/* ── AI ── */}
+      {activeTab === 'ai' && (() => {
+        const lang = language === 'pt' ? 'pt' : 'en';
+        return (
+          <>
+            <Section title={copy.aiSection} footer={copy.aiTabCaption}>
+              <ToggleRow label={copy.aiEnabled} checked={settings.ai_enabled} onChange={(v) => updateSetting('ai_enabled', v)} />
+              {settings.ai_enabled && <>
+                <ToggleRow label={copy.aiAutoOnly} checked={settings.ai_auto_only} onChange={(v) => updateSetting('ai_auto_only', v)} />
+                {settings.ai_auto_only && <p className="section-note">{copy.aiAutoOnlyCaption}</p>}
+              </>}
+            </Section>
+
+            {settings.ai_enabled && (
+              <>
+                <Section title={copy.aiTone}>
+                  <SelectRow label={copy.aiTone} value={settings.ai_tone} onChange={(v) => updateSetting('ai_tone', v)}>
+                    {AI_TONES.map((t) => (
+                      <option key={t.value} value={t.value}>{t[lang]}</option>
+                    ))}
+                  </SelectRow>
+                </Section>
+
+                <Section title={copy.aiCreativity}>
+                  <SelectRow label={copy.aiCreativity} value={settings.ai_creativity} onChange={(v) => updateSetting('ai_creativity', v)}>
+                    <option value="conservative">{copy.aiCreativityConservative}</option>
+                    <option value="default">{copy.aiCreativityDefault}</option>
+                    <option value="creative">{copy.aiCreativityCreative}</option>
+                  </SelectRow>
+                </Section>
+
+                <Section title={copy.aiProvider}>
+                  {(() => {
+                    const effectiveProviders = aiProviders.length > 0 ? aiProviders : AI_PROVIDERS;
+                    const currentProvider = _providerOfModel(settings.ai_model);
+                    const providerModels = effectiveProviders.find((p) => p.value === currentProvider)?.models ?? [];
+                    return (<>
+                      <StackedSelectRow label={copy.aiProvider} value={currentProvider} onChange={(providerValue) => {
+                        const firstModel = effectiveProviders.find((p) => p.value === providerValue)?.models[0]?.value;
+                        if (firstModel) updateSetting('ai_model', firstModel);
+                      }}>
+                        {effectiveProviders.map((p) => (
+                          <option key={p.value} value={p.value}>{lang === 'pt' ? p.labelPt : p.labelEn}</option>
+                        ))}
+                      </StackedSelectRow>
+                      <StackedSelectRow label={copy.aiModel} value={settings.ai_model} onChange={(v) => updateSetting('ai_model', v)}>
+                        {providerModels.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </StackedSelectRow>
+                    </>);
+                  })()}
+                </Section>
+
+                <Section title={copy.aiPreMessageTitle}>
+                  <ToggleRow label={copy.aiPreMessage} checked={settings.ai_pre_message_enabled} onChange={(v) => updateSetting('ai_pre_message_enabled', v)} />
+                  {settings.ai_pre_message_enabled && (
+                    <SelectRow label={copy.aiPreMessageDelay} value={String(settings.ai_pre_message_delay_seconds)} onChange={(v) => updateSetting('ai_pre_message_delay_seconds', Number(v))}>
+                      {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
+                    </SelectRow>
+                  )}
+                </Section>
+
+                <Section title={copy.aiPostQuestionTitle}>
+                  <ToggleRow label={copy.aiPostQuestion} checked={settings.ai_post_question_enabled} onChange={(v) => updateSetting('ai_post_question_enabled', v)} />
+                  {settings.ai_post_question_enabled && (
+                    <SelectRow label={copy.aiPostQuestionDelay} value={String(settings.ai_post_question_delay_seconds)} onChange={(v) => updateSetting('ai_post_question_delay_seconds', Number(v))}>
+                      {DELAY_OPTIONS.map((v) => <option key={v} value={v}>{formatDelay(v, lang)}</option>)}
+                    </SelectRow>
+                  )}
+                </Section>
+
+              </>
+            )}
+
+            {settingsResult && (
+              <Section>
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              </Section>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ── ADMINS ── */}
+      {activeTab === 'admins' && me?.role === 'owner' && (
+        <>
+          <Section title={copy.adminsTitle}>
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={adminsLoading} disabled={!apiConfigured} onClick={fetchAdmins} />
+            {adminsError && <Row icon="info" label={String(adminsError)} value="err" badgeTone="err" />}
+            {admins.map((admin) => (
+              <div key={admin.telegram_user_id} className="row" style={{ justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                  <span className="row-label">{admin.name || String(admin.telegram_user_id)}</span>
+                  <span className="row-caption">{admin.telegram_user_id}{admin.added_by_name ? ` · ${copy.adminAddedBy} ${admin.added_by_name}` : ''}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Badge tone={admin.role === 'owner' ? 'ok' : admin.role === 'admin' ? 'warn' : ''}>{admin.role}</Badge>
+                  {!(admin.telegram_user_id === me?.user?.id && admin.role === 'owner') && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => removeAdmin(admin.telegram_user_id)}
+                      aria-label={copy.removeAdmin}
+                    ><Icon name="x" /></button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </Section>
+          <Section title={copy.addAdmin}>
+            <StackedInputRow label={copy.adminUserIdLabel} value={adminUserId} onChange={setAdminUserId} placeholder={copy.adminUserIdPlaceholder} inputMode="numeric" />
+            <StackedInputRow label={copy.adminNameLabel} value={adminName} onChange={setAdminName} placeholder={copy.adminNamePlaceholder} />
+            <SelectRow label={copy.adminRoleLabel} value={adminRole} onChange={setAdminRole}>
+              <option value="admin">{copy.adminRoleAdmin}</option>
+              <option value="viewer">{copy.adminRoleViewer}</option>
+            </SelectRow>
+            <MenuRow icon="shield" label={copy.addAdmin} loading={addingAdmin} disabled={!apiConfigured || !adminUserId.trim()} onClick={addAdmin} />
+            {addAdminResult && (
+              <Row icon={addAdminResult.ok ? 'result' : 'info'} label={addAdminResult.ok ? copy.success : copy.error} value={addAdminResult.ok ? 'ok' : 'err'} badgeTone={addAdminResult.ok ? 'ok' : 'err'} caption={addAdminResult.friendly} />
+            )}
+          </Section>
+        </>
+      )}
+
+      {/* ── DESTINATIONS MANAGE ── */}
+      {activeTab === 'destinations_manage' && (
+        <>
+          <Section title={copy.destinationsManageTab}>
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={fetchDestinations} />
+            {destError && <Row icon="info" label={String(destError)} value="err" badgeTone="err" />}
+            {destList.map((dest) => (
+              <div key={dest.id} className="row" style={{ justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                  <span className="row-label">{dest.title || String(dest.chat_id)}</span>
+                  <span className="row-caption">{dest.chat_id}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Badge tone={dest.enabled ? 'ok' : 'warn'}>{dest.enabled ? copy.chatActive : copy.offline}</Badge>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => testDestination(dest.id)}
+                    disabled={testingDest === dest.id}
+                    aria-label={copy.testDestination}
+                  >{testingDest === dest.id ? <Spinner /> : <Icon name="send" />}</button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => removeDestination(dest.id)}
+                    aria-label={copy.removeDestination}
+                  ><Icon name="x" /></button>
+                </div>
+              </div>
+            ))}
+          </Section>
+          <Section title={copy.addDestination}>
+            <ChatIdInputRow value={destChatId} onChange={setDestChatId} placeholder={copy.destinationChatIdPlaceholder} />
+            <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
+            <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
+            <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
+            {addDestResult && (
+              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} value={addDestResult.ok ? 'ok' : 'err'} badgeTone={addDestResult.ok ? 'ok' : 'err'} caption={addDestResult.friendly} />
+            )}
+          </Section>
+        </>
+      )}
+
+      {/* ── LANGUAGE ── */}
+      {activeTab === 'language' && (
+        <Section title={copy.chooseLanguage}>
+          <ToggleRow
+            label={copy.portuguese}
+            checked={language === 'pt'}
+            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
+          />
+          <ToggleRow
+            label={copy.englishLang}
+            checked={language === 'en'}
+            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
+          />
+        </Section>
+      )}
+
+      {/* ── HEALTH ── */}
+      {activeTab === 'health' && (
+        <>
+          <Section title={copy.summary}>
+            <Row icon="server" label={copy.worker} value={workerValue} badgeTone={workerTone} />
+            <Row icon="shield" label={copy.access} value={copy.roleLabels[me?.role] || me?.role || copy.admin} badgeTone="ok" />
+            <Row icon="cards"  label={copy.cards}  value={cardsValue} />
+            <Row icon="packs"  label={copy.packs}  value={loadingOverview ? '…' : (overview?.counts?.packs ?? sysStatus?.total_packs ?? '-')} />
+            <Row icon="clock"  label={copy.lastSync} value={(overview?.last_sync || sysStatus?.last_sync) ? new Date(overview?.last_sync || sysStatus?.last_sync).toLocaleString(copy.locale) : '-'} mono />
+            <Row icon="queue"  label={copy.queue}  value={queueValue} badgeTone={queueValue > 0 ? 'warn' : ''} />
+          </Section>
+
+          <Section title={copy.botRuntime}>
+            {botRuntime ? (
+              <>
+                <Row icon="plug" label={copy.botRuntime} value={botRuntime.alive ? copy.botAlive : copy.botDead} badgeTone={botRuntime.alive ? 'ok' : 'err'} />
+                <Row icon="clock" label={copy.lastHeartbeat} value={botRuntime.last_seen ? formatHeartbeatAge(botRuntime.seconds_ago, copy) : '-'} />
+              </>
+            ) : (
+              <Row icon="plug" label={copy.botRuntime} value="…" />
+            )}
+          </Section>
+
+          <Section title={copy.account}>
+            <Row icon="plug"   label={copy.telegramWebApp} value={tg() ? copy.yes : copy.no} badgeTone={tg() ? 'ok' : 'err'} />
+            <Row icon="key"    label={copy.initDataLabel}  value={initData() ? copy.yes : copy.no} badgeTone={initData() ? 'ok' : 'err'} />
+            <Row icon="shield" label={copy.admin}          value={copy.roleLabels[me?.role] || me?.role || '-'} badgeTone="ok" caption={me?.admin_source ? `${copy.adminSourcePrefix}: ${me.admin_source}` : undefined} />
+            {botInfo?.name && <Row icon="bot" label={copy.botName} value={botInfo.name} />}
+          </Section>
+
+          {botInfo && (
+            <Section title={copy.botCapabilities}>
+              <Row icon="result" label={copy.canJoinGroups}   value={botInfo.can_join_groups ? copy.yes : copy.no}           badgeTone={botInfo.can_join_groups ? 'ok' : ''} />
+              <Row icon="result" label={copy.canReadAllGroups} value={botInfo.can_read_all_group_messages ? copy.yes : copy.no} badgeTone={botInfo.can_read_all_group_messages ? 'ok' : ''} />
+              <Row icon="result" label={copy.supportsInline}  value={botInfo.supports_inline_queries ? copy.yes : copy.no}   badgeTone={botInfo.supports_inline_queries ? 'ok' : ''} />
+            </Section>
+          )}
+
+          {(() => {
+            const activeChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
+            return (
+              <Section title={copy.destinationsTitle}>
+                {activeChats.length === 0
+                  ? <Row icon="info" label={copy.noDestinations} />
+                  : activeChats.map((chat) => (
+                      <Row key={chat.chat_id} icon="send" label={chat.title || String(chat.chat_id)} value={copy.chatActive} badgeTone="ok" />
+                    ))
+                }
+              </Section>
+            );
+          })()}
+
+          <Section title={copy.system}>
+            <MenuRow icon="refresh" label={copy.recheckAuth} loading={loadingStatus || loadingOverview} disabled={!apiConfigured} onClick={() => { fetchStatus(); fetchOverview(); }} />
+          </Section>
+
+          <Section title={copy.diagnostic}>
+            <details className="details">
+              <summary><Icon name="info" />{copy.showDetails}</summary>
+              <pre className="details-pre">{[
+                `${copy.telegramWebApp}: ${Boolean(tg())}`,
+                `${copy.initDataPresent}: ${Boolean(initData())}`,
+                `${copy.initDataLength}: ${initData().length}`,
+                `${copy.userUnsafe}: ${Boolean(tgUser())}`,
+                `${copy.apiConfigured}: ${apiConfigured}`,
+                `${copy.apiBase}: ${getApiBase() || copy.notConfigured}`,
+                `${copy.admin}: ${Boolean(me?.admin)}`,
+                `${copy.role}: ${me?.role || '-'}`,
+                `${copy.adminSource}: ${me?.admin_source || '-'}`,
+                `${copy.appVersion}: ${sysStatus?.version || '-'}`,
+              ].join('\n')}</pre>
+            </details>
+          </Section>
+        </>
+      )}
+
+    </div>
+  );
+}

@@ -1,3 +1,30 @@
+const APP_VERSION = '1.1.0';
+
+const AI_PROVIDERS = [
+  { value: 'gemini', labelPt: 'Google Gemini', labelEn: 'Google Gemini', models: [
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash ★' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  ]},
+  { value: 'groq', labelPt: 'Groq', labelEn: 'Groq', models: [
+    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B ★' },
+    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B' },
+    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+  ]},
+  { value: 'mistral', labelPt: 'Mistral AI', labelEn: 'Mistral AI', models: [
+    { value: 'mistral-small-latest', label: 'Mistral Small' },
+    { value: 'mistral-medium-latest', label: 'Mistral Medium' },
+    { value: 'open-mistral-7b', label: 'Mistral 7B' },
+  ]},
+  { value: 'openai', labelPt: 'OpenAI', labelEn: 'OpenAI', models: [
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
+  ]},
+];
+
 const ALLOWED_COMMAND_TYPES = new Set([
   'post_now',
   'repost_card',
@@ -140,7 +167,7 @@ function corsHeaders(allowedOrigin) {
   if (!allowedOrigin) return {};
   return {
     'access-control-allow-origin': allowedOrigin,
-    'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type,x-telegram-init-data',
     vary: 'Origin',
   };
@@ -409,7 +436,19 @@ async function requireAdmin(request, env, ao, path) {
       }, 403), ao),
     };
   }
-  return { user, access };
+  const enrichedUser = { ...user, role: access.role, name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || String(user.id) };
+  return { user: enrichedUser, access };
+}
+
+async function requireOwner(request, env, ao, path) {
+  const auth = await requireAdmin(request, env, ao, path);
+  if (auth.response) return auth;
+  if (auth.access?.role !== 'owner') {
+    return { response: withCors(jsonResponse({ ok: false, error: 'owner_required' }, 403), ao) };
+  }
+  // Attach role to user for convenience
+  const user = { ...auth.user, role: auth.access.role, name: [auth.user.first_name, auth.user.last_name].filter(Boolean).join(' ') || auth.user.username || String(auth.user.id) };
+  return { user, access: auth.access };
 }
 
 function safeLog(data) {
@@ -492,6 +531,7 @@ async function handleStatus(request, env, ao) {
     result.ok = false;
     result.error = 'status_fetch_failed';
   }
+  result.version = APP_VERSION;
   return withCors(jsonResponse(result), ao);
 }
 
@@ -877,6 +917,11 @@ async function handleBotCommand(request, env, user, ao) {
     }, 403), ao);
   }
 
+  const rateLimited = await checkRateLimit(env, user, commandType);
+  if (rateLimited) {
+    return withCors(new Response(JSON.stringify({ ok: false, error: 'rate_limited', detail: 'Command already pending' }), { status: 429, headers: { 'content-type': 'application/json' } }), ao);
+  }
+
   const payload = {
     command_type: commandType,
     payload: body.payload || {},
@@ -909,6 +954,185 @@ async function handleBotCommand(request, env, user, ao) {
       status: inserted[0]?.status || 'pending',
     },
   }), ao);
+}
+
+async function checkRateLimit(env, user, command_type) {
+  try {
+    const since = new Date(Date.now() - 10000).toISOString();
+    const url = `${supabaseBase(env)}/rest/v1/bot_commands?requested_by_telegram_user_id=eq.${user.id}&command_type=eq.${encodeURIComponent(command_type)}&status=in.(pending,processing)&created_at=gt.${encodeURIComponent(since)}&select=id&limit=1`;
+    const resp = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!resp.ok) return false;
+    const rows = await resp.json();
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function writeAuditLog(env, user, action_type, payload = {}) {
+  try {
+    await fetch(`${supabaseBase(env)}/rest/v1/audit_logs`, {
+      method: 'POST',
+      headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        actor_telegram_user_id: user.telegram_user_id || user.id,
+        actor_name: user.name || '',
+        action_type,
+        source: 'mini_app',
+        payload,
+      }),
+    });
+  } catch {}
+}
+
+async function handleBotRuntime(env, ao) {
+  try {
+    const url = `${supabaseBase(env)}/rest/v1/bot_settings?key=eq.last_heartbeat&select=value,updated_at&limit=1`;
+    const resp = await fetch(url, { headers: supabaseHeaders(env) });
+    if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'supabase_error' }), ao);
+    const rows = await resp.json();
+    if (!rows.length) return withCors(jsonResponse({ ok: true, alive: false, last_seen: null, seconds_ago: null }), ao);
+    const lastSeen = new Date(rows[0].updated_at);
+    const secondsAgo = Math.floor((Date.now() - lastSeen.getTime()) / 1000);
+    const alive = secondsAgo < 180;
+    return withCors(jsonResponse({ ok: true, alive, last_seen: lastSeen.toISOString(), seconds_ago: secondsAgo }), ao);
+  } catch {
+    return withCors(jsonResponse({ ok: false, error: 'network_error' }), ao);
+  }
+}
+
+async function handleGetAdmins(env, ao) {
+  const url = `${supabaseBase(env)}/rest/v1/bot_admins?select=telegram_user_id,name,role,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
+  const resp = await fetch(url, { headers: supabaseHeaders(env) });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admins_fetch_failed' }), ao);
+  const admins = await resp.json();
+  return withCors(jsonResponse({ ok: true, admins }), ao);
+}
+
+async function handleAddAdmin(request, env, user, ao) {
+  const body = await request.json().catch(() => ({}));
+  const { telegram_user_id, name = '', role = 'admin' } = body;
+  if (!telegram_user_id || !['admin', 'viewer'].includes(role)) {
+    return withCors(jsonResponse({ ok: false, error: 'invalid_admin_data' }, 400), ao);
+  }
+  const record = {
+    telegram_user_id: Number(telegram_user_id),
+    name: String(name || '').slice(0, 100),
+    role,
+    enabled: true,
+    added_by_user_id: user.telegram_user_id || user.id,
+    added_by_name: user.name || '',
+  };
+  const url = `${supabaseBase(env)}/rest/v1/bot_admins?on_conflict=telegram_user_id`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(record),
+  });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admin_insert_failed' }), ao);
+  await writeAuditLog(env, user, 'admin_added', { target_user_id: telegram_user_id, role });
+  const result = await resp.json();
+  return withCors(jsonResponse({ ok: true, admin: Array.isArray(result) ? result[0] : result }), ao);
+}
+
+async function handleRemoveAdmin(request, env, user, ao, targetUserId) {
+  const targetId = Number(targetUserId);
+  if (!targetId) return withCors(jsonResponse({ ok: false, error: 'invalid_user_id' }, 400), ao);
+  const checkUrl = `${supabaseBase(env)}/rest/v1/bot_admins?role=eq.owner&enabled=eq.true&select=telegram_user_id`;
+  const checkResp = await fetch(checkUrl, { headers: supabaseHeaders(env) });
+  if (checkResp.ok) {
+    const owners = await checkResp.json();
+    const isTargetOwner = owners.some((o) => o.telegram_user_id === targetId);
+    if (isTargetOwner && owners.length <= 1) {
+      return withCors(jsonResponse({ ok: false, error: 'cannot_remove_last_owner' }, 409), ao);
+    }
+  }
+  const url = `${supabaseBase(env)}/rest/v1/bot_admins?telegram_user_id=eq.${targetId}`;
+  const resp = await fetch(url, {
+    method: 'PATCH',
+    headers: { ...supabaseHeaders(env), 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: false, removed_by_user_id: user.telegram_user_id || user.id, removed_by_name: user.name || '', removed_at: new Date().toISOString() }),
+  });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'admin_remove_failed' }), ao);
+  await writeAuditLog(env, user, 'admin_removed', { target_user_id: targetId });
+  return withCors(jsonResponse({ ok: true }), ao);
+}
+
+async function handleGetDestinations(env, ao) {
+  const url = `${supabaseBase(env)}/rest/v1/target_chats?select=id,chat_id,title,message_thread_id,enabled,added_by_user_id,added_by_name,created_at,updated_at&order=created_at.asc`;
+  const resp = await fetch(url, { headers: supabaseHeaders(env) });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destinations_fetch_failed' }), ao);
+  const destinations = await resp.json();
+  return withCors(jsonResponse({ ok: true, destinations }), ao);
+}
+
+async function handleAddDestination(request, env, user, ao) {
+  const body = await request.json().catch(() => ({}));
+  const { chat_id, title = '', message_thread_id = null } = body;
+  if (!chat_id) return withCors(jsonResponse({ ok: false, error: 'chat_id_required' }, 400), ao);
+  const record = {
+    chat_id: String(chat_id),
+    title: String(title || '').slice(0, 200),
+    message_thread_id: message_thread_id ? Number(message_thread_id) : null,
+    enabled: true,
+    added_by_user_id: user.telegram_user_id || user.id,
+    added_by_name: user.name || '',
+  };
+  const url = `${supabaseBase(env)}/rest/v1/target_chats?on_conflict=chat_id`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(record),
+  });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }), ao);
+  await writeAuditLog(env, user, 'destination_added', { chat_id });
+  const result = await resp.json();
+  return withCors(jsonResponse({ ok: true, destination: Array.isArray(result) ? result[0] : result }), ao);
+}
+
+async function handleUpdateDestination(request, env, user, ao, destId) {
+  const body = await request.json().catch(() => ({}));
+  const patch = {};
+  if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+  if (typeof body.title === 'string') patch.title = body.title.slice(0, 200);
+  if (!Object.keys(patch).length) return withCors(jsonResponse({ ok: false, error: 'no_fields' }, 400), ao);
+  const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
+  const resp = await fetch(url, {
+    method: 'PATCH',
+    headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify(patch),
+  });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_update_failed' }), ao);
+  return withCors(jsonResponse({ ok: true }), ao);
+}
+
+async function handleDeleteDestination(request, env, user, ao, destId) {
+  const url = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}`;
+  const resp = await fetch(url, { method: 'DELETE', headers: supabaseHeaders(env) });
+  if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_delete_failed' }), ao);
+  await writeAuditLog(env, user, 'destination_removed', { id: destId });
+  return withCors(jsonResponse({ ok: true }), ao);
+}
+
+async function handleTestDestination(request, env, user, ao, destId) {
+  const dUrl = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${destId}&select=chat_id,message_thread_id&limit=1`;
+  const dResp = await fetch(dUrl, { headers: supabaseHeaders(env) });
+  if (!dResp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_not_found' }), ao);
+  const rows = await dResp.json();
+  if (!rows.length) return withCors(jsonResponse({ ok: false, error: 'destination_not_found' }), ao);
+  const { chat_id, message_thread_id } = rows[0];
+  const botToken = env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return withCors(jsonResponse({ ok: false, error: 'bot_token_not_configured' }), ao);
+  const msgBody = { chat_id, text: '✅ Test message from Arkham Bot Mini App.' };
+  if (message_thread_id) msgBody.message_thread_id = message_thread_id;
+  const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(msgBody),
+  });
+  const tgJson = await tgResp.json().catch(() => ({}));
+  if (!tgResp.ok || !tgJson.ok) return withCors(jsonResponse({ ok: false, error: 'telegram_send_failed', detail: tgJson.description || '' }), ao);
+  return withCors(jsonResponse({ ok: true }), ao);
 }
 
 export default {
@@ -993,6 +1217,67 @@ export default {
       const auth = await requireAuth(request, env, ao, pathname);
       if (auth.response) return auth.response;
       return handleBotCommand(request, env, auth.user, ao);
+    }
+
+    // /ai-models (public)
+    if (pathname === '/ai-models' && request.method === 'GET') {
+      return withCors(jsonResponse({ ok: true, providers: AI_PROVIDERS }), ao);
+    }
+
+    // /bot-runtime
+    if (pathname === '/bot-runtime' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/bot-runtime');
+      if (auth.response) return auth.response;
+      return handleBotRuntime(env, ao);
+    }
+
+    // /admins
+    if (pathname === '/admins' && request.method === 'GET') {
+      const auth = await requireOwner(request, env, ao, '/admins');
+      if (auth.response) return auth.response;
+      return handleGetAdmins(env, ao);
+    }
+    if (pathname === '/admins' && request.method === 'POST') {
+      const auth = await requireOwner(request, env, ao, '/admins');
+      if (auth.response) return auth.response;
+      return handleAddAdmin(request, env, auth.user, ao);
+    }
+    const adminsDeleteMatch = pathname.match(/^\/admins\/(\d+)$/);
+    if (adminsDeleteMatch && request.method === 'DELETE') {
+      const auth = await requireOwner(request, env, ao, '/admins/:id');
+      if (auth.response) return auth.response;
+      return handleRemoveAdmin(request, env, auth.user, ao, adminsDeleteMatch[1]);
+    }
+
+    // /destinations
+    if (pathname === '/destinations' && request.method === 'GET') {
+      const auth = await requireAdmin(request, env, ao, '/destinations');
+      if (auth.response) return auth.response;
+      return handleGetDestinations(env, ao);
+    }
+    if (pathname === '/destinations' && request.method === 'POST') {
+      const auth = await requireAdmin(request, env, ao, '/destinations');
+      if (auth.response) return auth.response;
+      return handleAddDestination(request, env, auth.user, ao);
+    }
+    const destTestMatch = pathname.match(/^\/destinations\/([^/]+)\/test$/);
+    if (destTestMatch && request.method === 'POST') {
+      const auth = await requireAdmin(request, env, ao, '/destinations/:id/test');
+      if (auth.response) return auth.response;
+      return handleTestDestination(request, env, auth.user, ao, destTestMatch[1]);
+    }
+    const destMatch = pathname.match(/^\/destinations\/([^/]+)$/);
+    if (destMatch) {
+      if (request.method === 'PATCH') {
+        const auth = await requireAdmin(request, env, ao, '/destinations/:id');
+        if (auth.response) return auth.response;
+        return handleUpdateDestination(request, env, auth.user, ao, destMatch[1]);
+      }
+      if (request.method === 'DELETE') {
+        const auth = await requireAdmin(request, env, ao, '/destinations/:id');
+        if (auth.response) return auth.response;
+        return handleDeleteDestination(request, env, auth.user, ao, destMatch[1]);
+      }
     }
 
     if (pathname === '/me' || pathname === '/status' || pathname === '/overview' || pathname === '/settings' || pathname === '/commands' || pathname.startsWith('/commands/') || pathname === '/cards' || pathname === '/packs' || pathname === '/bot-info' || pathname === '/bot-command' || pathname === '/' || pathname === '/history') {

@@ -29,6 +29,8 @@ async def interactive_post_init(application):
     from telegram import BotCommand
     from arkham_bot.services.scheduler import start_daily_scheduler
     from arkham_bot.handlers.telegram_handlers import bot_started_message
+    from arkham_bot.services.heartbeat import start_heartbeat
+    from arkham_bot.core.supabase_client import get_supabase_client
 
     await application.bot.set_my_commands([
         BotCommand("search",    "Busca cartas por nome"),
@@ -42,6 +44,9 @@ async def interactive_post_init(application):
     ])
     await bot_started_message(application)
     await start_daily_scheduler(application)
+    supabase = get_supabase_client()
+    if supabase:
+        await start_heartbeat(supabase)
 
 
 def run_interactive_bot():
