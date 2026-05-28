@@ -61,7 +61,13 @@ def run_interactive_bot():
         return
 
     from arkham_bot.services.scheduler import stop_daily_scheduler
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).post_init(interactive_post_init).post_shutdown(stop_daily_scheduler).build()
+    from arkham_bot.services.heartbeat import stop_heartbeat
+
+    async def on_shutdown(app):
+        await stop_daily_scheduler(app)
+        await stop_heartbeat(app)
+
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).post_init(interactive_post_init).post_shutdown(on_shutdown).build()
     register_handlers(application)
 
     logger.info("Starting polling...")

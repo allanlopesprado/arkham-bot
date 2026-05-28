@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 _INTERVAL_SECONDS = 60
+_task: asyncio.Task | None = None
 
 
 async def _beat(supabase_client):
@@ -29,5 +30,13 @@ async def _beat(supabase_client):
 
 
 async def start_heartbeat(supabase_client):
-    """Start background heartbeat task. Returns the task so caller can cancel it."""
-    return asyncio.create_task(_beat(supabase_client))
+    global _task
+    _task = asyncio.create_task(_beat(supabase_client))
+
+
+async def stop_heartbeat(application=None):
+    global _task
+    if _task and not _task.done():
+        _task.cancel()
+        await asyncio.gather(_task, return_exceptions=True)
+    _task = None
