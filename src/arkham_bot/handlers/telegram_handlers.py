@@ -582,7 +582,17 @@ def _collect_status_payload(update: Update) -> dict:
 
 
 async def bot_started_message(application):
-    """Sends a message to the group as soon as the bot starts."""
+    """Sends a message to the group as soon as the bot starts and pre-warms caches."""
+    # Pre-warm caches in background so first user requests are instant
+    try:
+        logger.info("Pre-warming caches on startup...")
+        await _fetch_all_cards(include_encounter=False)
+        await _fetch_all_cards(include_encounter=True)
+        await asyncio.to_thread(_get_cached_pack_list)
+        logger.info("Cache pre-warm complete.")
+    except Exception as exc:
+        logger.warning("Cache pre-warm failed: %s", exc)
+
     if TELEGRAM_CHAT_ID:
         try:
             s = get_strings()

@@ -1,19 +1,32 @@
+import time
+
 from ..core.supabase_client import get_supabase_client
 
+_cache: dict = {}
+_cache_ts: float = 0.0
+_CACHE_TTL = 60.0  # seconds — settings change rarely
 
-def get_setting(key: str, default=None):
-    client = get_supabase_client()
-    if not client:
-        return default
-    rows = client.get("bot_settings", {"key": f"eq.{key}", "limit": "1"})
-    return rows[0]["value"] if rows else default
+
+def _invalidate_cache() -> None:
+    global _cache_ts
+    _cache_ts = 0.0
 
 
 def get_all_settings() -> dict:
+    global _cache, _cache_ts
+    if _cache and (time.monotonic() - _cache_ts) < _CACHE_TTL:
+        return _cache
     client = get_supabase_client()
     if not client:
-        return {}
-    return {row["key"]: row["value"] for row in client.get("bot_settings")}
+        return _cache  # return stale cache if DB unavailable
+    rows = client.get("bot_settings")
+    _cache = {row["key"]: row["value"] for row in rows}
+    _cache_ts = time.monotonic()
+    return _cache
+
+
+def get_setting(key: str, default=None):
+    return get_all_settings().get(key, default)
 
 
 def set_setting(key: str, value, description: str | None = None, updated_by: str | None = None) -> None:
@@ -24,3 +37,4 @@ def set_setting(key: str, value, description: str | None = None, updated_by: str
     if description is not None:
         payload["description"] = description
     client.upsert("bot_settings", payload, on_conflict="key")
+    _invalidate_cache()

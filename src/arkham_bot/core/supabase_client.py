@@ -12,12 +12,23 @@ class SupabaseRestClient:
             "Content-Type": "application/json",
             "Prefer": "return=representation",
         }
+        # Persistent HTTP client — reuses TCP+TLS connections across requests
+        self._client = httpx.Client(
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+
+    def __del__(self):
+        try:
+            self._client.close()
+        except Exception:
+            pass
 
     def table_url(self, table: str) -> str:
         return f"{self.base_url}/{table}"
 
     def get(self, table: str, params: dict | None = None) -> list[dict]:
-        response = httpx.get(self.table_url(table), headers=self.headers, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = self._client.get(self.table_url(table), headers=self.headers, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -28,10 +39,9 @@ class SupabaseRestClient:
         all_params = {"select": "*", "limit": "1"}
         if params:
             all_params.update(params)
-        response = httpx.get(self.table_url(table), headers=headers, params=all_params, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = self._client.get(self.table_url(table), headers=headers, params=all_params)
         response.raise_for_status()
         content_range = response.headers.get("content-range", "")
-        # PostgREST returns Content-Range: 0-0/TOTAL
         if "/" in content_range:
             try:
                 return int(content_range.split("/")[1])
@@ -43,7 +53,7 @@ class SupabaseRestClient:
         headers = dict(self.headers)
         if prefer:
             headers["Prefer"] = prefer
-        response = httpx.post(self.table_url(table), headers=headers, params=params, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = self._client.post(self.table_url(table), headers=headers, params=params, json=payload)
         response.raise_for_status()
         return response.json() if response.content else []
 
@@ -54,17 +64,24 @@ class SupabaseRestClient:
         return self.post(table, payload, prefer=prefer, params=params)
 
     def patch(self, table: str, payload: dict, params: dict) -> list[dict]:
-        response = httpx.patch(self.table_url(table), headers=self.headers, params=params, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = self._client.patch(self.table_url(table), headers=self.headers, params=params, json=payload)
         response.raise_for_status()
         return response.json() if response.content else []
 
     def delete(self, table: str, params: dict) -> list[dict]:
-        response = httpx.delete(self.table_url(table), headers=self.headers, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = self._client.delete(self.table_url(table), headers=self.headers, params=params)
         response.raise_for_status()
         return response.json() if response.content else []
 
 
-def get_supabase_client():
+# Singleton client — one persistent connection pool for the whole process
+_client_instance: SupabaseRestClient | None = None
+
+
+def get_supabase_client() -> SupabaseRestClient | None:
+    global _client_instance
     if not SUPABASE_ENABLED:
         return None
-    return SupabaseRestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    if _client_instance is None:
+        _client_instance = SupabaseRestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    return _client_instance
