@@ -142,6 +142,8 @@ const I18N = {
     langName: 'Português',
     subtitle: 'Console Admin',
     outsideTelegram: 'Abra pelo Telegram para autenticar.',
+    authErrorTitle: 'Falha na validação administrativa',
+    authErrorText: 'Não foi possível validar o acesso administrativo. Reabra pelo Telegram ou verifique o Worker.',
     workerNotConfigured: 'Worker não configurado. Defina VITE_COMMANDS_API_URL.',
     // tabs
     postCard: 'Postar carta',
@@ -387,6 +389,8 @@ const I18N = {
     langName: 'English',
     subtitle: 'Admin Console',
     outsideTelegram: 'Open from Telegram to authenticate.',
+    authErrorTitle: 'Admin validation failed',
+    authErrorText: 'Could not validate admin access. Reopen from Telegram or check the Worker.',
     workerNotConfigured: 'Worker not configured. Set VITE_COMMANDS_API_URL.',
     postCard: 'Post Card',
     settings: 'Settings',
@@ -1123,6 +1127,16 @@ function NoTelegramGate({ copy }) {
   );
 }
 
+function AuthErrorGate({ copy }) {
+  return (
+    <GateScreen>
+      <Icon name="server" className="gate-icon" />
+      <p className="gate-title">{copy.authErrorTitle}</p>
+      <p className="gate-text">{copy.authErrorText}</p>
+    </GateScreen>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -1320,7 +1334,7 @@ function App() {
         else app?.close?.();
         setAuthState('unauthorized');
       }
-    }).catch(() => setAuthState('ready'));
+    }).catch(() => setAuthState('auth_error'));
   }, []);
 
   // ── Auto-load settings when entering settings or ai tab ────────────────────
@@ -1393,21 +1407,17 @@ function App() {
     tg()?.MainButton?.showProgress?.(false);
     try {
       const body = settingsPatchPayload(settings, times);
-      console.log('[saveSettings] payload:', JSON.stringify(body));
       const { ok, status, json } = await apiFetch('/settings', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      console.log('[saveSettings] response ok=%s status=%s', ok, status, json?.error || '');
       if (!ok) {
         haptic('notification', 'error');
         const errInfo = resolveError(json.error, `HTTP ${status}`, copy, json);
-        console.error('[saveSettings] error:', json);
         setSettingsResult({ ok: false, ...errInfo, detail: json.error || errInfo.detail || `HTTP ${status}` });
       } else {
         haptic('notification', 'success');
-        console.log('[saveSettings] returned day_config:', JSON.stringify(json.settings?.day_config));
         applySettings(json.settings);
         setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '' });
       }
@@ -1708,6 +1718,7 @@ function App() {
 
   if (authState === 'loading' || authState === 'unauthorized') return <LoadingGate />;
   if (authState === 'no_telegram') return <NoTelegramGate copy={copy} />;
+  if (authState === 'auth_error') return <AuthErrorGate copy={copy} />;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

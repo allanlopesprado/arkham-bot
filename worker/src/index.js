@@ -635,11 +635,38 @@ async function handleBotInfo(env, ao) {
 const _packsCache = { payload: null, ts: 0 };
 const PACKS_CACHE_TTL_MS = 3_600_000; // 1 hour
 
-async function handleGetPacks(_env, ao) {
+async function handleGetPacks(env, ao) {
   const now = Date.now();
   if (_packsCache.payload && now - _packsCache.ts < PACKS_CACHE_TTL_MS) {
     return withCors(jsonResponse(_packsCache.payload), ao);
   }
+
+  // Try Supabase first
+  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const url = `${env.SUPABASE_URL}/rest/v1/arkham_packs?select=code,name,cycle_position,position,chapter,total&order=cycle_position.asc,position.asc&limit=500`;
+      const resp = await fetch(url, {
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Accept': 'application/json',
+        },
+      });
+      if (resp.ok) {
+        const raw = await resp.json();
+        if (Array.isArray(raw) && raw.length > 0) {
+          const packs = raw.sort((a, b) => (a.cycle_position ?? 99) - (b.cycle_position ?? 99) || (a.position ?? 99) - (b.position ?? 99));
+          _packsCache.payload = { ok: true, packs, source: 'supabase' };
+          _packsCache.ts = now;
+          return withCors(jsonResponse(_packsCache.payload), ao);
+        }
+      }
+    } catch (_) {
+      // fall through to ArkhamDB
+    }
+  }
+
+  // Fallback: ArkhamDB public API
   try {
     const resp = await fetch('https://arkhamdb.com/api/public/packs/', {
       headers: { 'Accept': 'application/json' },
@@ -656,7 +683,7 @@ async function handleGetPacks(_env, ao) {
         total: p.total ?? 0,
       }))
       .sort((a, b) => (a.cycle_position ?? 99) - (b.cycle_position ?? 99) || (a.position ?? 99) - (b.position ?? 99));
-    _packsCache.payload = { ok: true, packs };
+    _packsCache.payload = { ok: true, packs, source: 'arkhamdb' };
     _packsCache.ts = now;
     return withCors(jsonResponse(_packsCache.payload), ao);
   } catch (err) {
@@ -901,7 +928,7 @@ export default {
     }
 
     if (pathname === '/status' && request.method === 'GET') {
-      const auth = await requireAuth(request, env, ao, '/status');
+      const auth = await requireAdmin(request, env, ao, '/status');
       if (auth.response) return auth.response;
       return handleStatus(request, env, ao);
     }

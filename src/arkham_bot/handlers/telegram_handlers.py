@@ -332,7 +332,7 @@ def _format_help_report() -> str:
 def _collect_status_payload(update: Update) -> dict:
     from zoneinfo import ZoneInfo
 
-    from .config import (
+    from ..core.config import (
         AI_DAILY_CARD_ENABLED,
         AI_MODEL,
         BOT_COMMANDS_POLLING_ENABLED,
@@ -345,8 +345,8 @@ def _collect_status_payload(update: Update) -> dict:
         TELEGRAM_CHAT_ID,
         TIMEZONE,
     )
-    from .local_storage import load_json_file
-    from .scheduler import _as_list
+    from ..services.local_storage import load_json_file
+    from ..services.scheduler import _as_list
 
     user_id = update.effective_user.id if update.effective_user else None
     is_admin = is_admin_user(user_id)
@@ -382,7 +382,7 @@ def _collect_status_payload(update: Update) -> dict:
     taboo_count = "-"
     if SUPABASE_ENABLED:
         try:
-            from .supabase_client import get_supabase_client
+            from ..core.supabase_client import get_supabase_client
 
             client = get_supabase_client()
             if client:
@@ -1607,7 +1607,7 @@ def _months() -> list[str]:
 
 
 def _cotd_fetch_years() -> list[int]:
-    from .supabase_client import get_supabase_client
+    from ..core.supabase_client import get_supabase_client
     client = get_supabase_client()
     if not client:
         return []
@@ -1621,7 +1621,7 @@ def _cotd_fetch_years() -> list[int]:
 
 
 def _cotd_fetch_months(year: int) -> list[int]:
-    from .supabase_client import get_supabase_client
+    from ..core.supabase_client import get_supabase_client
     client = get_supabase_client()
     if not client:
         return []
@@ -1638,7 +1638,7 @@ def _cotd_fetch_months(year: int) -> list[int]:
 
 def _cotd_fetch_cards(year: int, month: int, tz_name: str = 'America/Sao_Paulo') -> list[dict]:
     from zoneinfo import ZoneInfo
-    from .supabase_client import get_supabase_client
+    from ..core.supabase_client import get_supabase_client
     client = get_supabase_client()
     if not client:
         return []
