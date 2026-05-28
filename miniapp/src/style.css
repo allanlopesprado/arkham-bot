@@ -73,8 +73,8 @@ input, select { outline: none; }
 }
 
 .gate-icon { width: 48px; height: 48px; color: var(--hint); }
-.gate-title { margin: 0; color: var(--text); font-size: 20px; font-weight: 700; }
-.gate-text  { margin: 0; color: var(--hint); font-size: 14px; line-height: 1.5; }
+.gate-title { margin: 0; color: var(--text); font-size: 19px; font-weight: 700; }
+.gate-text  { margin: 0; color: var(--hint); font-size: 12px; line-height: 1.5; }
 
 /* ── Header ───────────────────────────────────────────────────────────────── */
 
@@ -264,7 +264,7 @@ input, select { outline: none; }
 .section-note {
   margin: 0;
   padding: 4px 14px 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--hint);
   line-height: 1.5;
 }
@@ -311,7 +311,7 @@ input, select { outline: none; }
   border-radius: 50%;
   background: transparent;
   color: var(--hint);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -329,7 +329,7 @@ input, select { outline: none; }
   border: 1px solid var(--sep);
   border-radius: 8px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--hint);
   white-space: normal;
   width: max-content;
@@ -412,7 +412,7 @@ input, select { outline: none; }
   padding: 8px 14px;
 }
 .stacked-input-row .row-label { font-size: 14px; color: var(--text); }
-.stacked-input-row .row-caption { font-size: 13px; color: var(--hint); }
+.stacked-input-row .row-caption { font-size: 12px; color: var(--hint); }
 .stacked-input-row .block-input {
   width: 100%;
   padding: 10px 12px;
@@ -460,7 +460,7 @@ input, select { outline: none; }
 .chat-id-input-wrap:focus-within { border-color: color-mix(in srgb, var(--link) 50%, transparent); }
 .chat-id-prefix {
   padding: 10px 0 10px 12px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: monospace;
   color: var(--hint);
   user-select: none;
@@ -766,7 +766,7 @@ input, select { outline: none; }
 .section-header-standalone {
   padding: 12px 4px 4px;
   color: var(--text);
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
 }
 
