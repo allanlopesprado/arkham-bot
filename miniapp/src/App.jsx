@@ -891,7 +891,7 @@ export default function App() {
       {/* ── POST CARD ── */}
       {activeTab === 'post' && (
         <>
-          <Section title={copy.postCard}>
+          <Section title={copy.postCard} footer={copy.postCardManualCaption}>
             <div className="row search-row">
               <Icon name="search" />
               <input
@@ -998,7 +998,7 @@ export default function App() {
           )}
 
           {/* Card filter */}
-          <Section title={copy.cardFilter}>
+          <Section title={copy.cardFilter} footer={copy.cardFilterCaption}>
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
@@ -1016,9 +1016,6 @@ export default function App() {
             </Section>
           )}
 
-          {loadingSettings && (
-            <Section><div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.checking}</span></div></Section>
-          )}
         </>
       )}
 
@@ -1031,7 +1028,7 @@ export default function App() {
         return (
           <>
             <Section title={copy.syncArkhamDB}>
-              <MenuRow icon="sync"    label={copy.syncArkhamDB} caption={copy.syncCaption} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
+              <MenuRow icon="sync"    label={copy.syncArkhamDB} loading={loadingCmd === 'sync_arkhamdb'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmSync, 'sync_arkhamdb', { sync_faq: false })} />
               <MenuRow icon="refresh" label={copy.refreshStatus} loading={loadingOverview || loadingStatus} disabled={!apiConfigured} onClick={() => { fetchOverview(); fetchStatus(); }} />
             </Section>
 
