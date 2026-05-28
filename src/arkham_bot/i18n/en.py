@@ -109,6 +109,7 @@ strings: dict = {
     "decklist_type_enemy": "Enemies",
     "decklist_type_treachery": "Treacheries",
     "decklist_type_location": "Locations",
+    "decklist_view_label": "View on ArkhamDB",
 
     # /search
     "search_prompt": "🔍 Enter card name or code:",

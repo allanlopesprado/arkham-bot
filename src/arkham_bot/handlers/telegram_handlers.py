@@ -1465,7 +1465,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption_lines.append(f"🚫 {s.get('decklist_taboo_active', 'Com taboo')}")
         if description:
             caption_lines.append(f"\n{escape(description[:300])}")
-        caption_lines.append(f"\n🔗 <a href='https://arkhamdb.com/decklist/view/{decklist_id}'>ArkhamDB</a>")
+        caption_lines.append(f"\n🔗 <a href='https://arkhamdb.com/decklist/view/{decklist_id}'>{s.get('decklist_view_label', 'Ver no ArkhamDB')}</a>")
         caption = "\n".join(caption_lines)
 
         # Fetch investigator image
