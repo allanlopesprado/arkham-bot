@@ -807,6 +807,7 @@ export default function App() {
 
           <Section title={copy.configTitle}>
             <Row icon="settings" label={copy.postingConfig} onClick={() => setActiveTab('settings')} />
+            <Row icon="send"     label={copy.destinationsManageTab} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
             <Row icon="language" label={copy.appConfig}     onClick={() => setActiveTab('app_settings')} />
           </Section>
 
@@ -815,7 +816,6 @@ export default function App() {
             <Row icon="server"   label={copy.health}       onClick={() => setActiveTab('health')} value={workerValue} badgeTone={workerTone} />
             <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
             {me?.role === 'owner' && <Row icon="shield" label={copy.adminsTab} onClick={() => setActiveTab('admins')} />}
-            <Row icon="send" label={copy.destinationsManageTab} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
           </Section>
         </>
       )}
