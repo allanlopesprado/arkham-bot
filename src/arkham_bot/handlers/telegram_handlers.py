@@ -555,9 +555,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         card_info = ""
         example_hint = s["card_example_fallback"]
 
+    cancel_button = InlineKeyboardButton(s["card_btn_close"], callback_data=CALLBACK_CANCEL)
     await query.edit_message_text(
         text=s["card_pack_selected"].format(pack_name=pack_name, card_info=card_info, example_hint=example_hint),
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=InlineKeyboardMarkup([[cancel_button]]),
     )
 
     return CHOOSING_CARD_NUMBER
