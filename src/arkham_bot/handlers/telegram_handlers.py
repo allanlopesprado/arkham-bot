@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 
 from PIL import Image
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters, Update
+from telegram.error import BadRequest as TelegramBadRequest
 from telegram.constants import ParseMode
 from telegram.ext import (
     CallbackQueryHandler,
@@ -698,10 +699,13 @@ async def card_list_page_callback(update: Update, context: ContextTypes.DEFAULT_
         page = 0
     packs = await asyncio.to_thread(_get_cached_pack_list)
     s = get_strings()
-    await query.edit_message_text(
-        s["card_choose_pack"],
-        reply_markup=_card_pack_buttons(packs, page, s),
-    )
+    try:
+        await query.edit_message_text(
+            s["card_choose_pack"],
+            reply_markup=_card_pack_buttons(packs, page, s),
+        )
+    except TelegramBadRequest:
+        pass
     return CHOOSING_CARD_NUMBER
 
 
@@ -2014,13 +2018,15 @@ async def sets_list_page_callback(update: Update, context: ContextTypes.DEFAULT_
         packs = _sets_pack_list(cards)
         s = get_strings()
         total = len(packs)
-        await query.edit_message_text(
-            s["sets_choose"] + f" ({total})",
-            reply_markup=_sets_pack_buttons(packs, page, s),
-        )
+        try:
+            await query.edit_message_text(
+                s["sets_choose"] + f" ({total})",
+                reply_markup=_sets_pack_buttons(packs, page, s),
+            )
+        except TelegramBadRequest:
+            pass
     except Exception as exc:
         logger.error(f"sets_list_page_callback error: {exc}", exc_info=True)
-        await query.edit_message_text(get_strings()["sets_error"])
 
 
 async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2040,13 +2046,12 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         s = get_strings()
         total = len(packs)
         text = s["sets_choose"] + f" ({total})"
-        await query.edit_message_text(
-            text,
-            reply_markup=_sets_pack_buttons(packs, page, s),
-        )
+        try:
+            await query.edit_message_text(text, reply_markup=_sets_pack_buttons(packs, page, s))
+        except TelegramBadRequest:
+            pass
     except Exception as exc:
         logger.error(f"sets_back_callback error: {exc}", exc_info=True)
-        await query.edit_message_text(get_strings()["sets_error"])
 
 
 
