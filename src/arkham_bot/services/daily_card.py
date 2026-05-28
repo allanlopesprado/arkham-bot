@@ -430,20 +430,23 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 back_image_bytes = None
                 found_back_image = False
 
-                if back_image_src:
-                    for ext in EXTENSIONS_TO_TRY:
-                        back_image_path = back_image_src or f"/bundles/cards/{card_code}b{ext}"
-                        back_image_url = urljoin(BASE_URL, back_image_path)
+                for ext in EXTENSIONS_TO_TRY:
+                    if back_image_src and back_image_src.lower().endswith(ext):
+                        back_image_path = back_image_src
+                    else:
+                        back_image_path = f"/bundles/cards/{card_code}b{ext}"
+                    back_image_url = urljoin(BASE_URL, back_image_path)
 
-                        try:
-                            back_image_content = download_image_sync(back_image_url)
-                            back_image_bytes = io.BytesIO(back_image_content)
-                            Image.open(back_image_bytes).verify()
-                            back_image_bytes.seek(0)
-                            found_back_image = True
-                            break
-                        except Exception:
-                            continue
+                    try:
+                        back_image_content = download_image_sync(back_image_url)
+                        back_image_bytes = io.BytesIO(back_image_content)
+                        Image.open(back_image_bytes).verify()
+                        back_image_bytes.seek(0)
+                        found_back_image = True
+                        logger.info(f"Back image successfully downloaded from URL: {back_image_url}")
+                        break
+                    except Exception:
+                        continue
 
                 back_caption = format_card_back_caption(card, back_text_raw, is_interactive=not is_scheduled)
 
