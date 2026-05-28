@@ -998,11 +998,11 @@ export default function App() {
           )}
 
           {/* Card filter */}
-          <Section title={copy.cardFilter} info={copy.includeSpoilersCaption}>
+          <Section title={copy.cardFilter}>
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
-          <Section title={copy.scheduleTab} footer={copy.weeklyScheduleCaption}>
+          <Section title={copy.scheduleTab}>
             <Row icon="calendar" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
           </Section>
 
@@ -1115,6 +1115,7 @@ export default function App() {
         const allEnabled = allDaysMode;
         return (
           <>
+            <div className="section-footer" style={{ padding: '8px 4px 4px' }}>{copy.weeklyScheduleCaption}</div>
             <Section title={copy.weeklySchedule}>
               <DayScheduleRow
                 label={copy.allWeekdays}
@@ -1124,7 +1125,7 @@ export default function App() {
                 onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
               />
             </Section>
-            <Section title={copy.dailySchedule} footer={copy.weeklyScheduleCaption}>
+            <Section title={copy.dailySchedule}>
               {WEEKDAYS.map((day) => {
                 const enabled = settings.daily_post_days.includes(day.code);
                 return (

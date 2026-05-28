@@ -649,8 +649,13 @@ async function handleBotInfo(env, ao) {
     const bot = meResp.result;
     let photo_url = null;
 
-    // Fetch profile photos using the bot's own numeric id
-    const photosResp = await tgApi(`getUserProfilePhotos?user_id=${bot.id}&limit=1`);
+    // Fetch profile photos, description and short_description in parallel
+    const [photosResp, descResp, shortDescResp] = await Promise.all([
+      tgApi(`getUserProfilePhotos?user_id=${bot.id}&limit=1`),
+      tgApi('getMyDescription'),
+      tgApi('getMyShortDescription'),
+    ]);
+
     const fileId = photosResp.result?.photos?.[0]?.at(-1)?.file_id;
     if (fileId) {
       const fileResp = await tgApi(`getFile?file_id=${fileId}`);
@@ -663,8 +668,8 @@ async function handleBotInfo(env, ao) {
       ok: true,
       name: bot.first_name || null,
       username: bot.username || null,
-      description: bot.description || null,
-      short_description: bot.short_description || null,
+      description: descResp.result?.description || null,
+      short_description: shortDescResp.result?.short_description || null,
       photo_url,
     }), ao);
   } catch {
