@@ -66,10 +66,7 @@ def _claim_commands_atomic(batch_size: int) -> list[dict]:
     client = get_supabase_client()
     if client:
         try:
-            rows = client.get(
-                f"rpc/claim_bot_commands",
-                {"batch_size": str(batch_size)},
-            )
+            rows = client.rpc("claim_bot_commands", {"batch_size": batch_size})
             if rows is not None:
                 return rows
         except Exception:

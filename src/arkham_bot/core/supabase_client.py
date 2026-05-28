@@ -89,6 +89,12 @@ class SupabaseRestClient:
         response = _request_with_retry(self._client, "DELETE", self.table_url(table), headers=self.headers, params=params)
         return response.json() if response.content else []
 
+    def rpc(self, function_name: str, params: dict | None = None) -> list[dict]:
+        """Call a PostgREST RPC function via POST to /rpc/{function_name}."""
+        url = f"{self.base_url}/rpc/{function_name}"
+        response = _request_with_retry(self._client, "POST", url, headers=self.headers, json=params or {})
+        return response.json() if response.content else []
+
 
 # Singleton client — one persistent connection pool for the whole process
 _client_instance: SupabaseRestClient | None = None
