@@ -157,6 +157,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     posted_cards = load_posted_cards()
     max_card_attempts = 5
+    pre_message_sent = False
 
     while max_card_attempts > 0:
         card = None
@@ -362,7 +363,6 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
 
         message = None
         telegram_attempts = 3
-        pre_message_sent = False
 
         while telegram_attempts > 0:
             try:
