@@ -1392,6 +1392,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(s["decklist_usage"])
         return
     from ..clients.arkhamdb_client import fetch_decklist_sync
+    from ..repositories.cards_repo import get_all_cards as _get_all_cards
 
     raw_arg = context.args[0].strip()
     match = re.search(r"(\d+)", raw_arg)
@@ -1399,14 +1400,116 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(s["decklist_invalid_id"])
         return
     decklist_id = match.group(1)
+    user_reply = ReplyParameters(message_id=update.message.message_id)
     try:
         deck = await asyncio.to_thread(fetch_decklist_sync, decklist_id)
-        name = deck.get('name', s["decklist_untitled"])
-        investigator = deck.get('investigator_name') or deck.get('investigator_code') or s["decklist_unknown_investigator"]
-        slots = deck.get('slots') if isinstance(deck.get('slots'), dict) else {}
-        await update.message.reply_text(
-            s["decklist_text"].format(name=name, investigator=investigator, slots=len(slots), decklist_id=decklist_id)
-        )
+        name = escape(deck.get('name') or s["decklist_untitled"])
+        inv_name = escape(deck.get('investigator_name') or deck.get('investigator_code') or s["decklist_unknown_investigator"])
+        inv_code = deck.get('investigator_code', '')
+        slots: dict = deck.get('slots') if isinstance(deck.get('slots'), dict) else {}
+        xp = deck.get('xp') or 0
+        taboo_id = deck.get('taboo_id')
+        date_upd = deck.get('date_update', '')
+        description = (deck.get('description_md') or '').strip()
+        version = deck.get('version') or '1.0'
+
+        # Format date
+        date_str = ''
+        if date_upd:
+            try:
+                from datetime import timezone as _tz
+                dt = datetime.fromisoformat(date_upd.replace('Z', '+00:00'))
+                date_str = dt.strftime('%d/%m/%Y')
+            except Exception:
+                pass
+
+        # Build card list grouped by type
+        all_cards = await asyncio.to_thread(_get_all_cards)
+        card_map = {c['code']: c for c in all_cards if c.get('code')}
+
+        TYPE_ORDER = ['investigator', 'asset', 'event', 'skill', 'enemy', 'treachery', 'location']
+        TYPE_ICONS = {'asset': '🟦', 'event': '🟩', 'skill': '🟡', 'enemy': '🔴', 'treachery': '🟠', 'investigator': '🔵', 'location': '🟣'}
+        grouped: dict[str, list[str]] = {}
+        total_cards = 0
+        for code, qty in sorted(slots.items()):
+            card = card_map.get(code)
+            cname = escape(card['name'] if card else code)
+            ctype = (card.get('type_code') or 'other') if card else 'other'
+            label = f"{'×' + str(qty) + ' ' if qty > 1 else ''}{cname}"
+            grouped.setdefault(ctype, []).append(label)
+            total_cards += qty
+
+        card_lines = []
+        for t in TYPE_ORDER:
+            if t in grouped and t != 'investigator':
+                icon = TYPE_ICONS.get(t, '▪️')
+                tname = s.get(f"decklist_type_{t}", t.capitalize())
+                card_lines.append(f"\n{icon} <b>{tname}</b>")
+                card_lines.extend(f"  {item}" for item in grouped[t])
+        for t, items in grouped.items():
+            if t not in TYPE_ORDER and t != 'investigator':
+                card_lines.append(f"\n▪️ <b>{t.capitalize()}</b>")
+                card_lines.extend(f"  {item}" for item in items)
+
+        # Caption for investigator image
+        caption_lines = [
+            f"🃏 <b>{name}</b>",
+            f"🔵 {inv_name}",
+        ]
+        if date_str:
+            caption_lines.append(f"📅 {s.get('decklist_updated', 'Atualizado em')} {date_str}")
+        caption_lines.append(f"📦 {total_cards} {s.get('decklist_cards_label', 'cartas')} · v{version}")
+        if xp:
+            caption_lines.append(f"⭐ XP: {xp}")
+        if taboo_id:
+            caption_lines.append(f"🚫 {s.get('decklist_taboo_active', 'Com taboo')}")
+        if description:
+            caption_lines.append(f"\n{escape(description[:300])}")
+        caption_lines.append(f"\n🔗 <a href='https://arkhamdb.com/decklist/view/{decklist_id}'>ArkhamDB</a>")
+        caption = "\n".join(caption_lines)
+
+        # Fetch investigator image
+        inv_img = None
+        if inv_code:
+            inv_card = card_map.get(inv_code)
+            if inv_card:
+                image_src = inv_card.get('imagesrc')
+                for ext in EXTENSIONS_TO_TRY:
+                    img_path = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{inv_code}{ext}"
+                    try:
+                        content = await download_image_async(urljoin(BASE_URL, img_path))
+                        buf = io.BytesIO(content)
+                        Image.open(buf).verify()
+                        buf.seek(0)
+                        inv_img = buf
+                        break
+                    except Exception:
+                        continue
+
+        if inv_img:
+            deck_msg = await update.message.reply_photo(
+                photo=inv_img, caption=caption, parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
+            )
+        else:
+            deck_msg = await update.message.reply_text(
+                caption, parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
+                disable_web_page_preview=True,
+            )
+
+        # Send card list as reply to the deck message
+        if card_lines:
+            cards_text = f"<b>{s.get('decklist_cards_title', 'Cartas do deck')}</b>" + "\n".join(card_lines)
+            for chunk in _chunks(cards_text, 3900):
+                deck_msg = await update.message.get_bot().send_message(
+                    chat_id=update.effective_chat.id,
+                    text=chunk,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                    reply_parameters=ReplyParameters(message_id=deck_msg.message_id),
+                )
+
     except Exception as exc:
         logger.error(f"decklist_command_failed: {exc}", exc_info=True)
         await update.message.reply_text(s["decklist_error"])

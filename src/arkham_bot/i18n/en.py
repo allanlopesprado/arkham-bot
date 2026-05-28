@@ -94,12 +94,21 @@ strings: dict = {
     "taboo_cat_other": "Other restrictions",
 
     # /decklist
-    "decklist_usage": "Usage: /decklist <decklist_id>",
-    "decklist_invalid_id": "Invalid decklist id.",
-    "decklist_text": "Decklist: {name}\nInvestigator: {investigator}\nCards in slots: {slots}\nhttps://arkhamdb.com/decklist/view/{decklist_id}",
+    "decklist_usage": "Usage: /decklist <id>  —  Ex: /decklist 12345",
+    "decklist_invalid_id": "Invalid decklist ID.",
     "decklist_error": "Could not fetch decklist right now.",
     "decklist_untitled": "Untitled decklist",
     "decklist_unknown_investigator": "Unknown investigator",
+    "decklist_updated": "Updated on",
+    "decklist_cards_label": "cards",
+    "decklist_taboo_active": "Using taboo",
+    "decklist_cards_title": "Deck cards",
+    "decklist_type_asset": "Assets",
+    "decklist_type_event": "Events",
+    "decklist_type_skill": "Skills",
+    "decklist_type_enemy": "Enemies",
+    "decklist_type_treachery": "Treacheries",
+    "decklist_type_location": "Locations",
 
     # /search
     "search_prompt": "🔍 Enter card name or code:",

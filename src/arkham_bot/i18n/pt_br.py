@@ -94,12 +94,21 @@ strings: dict = {
     "taboo_cat_other": "Outras restrições",
 
     # /decklist
-    "decklist_usage": "Uso: /decklist <decklist_id>",
+    "decklist_usage": "Uso: /decklist <id>  —  Ex: /decklist 12345",
     "decklist_invalid_id": "ID de decklist inválido.",
-    "decklist_text": "Decklist: {name}\nInvestigador: {investigator}\nCartas: {slots}\nhttps://arkhamdb.com/decklist/view/{decklist_id}",
     "decklist_error": "Não foi possível carregar a decklist agora.",
     "decklist_untitled": "Decklist sem título",
     "decklist_unknown_investigator": "Investigador desconhecido",
+    "decklist_updated": "Atualizado em",
+    "decklist_cards_label": "cartas",
+    "decklist_taboo_active": "Usando taboo",
+    "decklist_cards_title": "Cartas do deck",
+    "decklist_type_asset": "Assets",
+    "decklist_type_event": "Eventos",
+    "decklist_type_skill": "Habilidades",
+    "decklist_type_enemy": "Inimigos",
+    "decklist_type_treachery": "Traições",
+    "decklist_type_location": "Locais",
 
     # /search
     "search_prompt": "🔍 Digite o nome ou código da carta:",
