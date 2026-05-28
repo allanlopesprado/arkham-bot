@@ -1116,7 +1116,7 @@ def _taboo_list_menu_text_and_buttons(taboos: list, name_map: dict) -> tuple[str
         raw = t.get('date_start', '')[:10]
         date = f"{raw[8:10]}/{raw[5:7]}/{raw[:4]}" if len(raw) == 10 else raw
         tid = t.get('id', i)
-        label = f"{s['taboo_list_current_prefix'] if i == 0 else ''}{date}"
+        label = f"{date}{s['taboo_list_current_prefix'] if i == 0 else ''}"
         buttons.append([InlineKeyboardButton(label, callback_data=f"TABOO_LIST_{tid}")])
     buttons.append([InlineKeyboardButton(s["taboo_btn_close"], callback_data=CALLBACK_CANCEL)])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
