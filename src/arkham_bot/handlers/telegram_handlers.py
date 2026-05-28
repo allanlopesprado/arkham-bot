@@ -272,10 +272,21 @@ def _arkhamdb_html_to_telegram(html: str) -> str:
     html = re.sub(r'<del>(.*?)</del>', r'<s>\1</s>', html, flags=re.DOTALL)
     # ArkhamDB internal links → full URL
     html = re.sub(r'<a href="/card/([^"]+)">', r'<a href="https://arkhamdb.com/card/\1">', html)
-    # Block elements → single newline (avoid double spacing)
-    html = re.sub(r'<p>(.*?)</p>', r'\1\n', html, flags=re.DOTALL)
-    html = re.sub(r'<li>(.*?)</li>', r'• \1\n', html, flags=re.DOTALL)
-    html = re.sub(r'</?(?:ul|ol)[^>]*>', '', html)
+    # Break A: onto its own paragraph when inline after Q: answer
+    html = re.sub(r'\s+<b>A:</b>', '\n\n<b>A:</b>', html)
+    # Each <p> becomes its own paragraph
+    html = re.sub(r'<p>(.*?)</p>', r'\1\n\n', html, flags=re.DOTALL)
+    # Each <li> on its own line; blank line before the list block
+    html = re.sub(
+        r'<ul>(.*?)</ul>',
+        lambda m: '\n' + re.sub(r'<li>(.*?)</li>', r'\n• \1', m.group(1), flags=re.DOTALL) + '\n',
+        html, flags=re.DOTALL,
+    )
+    html = re.sub(
+        r'<ol>(.*?)</ol>',
+        lambda m: '\n' + re.sub(r'<li>(.*?)</li>', r'\n• \1', m.group(1), flags=re.DOTALL) + '\n',
+        html, flags=re.DOTALL,
+    )
     # Strip remaining unsupported tags (keep content)
     html = re.sub(r'<(?!/?(?:b|i|s|u|code|pre|a)[\s>])[^>]+>', '', html)
     # Normalize excessive blank lines
