@@ -1447,15 +1447,16 @@ export default function App() {
                     <span className="row-label">{p.chat_title}</span>
                     <span className="row-caption">{p.chat_id}{p.chat_username ? ` · @${p.chat_username}` : ''}</span>
                   </div>
-                  <input
-                    className="block-input"
-                    style={{ fontFamily: 'monospace', fontSize: 13 }}
-                    type="number"
-                    placeholder={copy.pendingThreadHint}
-                    value={pendingThreadId[p.id] || ''}
-                    onChange={e => setPendingThreadId(t => ({ ...t, [p.id]: e.target.value }))}
-                    autoComplete="off"
-                  />
+                  <div className="stacked-input-row" style={{ padding: 0 }}>
+                    <input
+                      className="block-input"
+                      inputMode="numeric"
+                      placeholder={copy.pendingThreadHint}
+                      value={pendingThreadId[p.id] || ''}
+                      onChange={e => setPendingThreadId(t => ({ ...t, [p.id]: e.target.value.replace(/[^0-9]/g, '') }))}
+                      autoComplete="off"
+                    />
+                  </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       type="button"
