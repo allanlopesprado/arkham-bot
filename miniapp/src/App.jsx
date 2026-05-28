@@ -186,7 +186,7 @@ export default function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'settings', database: 'home', schedule: 'settings', admins: 'app_settings', destinations: 'home', maintenance: 'home', queue: 'home', history: 'home', health: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', database: 'home', schedule: 'settings', admins: 'app_settings', destinations: 'home', maintenance: 'home', queue: 'home', history: 'home', health: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -806,8 +806,9 @@ export default function App() {
           </Section>
 
           <Section title={copy.configTitle}>
-            <Row icon="settings" label={copy.postingConfig} onClick={() => setActiveTab('settings')} />
-            <Row icon="send"     label={copy.destinationsManageTab} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
+            <Row icon="settings" label={copy.postingConfig}          onClick={() => setActiveTab('settings')} />
+            <Row icon="send"     label={copy.destinationsManageTab}  onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
+            <Row icon="settings" label={copy.appTab}                 onClick={() => { setActiveTab('app_settings'); fetchAdmins(); }} />
           </Section>
 
           <Section title={copy.systemTitle}>
@@ -932,9 +933,8 @@ export default function App() {
 
           {/* Sub-sections navigation */}
           <Section>
-            <Row icon="clock"    label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
-            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
-            <Row icon="settings" label={copy.appTab}      onClick={() => setActiveTab('app_settings')} />
+            <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
+            <Row icon="ai"    label={copy.aiTab}        onClick={() => setActiveTab('ai')} />
           </Section>
 
           {settingsResult && (
