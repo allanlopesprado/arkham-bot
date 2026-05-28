@@ -722,7 +722,7 @@ export default function App() {
     try {
       const { ok, json } = await apiFetch(`/destinations/${destId}/test`, { method: 'POST' });
       if (ok) { haptic('notification', 'success'); setAddDestResult({ ok: true, friendly: copy.destinationTestOk }); }
-      else { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationTestFailed }); }
+      else { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationTestFailed, detail: json?.detail || json?.error || '' }); }
     } catch { haptic('notification', 'error'); }
     finally { setTestingDest(null); }
   }
@@ -1414,7 +1414,7 @@ export default function App() {
             <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
             <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
             {addDestResult && (
-              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} value={addDestResult.ok ? 'ok' : 'err'} badgeTone={addDestResult.ok ? 'ok' : 'err'} caption={addDestResult.friendly} />
+              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} value={addDestResult.ok ? 'ok' : 'err'} badgeTone={addDestResult.ok ? 'ok' : 'err'} caption={[addDestResult.friendly, addDestResult.detail].filter(Boolean).join(' — ')} />
             )}
           </Section>
         </>
