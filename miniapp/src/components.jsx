@@ -139,7 +139,7 @@ export function StackedInputRow({ label, value, onChange, placeholder, hint, inp
   );
 }
 
-export function ChatIdInputRow({ value, onChange, placeholder }) {
+export function ChatIdInputRow({ value, onChange, placeholder, label }) {
   function handleChange(e) {
     const digits = e.target.value.replace(/[^0-9]/g, '');
     onChange(digits ? `-${digits}` : '');
@@ -147,6 +147,7 @@ export function ChatIdInputRow({ value, onChange, placeholder }) {
   const displayValue = value.startsWith('-') ? value.slice(1) : value;
   return (
     <div className="stacked-input-row">
+      {label && <span className="row-label">{label}</span>}
       <div className="chat-id-input-wrap">
         <span className="chat-id-prefix">-</span>
         <input

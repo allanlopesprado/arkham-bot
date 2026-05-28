@@ -695,14 +695,17 @@ export default function App() {
   }
 
   async function addDestination() {
-    if (!destChatId.trim()) return;
+    const chatIdDigits = destChatId.replace(/[^0-9]/g, '');
+    if (!chatIdDigits) { setAddDestResult({ ok: false, friendly: copy.destinationInvalidChatId }); return; }
+    if (destThread && !/^\d+$/.test(destThread.trim())) { setAddDestResult({ ok: false, friendly: copy.destinationInvalidThreadId }); return; }
+    const finalChatId = `-${chatIdDigits}`;
     setAddingDest(true);
     setAddDestResult(null);
     try {
       const { ok, json } = await apiFetch('/destinations', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: destChatId, title: destTitle, message_thread_id: destThread ? Number(destThread) : null }),
+        body: JSON.stringify({ chat_id: finalChatId, title: destTitle, message_thread_id: destThread ? Number(destThread) : null }),
       });
       if (ok) {
         setAddDestResult({ ok: true, friendly: copy.success });
@@ -1416,7 +1419,7 @@ export default function App() {
           </Section>
 
           <Section title={copy.addDestination}>
-            <StackedInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={setDestChatId} placeholder={copy.destinationChatIdPlaceholder} inputMode="numeric" />
+            <ChatIdInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={setDestChatId} placeholder="100123456789" />
             <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
             <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
             <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />

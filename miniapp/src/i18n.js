@@ -243,6 +243,8 @@ export const I18N = {
     destinationTestFailed: 'Falha ao enviar mensagem de teste.',
     destinationsFetchFailed: 'Falha ao carregar destinos.',
     destinationAddFailed: 'Falha ao adicionar destino.',
+    destinationInvalidChatId: 'Chat ID inválido. Use apenas números (o - será inserido automaticamente).',
+    destinationInvalidThreadId: 'Thread ID inválido. Use apenas números.',
     destinationRemoveFailed: 'Falha ao remover destino.',
     // health - bot runtime
     botRuntime: 'Python Bot',
@@ -562,6 +564,8 @@ export const I18N = {
     destinationTestFailed: 'Failed to send test message.',
     destinationsFetchFailed: 'Failed to load destinations.',
     destinationAddFailed: 'Failed to add destination.',
+    destinationInvalidChatId: 'Invalid Chat ID. Numbers only (the - is added automatically).',
+    destinationInvalidThreadId: 'Invalid Thread ID. Numbers only.',
     destinationRemoveFailed: 'Failed to remove destination.',
     // health - bot runtime
     botRuntime: 'Python Bot',
