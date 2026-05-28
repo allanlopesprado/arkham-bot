@@ -196,9 +196,42 @@ async def _check_rate_limit(update: Update) -> bool:
 
 
 def _chunks(text: str, size: int = 3900) -> list[str]:
+    import re
     if len(text) <= size:
         return [text]
-    # Split on paragraph boundaries to avoid cutting inside HTML tags
+
+    def _split_para(para: str, limit: int) -> list[str]:
+        """Split a single paragraph at sentence boundaries."""
+        if len(para) <= limit:
+            return [para]
+        # Try to split at sentence end (. ! ?) followed by space or end
+        sentences = re.split(r'(?<=[.!?])\s+', para)
+        parts, current = [], ""
+        for sent in sentences:
+            candidate = (current + " " + sent).strip() if current else sent
+            if len(candidate) <= limit:
+                current = candidate
+            else:
+                if current:
+                    parts.append(current)
+                # If single sentence exceeds limit, split at last space before limit
+                if len(sent) > limit:
+                    while sent:
+                        cut = sent[:limit]
+                        space = cut.rfind(' ')
+                        if space > 0:
+                            parts.append(sent[:space])
+                            sent = sent[space + 1:]
+                        else:
+                            parts.append(cut)
+                            sent = sent[limit:]
+                    current = ""
+                else:
+                    current = sent
+        if current:
+            parts.append(current)
+        return parts or [para[:limit]]
+
     paragraphs = text.split("\n\n")
     chunks, current = [], ""
     for para in paragraphs:
@@ -208,11 +241,10 @@ def _chunks(text: str, size: int = 3900) -> list[str]:
         else:
             if current:
                 chunks.append(current)
-            # If a single paragraph exceeds the limit, hard-split it
             if len(para) > size:
-                for i in range(0, len(para), size):
-                    chunks.append(para[i:i + size])
-                current = ""
+                sub = _split_para(para, size)
+                chunks.extend(sub[:-1])
+                current = sub[-1]
             else:
                 current = para
     if current:
@@ -931,30 +963,21 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-        # Send image with FAQ as caption (max 1024 chars), overflow as replies
-        CAPTION_LIMIT = 1024
-        chunks = _chunks(faq_text, CAPTION_LIMIT)
-        first_caption = chunks[0]
-        overflow = chunks[1:]
-
+        # 1. Send image as reply to user (no caption)
         if img_bytes:
             photo_msg = await update.message.reply_photo(
                 photo=img_bytes,
-                caption=first_caption,
-                parse_mode=ParseMode.HTML,
                 reply_parameters=user_reply,
             )
         else:
-            photo_msg = await update.message.reply_text(
-                first_caption,
-                parse_mode=ParseMode.HTML,
-                reply_parameters=user_reply,
-                disable_web_page_preview=True,
-            )
+            photo_msg = None
 
-        # Chain overflow messages as replies to the previous message
-        last_msg = photo_msg
-        for chunk in overflow:
+        # 2. Send FAQ text as reply to the image (or to user if no image)
+        # Split only at paragraph boundaries — never mid-sentence
+        anchor = photo_msg or update.message
+        chunks = _chunks(faq_text, 3900)
+        last_msg = anchor
+        for chunk in chunks:
             last_msg = await last_msg.reply_text(
                 chunk,
                 parse_mode=ParseMode.HTML,
