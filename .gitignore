@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# SSH keys
+.ssh/
+
 # Python environments
 venv/
 .venv/
