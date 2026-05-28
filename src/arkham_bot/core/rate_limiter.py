@@ -40,6 +40,11 @@ class InMemoryRateLimiter:
             return False, RATE_LIMIT_EXCEEDED_MESSAGE_EN
         user_hits.append(now)
         chat_hits.append(now)
+        # Evict empty deques to prevent unbounded memory growth for inactive users
+        if not user_hits:
+            del self._user_hits[user_id]
+        if not chat_hits:
+            del self._chat_hits[chat_id]
         return True, None
 
 

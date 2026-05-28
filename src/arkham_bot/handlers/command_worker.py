@@ -66,6 +66,7 @@ async def _notify_admins(text: str) -> None:
     for admin_id in ADMIN_TELEGRAM_USER_IDS:
         try:
             await bot.send_message(chat_id=admin_id, text=text[:3900])
+            await asyncio.sleep(0.5)  # respect per-chat rate limit
         except TelegramError as exc:
             logger.warning("admin_notification_failed admin_id=%s error=%s", admin_id, exc)
 

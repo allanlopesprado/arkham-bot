@@ -478,6 +478,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
         await _pin_new_daily_card(bot, chat_id, card_code, message.message_id)
 
         for extra in extra_destinations:
+            await asyncio.sleep(1)  # respect Telegram 1 msg/sec per chat limit
             try:
                 card_image_bytes.seek(0)
                 extra_msg = await bot.send_photo(

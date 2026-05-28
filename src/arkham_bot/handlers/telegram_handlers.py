@@ -1539,12 +1539,12 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         card_lines = []
         for t in TYPE_ORDER:
             if t in grouped and t != 'investigator':
-                tname = type_labels.get(t, t.capitalize())
+                tname = escape(type_labels.get(t, t.capitalize()))
                 card_lines.append(f"\n▪️ <b>{tname}</b>")
                 card_lines.extend(f"  {item}" for item in grouped[t])
         for t, items in grouped.items():
             if t not in TYPE_ORDER and t != 'investigator':
-                tname = type_labels.get(t, t.capitalize())
+                tname = escape(type_labels.get(t, t.capitalize()))
                 card_lines.append(f"\n▪️ <b>{tname}</b>")
                 card_lines.extend(f"  {item}" for item in items)
 
@@ -1793,6 +1793,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
         _pop_search_prompt(context)
+        context.bot_data.pop(f"search_{user_id}", None)  # free memory after card selected
         bot = query.message.get_bot()
         chat_id = query.message.chat_id
         rp = ReplyParameters(message_id=user_msg_id) if user_msg_id else None

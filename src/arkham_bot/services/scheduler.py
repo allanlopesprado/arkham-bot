@@ -125,7 +125,11 @@ async def daily_scheduler_loop() -> None:
     while True:
         try:
             daily_post_enabled, daily_post_times, daily_post_days, timezone_name, day_config = _runtime_config()
-            timezone = ZoneInfo(timezone_name)
+            try:
+                timezone = ZoneInfo(timezone_name)
+            except Exception:
+                logger.warning("scheduler: invalid timezone '%s', falling back to UTC", timezone_name)
+                timezone = ZoneInfo("UTC")
             now = datetime.now(timezone)
             state = _load_state()
             today = WEEKDAY_CODES[now.weekday()]
@@ -214,6 +218,7 @@ async def _notify_admins_failure(error: str | None) -> None:
         for uid in ADMIN_TELEGRAM_USER_IDS:
             try:
                 await bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")
+                await asyncio.sleep(0.5)  # respect per-chat rate limit
             except Exception:
                 pass
     except Exception as exc:
