@@ -550,7 +550,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if count > 0:
         sample_str = ", ".join(str(p) for p in sample)
-        card_info = f"({count} cards, {min_pos}–{max_pos})"
+        card_info = f"({count} cards)"
         example_hint = f"Ex: {sample_str}"
     else:
         card_info = ""
