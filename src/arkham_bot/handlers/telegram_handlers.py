@@ -1469,9 +1469,14 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if taboo_id:
             caption_lines.append(f"🚫 {s.get('decklist_taboo_active', 'Com taboo')}")
         if description:
-            clean_desc = re.sub(r'<[^>]+>', '', description).strip()
+            clean_desc = re.sub(r'<[^>]+>', '', description)
+            clean_desc = re.sub(r'^#+\s*', '', clean_desc, flags=re.MULTILINE)  # ## headings
+            clean_desc = re.sub(r'^>\s*', '', clean_desc, flags=re.MULTILINE)   # > blockquotes
+            clean_desc = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', clean_desc)   # **bold** / *italic*
+            clean_desc = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', clean_desc)   # [text](url)
+            clean_desc = re.sub(r'\n{3,}', '\n\n', clean_desc).strip()
             if clean_desc:
-                caption_lines.append(f"\n{escape(clean_desc[:300])}")
+                caption_lines.append(f"\n<i>{escape(clean_desc[:300])}</i>")
         caption_lines.append(f"\n🔗 <a href='https://arkhamdb.com/decklist/view/{decklist_id}'>{s.get('decklist_view_label', 'Ver no ArkhamDB')}</a>")
         caption = "\n".join(caption_lines)
 
