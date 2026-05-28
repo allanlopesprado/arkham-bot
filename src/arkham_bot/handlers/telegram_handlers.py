@@ -86,18 +86,35 @@ async def _fetch_all_taboos() -> list[dict]:
     return await asyncio.to_thread(fetch_taboos_sync)
 
 
+_FAQ_CACHE_TTL_DAYS = 7
+
 async def _fetch_faq(card_code: str) -> list | None:
-    """DB-first FAQ fetch with API fallback."""
-    from ..repositories.faq_repo import get_faq_by_code
+    """DB-first FAQ fetch with cache-on-demand. Refreshes if older than TTL."""
+    from ..repositories.faq_repo import get_faq_by_code, upsert_faq
     from ..clients.arkhamdb_client import fetch_faq_by_card_code_sync
+    from datetime import timezone
+    cached, updated_at = None, None
     try:
-        faq = await asyncio.to_thread(get_faq_by_code, card_code)
-        if faq is not None:
-            return faq
+        cached, updated_at = await asyncio.to_thread(get_faq_by_code, card_code)
     except Exception as exc:
         logger.warning(f"DB get_faq_by_code failed for {card_code}: {exc}")
-    logger.info(f"Falling back to ArkhamDB API for FAQ {card_code}")
-    return await asyncio.to_thread(fetch_faq_by_card_code_sync, card_code)
+
+    if cached is not None and updated_at:
+        try:
+            age_days = (datetime.now(timezone.utc) - datetime.fromisoformat(updated_at)).days
+            if age_days < _FAQ_CACHE_TTL_DAYS:
+                return cached
+        except Exception:
+            return cached
+
+    logger.info(f"FAQ cache miss or stale for {card_code}, fetching from ArkhamDB")
+    fresh = await asyncio.to_thread(fetch_faq_by_card_code_sync, card_code)
+    if fresh is not None:
+        try:
+            await asyncio.to_thread(upsert_faq, card_code, fresh)
+        except Exception as exc:
+            logger.warning(f"faq_cache_save_failed {card_code}: {exc}")
+    return fresh
 
 PACK_ABBREVIATIONS: dict[str, str] = {
     # Core / Revised Core

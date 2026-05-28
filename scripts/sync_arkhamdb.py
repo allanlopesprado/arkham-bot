@@ -19,7 +19,7 @@ from arkham_bot.core.logging_config import setup_logging
 from arkham_bot.repositories.audit_repo import create_audit_log
 from arkham_bot.repositories.cards_repo import bulk_upsert_cards
 from arkham_bot.repositories.factions_repo import upsert_faction
-from arkham_bot.repositories.faq_repo import upsert_faq
+from arkham_bot.repositories.faq_repo import upsert_faq, get_cached_faq_codes
 from arkham_bot.repositories.packs_repo import upsert_pack
 from arkham_bot.repositories.taboos_repo import upsert_taboo
 from arkham_bot.core.supabase_client import get_supabase_client
@@ -102,13 +102,16 @@ def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: i
         saved += len(batch)
         logger.info("  %d/%d cartas salvas", saved, total)
 
+    # Always refresh FAQs already cached in DB (cache-on-demand strategy).
+    # Full sync (sync_faq=True) fetches FAQ for ALL cards — slow but complete.
+    cached_codes = get_cached_faq_codes()
     if sync_faq:
-        faq_cards = encounter_cards[:faq_limit] if faq_limit else encounter_cards
-        logger.info("Sincronizando FAQ para %d cartas...", len(faq_cards))
-        for i, card in enumerate(faq_cards, 1):
-            code = card.get("code")
-            if not code:
-                continue
+        faq_codes = [c.get("code") for c in (encounter_cards[:faq_limit] if faq_limit else encounter_cards) if c.get("code")]
+    else:
+        faq_codes = cached_codes  # only refresh what's already been queried
+    if faq_codes:
+        logger.info("Atualizando FAQ para %d carta(s)...", len(faq_codes))
+        for i, code in enumerate(faq_codes, 1):
             try:
                 faq = fetch_faq_by_card_code_sync(code)
                 upsert_faq(code, faq)
@@ -116,7 +119,7 @@ def sync_arkhamdb(*, dry_run: bool = False, sync_faq: bool = False, faq_limit: i
             except Exception as exc:
                 logger.warning("faq_sync_failed card=%s error=%s", code, exc)
             if i % 50 == 0:
-                logger.info("  FAQ: %d/%d cartas processadas", i, len(faq_cards))
+                logger.info("  FAQ: %d/%d cartas processadas", i, len(faq_codes))
 
     # Verify count in DB matches what we received from ArkhamDB
     client = get_supabase_client()
