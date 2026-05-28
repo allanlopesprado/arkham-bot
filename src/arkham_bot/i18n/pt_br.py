@@ -103,12 +103,6 @@ strings: dict = {
     "decklist_cards_label": "cartas",
     "decklist_taboo_active": "Usando taboo",
     "decklist_cards_title": "Cartas do deck",
-    "decklist_type_asset": "Assets",
-    "decklist_type_event": "Eventos",
-    "decklist_type_skill": "Habilidades",
-    "decklist_type_enemy": "Inimigos",
-    "decklist_type_treachery": "Traições",
-    "decklist_type_location": "Locais",
     "decklist_view_label": "Ver no ArkhamDB",
 
     # /search

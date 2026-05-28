@@ -1430,11 +1430,14 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         TYPE_ORDER = ['investigator', 'asset', 'event', 'skill', 'enemy', 'treachery', 'location']
         TYPE_ICONS = {'asset': '🟦', 'event': '🟩', 'skill': '🟡', 'enemy': '🔴', 'treachery': '🟠', 'investigator': '🔵', 'location': '🟣'}
         grouped: dict[str, list[str]] = {}
+        type_labels: dict[str, str] = {}
         total_cards = 0
         for code, qty in sorted(slots.items()):
             card = card_map.get(code)
             cname = escape(card['name'] if card else code)
             ctype = (card.get('type_code') or 'other') if card else 'other'
+            if card and card.get('type_name') and ctype not in type_labels:
+                type_labels[ctype] = card['type_name']
             link = f"<a href='https://arkhamdb.com/card/{code}'>{cname}</a>"
             prefix = f"×{qty} · " if qty > 1 else "· "
             grouped.setdefault(ctype, []).append(f"{prefix}{link}")
@@ -1444,12 +1447,12 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for t in TYPE_ORDER:
             if t in grouped and t != 'investigator':
                 icon = TYPE_ICONS.get(t, '▪️')
-                tname = s.get(f"decklist_type_{t}", t.capitalize())
+                tname = type_labels.get(t, t.capitalize())
                 card_lines.append(f"\n{icon} <b>{tname}</b>")
                 card_lines.extend(f"  {item}" for item in grouped[t])
         for t, items in grouped.items():
             if t not in TYPE_ORDER and t != 'investigator':
-                tname = s.get(f"decklist_type_{t}", t.capitalize())
+                tname = type_labels.get(t, t.capitalize())
                 card_lines.append(f"\n▪️ <b>{tname}</b>")
                 card_lines.extend(f"  {item}" for item in items)
 
