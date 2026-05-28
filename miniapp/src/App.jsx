@@ -1110,7 +1110,7 @@ export default function App() {
             <Section title={copy.cardFilter} footer={copy.cardFilterCaption}>
               <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
             </Section>
-            <div className="section-footer" style={{ padding: '8px 4px 4px' }}>{copy.weeklyScheduleCaption}</div>
+            <div className="section-footer">{copy.weeklyScheduleCaption}</div>
             <Section title={copy.weeklySchedule}>
               <DayScheduleRow
                 label={copy.allWeekdays}
@@ -1464,7 +1464,7 @@ export default function App() {
                     <button
                       type="button"
                       className="menu-row"
-                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--link) 12%, transparent)', borderRadius: 10 }}
+                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--link) 12%, transparent)', borderRadius: 8 }}
                       disabled={acceptingPending === p.id}
                       onClick={() => acceptPending(p)}
                     >
@@ -1473,7 +1473,7 @@ export default function App() {
                     <button
                       type="button"
                       className="menu-row"
-                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', borderRadius: 10 }}
+                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', borderRadius: 8 }}
                       onClick={() => dismissPending(p.id)}
                     >
                       <Icon name="x" /><span className="row-label" style={{ marginLeft: 6 }}>{copy.pendingDismiss}</span>
