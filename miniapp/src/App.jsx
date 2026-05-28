@@ -186,7 +186,7 @@ export default function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', language: 'app_settings', database: 'home', schedule: 'settings', admins: 'home', destinations_manage: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', database: 'home', schedule: 'settings', admins: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -250,7 +250,6 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'history') fetchHistoryItems(historyDate, 0);
     if (activeTab === 'admins') fetchAdmins();
-    if (activeTab === 'destinations_manage') fetchDestinations();
     if (activeTab === 'health') fetchBotRuntime();
   }, [activeTab]);
 
@@ -1395,66 +1394,8 @@ export default function App() {
       )}
 
       {/* ── DESTINATIONS MANAGE ── */}
-      {activeTab === 'destinations_manage' && (
-        <>
-          <Section title={copy.destinationsManageTab}>
-            <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={fetchDestinations} />
-            {destError && <Row icon="info" label={String(destError)} value="err" badgeTone="err" />}
-            {destList.map((dest) => (
-              <div key={dest.id} className="row" style={{ justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                  <span className="row-label">{dest.title || String(dest.chat_id)}</span>
-                  <span className="row-caption">{dest.chat_id}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Badge tone={dest.enabled ? 'ok' : 'warn'}>{dest.enabled ? copy.chatActive : copy.offline}</Badge>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={() => testDestination(dest.id)}
-                    disabled={testingDest === dest.id}
-                    aria-label={copy.testDestination}
-                  >{testingDest === dest.id ? <Spinner /> : <Icon name="send" />}</button>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={() => removeDestination(dest.id)}
-                    aria-label={copy.removeDestination}
-                  ><Icon name="x" /></button>
-                </div>
-              </div>
-            ))}
-          </Section>
-          <Section title={copy.addDestination}>
-            <ChatIdInputRow value={destChatId} onChange={setDestChatId} placeholder={copy.destinationChatIdPlaceholder} />
-            <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
-            <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
-            <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
-            {addDestResult && (
-              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} value={addDestResult.ok ? 'ok' : 'err'} badgeTone={addDestResult.ok ? 'ok' : 'err'} caption={addDestResult.friendly} />
-            )}
-          </Section>
-        </>
-      )}
-
       {/* ── APP SETTINGS ── */}
       {activeTab === 'app_settings' && (
-        <Section title={copy.chooseLanguage}>
-          <ToggleRow
-            label={copy.portuguese}
-            checked={language === 'pt'}
-            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
-          />
-          <ToggleRow
-            label={copy.englishLang}
-            checked={language === 'en'}
-            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
-          />
-        </Section>
-      )}
-
-      {/* ── LANGUAGE ── */}
-      {activeTab === 'language' && (
         <Section title={copy.chooseLanguage}>
           <ToggleRow
             label={copy.portuguese}
