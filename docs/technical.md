@@ -1,351 +1,479 @@
-# Documentacao Tecnica
+# Documentação Técnica
 
-## Visao Geral
+## Visão Geral
 
-O Arkham Bot e composto por quatro partes:
+O Arkham Bot é composto por quatro partes que se comunicam via Supabase:
 
-- Backend Python: executa o bot Telegram em long polling, agenda cartas diarias, consulta ArkhamDB e consome comandos administrativos.
-- Supabase: armazena cartas, packs, configuracoes, admins, fila de comandos, historico e auditoria.
-- Cloudflare Worker: valida `initData` do Telegram Mini App, valida admin e insere comandos na fila `bot_commands`.
-- Mini App React/Vite: painel administrativo aberto dentro do Telegram.
+```
+Telegram Bot (Python, Oracle)
+  ├── long polling — recebe comandos de usuários no Telegram
+  ├── scheduler interno — posta carta diária nos horários configurados
+  ├── command_worker — consome fila bot_commands a cada 30s
+  └── heartbeat — escreve last_heartbeat no Supabase a cada 60s
 
-Fluxo principal:
+Cloudflare Worker (arkham-bot-worker.homerlab.workers.dev)
+  ├── valida initData Telegram + admin
+  ├── serve API para o Mini App
+  └── insere comandos em bot_commands
 
-```txt
-Telegram Bot -> main.py interactive
-             -> scheduler.py
-             -> daily_card.py
-             -> Telegram API
-             -> Supabase repositories
+Mini App React (arkham-bot-miniapp.pages.dev)
+  ├── painel administrativo dentro do Telegram
+  └── se comunica exclusivamente com o Worker
 
-Telegram Mini App -> Cloudflare Worker
-                  -> Supabase bot_commands
-                  -> bot_commands_worker.py
-                  -> backend Python executa comando
+Supabase
+  └── banco de dados compartilhado entre Python e Worker
 ```
 
-## Estrutura
+## Estrutura do Repositório
 
-```txt
+```
 .
-|-- main.py
-|-- arkham_daily_card_bot.py
-|-- src/arkham_bot/
-|-- scripts/
-|-- tests/
-|-- supabase/migrations/
-|-- worker/
-|-- miniapp/
-|-- deploy/systemd/
-|-- .github/workflows/
-`-- docs/
+├── main.py                          # Entrada do backend Python
+├── src/arkham_bot/
+│   ├── core/
+│   │   ├── config.py                # Variáveis de ambiente e constantes
+│   │   ├── logging_config.py        # Logging com mascaramento de secrets
+│   │   ├── permissions.py           # is_admin_user(), admin_source()
+│   │   ├── rate_limiter.py          # Rate limit in-memory (por usuário e chat)
+│   │   └── supabase_client.py       # Cliente REST HTTP para Supabase
+│   ├── clients/
+│   │   ├── arkhamdb_client.py       # Cliente da API pública ArkhamDB
+│   │   └── arkhamdb_models.py       # Validação e normalização de payloads
+│   ├── formatters/
+│   │   └── text_formatters.py       # Formatação de legendas de carta (HTML Telegram)
+│   ├── handlers/
+│   │   ├── command_worker.py        # Executa comandos da fila bot_commands
+│   │   └── telegram_handlers.py     # Handlers de comandos Telegram (/card, /search, etc.)
+│   ├── repositories/
+│   │   ├── admins_repo.py           # bot_admins
+│   │   ├── audit_repo.py            # audit_logs
+│   │   ├── cards_repo.py            # arkham_cards
+│   │   ├── commands_repo.py         # bot_commands
+│   │   ├── factions_repo.py         # arkham_factions
+│   │   ├── faq_repo.py              # arkham_faq
+│   │   ├── history_repo.py          # bot_posting_history
+│   │   ├── packs_repo.py            # arkham_packs
+│   │   ├── settings_repo.py         # bot_settings
+│   │   └── taboos_repo.py           # arkham_taboos
+│   ├── services/
+│   │   ├── card_provider.py         # Seleciona carta para postagem (aleatória ou por ciclo)
+│   │   ├── daily_card.py            # Executa postagem de carta no Telegram
+│   │   ├── heartbeat.py             # Background task: escreve last_heartbeat a cada 60s
+│   │   ├── local_storage.py         # Cache local de cartas em disco (JSON)
+│   │   └── scheduler.py             # Scheduler interno: agenda postagem diária
+│   ├── ai/
+│   │   └── daily_card_selector.py   # Seleção de carta via IA (Gemini, OpenAI, Groq, Mistral)
+│   └── i18n/
+│       ├── pt_br.py                 # Strings em português
+│       └── en.py                    # Strings em inglês
+├── scripts/
+│   ├── sync_arkhamdb.py             # Sincroniza cartas/packs do ArkhamDB para Supabase
+│   └── backup_supabase.sh           # Backup do banco Supabase
+├── tests/                           # Testes unitários (pytest)
+├── supabase/migrations/             # Schema SQL em ordem cronológica
+├── worker/
+│   ├── src/index.js                 # Cloudflare Worker (único arquivo)
+│   └── wrangler.toml                # Configuração Wrangler
+├── miniapp/
+│   ├── src/                         # Fonte React
+│   └── wrangler.jsonc               # Configuração Wrangler (apenas assets, deploy via Pages)
+├── deploy/systemd/
+│   └── arkham-bot.service           # Unit file systemd para Oracle
+└── .github/workflows/
+    ├── test.yml                     # CI: validação Python + Worker + Mini App
+    └── deploy-oracle.yml            # CD: deploy automático para Oracle
 ```
 
 ## Backend Python
 
 ### `main.py`
 
-Entrada principal.
+Entrada principal. Comandos disponíveis:
 
-Comandos:
+```bash
+python main.py --help
+python main.py healthcheck           # Valida configuração (sem conectividade real)
+python main.py healthcheck --strict  # Valida conectividade Telegram e Supabase
+python main.py interactive           # Inicia bot em long polling (modo produção)
+python main.py <card_code>           # Posta carta específica manualmente (ex: 01001)
+```
 
-- `python main.py --help`
-- `python main.py healthcheck`
-- `python main.py healthcheck --strict`
-- `python main.py interactive`
-- `python main.py <card_code>`
+`interactive` inicializa:
+1. handlers Telegram
+2. scheduler diário
+3. command_worker (polling de bot_commands)
+4. heartbeat (background task)
 
-`interactive` inicia o bot Telegram, registra handlers, usa long polling e chama os workers internos.
+Shutdown gracioso: `post_shutdown` cancela o scheduler e o heartbeat antes de encerrar o event loop.
 
 ### `config.py`
 
-Centraliza variaveis de ambiente e caminhos locais.
+Centraliza todas as variáveis de ambiente e constantes de runtime.
 
-Variaveis obrigatorias no `.env`:
+Variáveis obrigatórias para modo `interactive`:
 
-- `ENVIRONMENT`
-- `TELEGRAM_BOT_TOKEN`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `ADMIN_TELEGRAM_USER_IDS`
-- `AI_DAILY_CARD_ENABLED`
-- `AI_MODEL`
-- `GEMINI_API_KEY` (ou `OPENAI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`)
-- `BOT_COMMANDS_POLLING_ENABLED`
-- `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS`
-- `REQUEST_TIMEOUT_SECONDS`
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `ENVIRONMENT` | `development` | Ambiente (`development` ou `production`) |
+| `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram |
+| `SUPABASE_URL` | — | URL do projeto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | — | Chave service_role (bypassa RLS) |
 
-Variaveis gerenciadas pelo miniapp via Supabase — nao precisam estar no `.env`:
+Variáveis opcionais com defaults:
 
-- `TIMEZONE`
-- `DAILY_POST_ENABLED`
-- `DAILY_POST_TIMES`
-- `DAILY_POST_DAYS`
-- `TELEGRAM_CHAT_ID`
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `ADMIN_TELEGRAM_USER_IDS` | `""` | IDs Telegram de admins fallback (separados por vírgula) |
+| `AI_DAILY_CARD_ENABLED` | `true` | Habilita seleção de carta por IA |
+| `AI_MODEL` | `gemini-2.5-flash` | Modelo IA padrão |
+| `GEMINI_API_KEY` | — | Chave Google Gemini |
+| `OPENAI_API_KEY` | — | Chave OpenAI |
+| `GROQ_API_KEY` | — | Chave Groq |
+| `MISTRAL_API_KEY` | — | Chave Mistral |
+| `BOT_COMMANDS_POLLING_ENABLED` | `true` | Habilita consumo da fila de comandos |
+| `BOT_COMMANDS_POLLING_INTERVAL_SECONDS` | `30` | Intervalo de polling |
+| `BOT_COMMANDS_BATCH_SIZE` | `10` | Comandos por ciclo |
+| `BOT_COMMANDS_MAX_RETRIES` | `3` | Tentativas antes de `failed` |
+| `BOT_COMMANDS_RETRY_DELAY_SECONDS` | `60` | Espera entre tentativas |
+| `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS` | `900` | Timeout para comandos presos em `processing` |
+| `REQUEST_TIMEOUT_SECONDS` | `15` | Timeout HTTP geral |
+
+Variáveis gerenciadas pelo Mini App via Supabase — não precisam estar no `.env`:
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `TIMEZONE` | `America/Sao_Paulo` | Fuso horário do scheduler |
+| `DAILY_POST_ENABLED` | `true` | Postagem diária ativa |
+| `DAILY_POST_TIMES` | `08:00` | Horários (separados por vírgula) |
+| `DAILY_POST_DAYS` | todos | Dias da semana |
+| `TELEGRAM_CHAT_ID` | — | ID do canal/grupo de postagem |
 
 ### `logging_config.py`
 
-Configura console e arquivos rotativos em `logs/`.
+- Logs rotativos em `logs/bot_execution.log` e `logs/bot_errors.log` (5 MB, 3 backups)
+- Nível `INFO` em produção, `DEBUG` em desenvolvimento
+- Mascara automaticamente `bot<id>:<token>` e valores de `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`
+- Reduz verbosidade de `httpx`, `httpcore`, `telegram`, `telegram.ext`
 
-Tambem:
+### `rate_limiter.py`
 
-- reduz logs de `httpx`, `httpcore`, `telegram` e `telegram.ext` em producao;
-- mascara tokens no formato `bot<id>:<token>`;
-- mascara valores carregados de `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` e `OPENAI_API_KEY`.
+Rate limit in-memory para comandos públicos do Telegram:
 
-### `arkhamdb_client.py`
+- Por usuário: 10 requests / 60s
+- Por chat: 60 requests / 60s
+- Admins são isentos por padrão (`RATE_LIMIT_EXEMPT_ADMINS=true`)
+- Implementação: `InMemoryRateLimiter` com sliding window usando `deque`
 
-Cliente para a API publica do ArkhamDB.
+### `permissions.py`
 
-Funcoes principais:
+Verifica permissões de admin para o bot Telegram:
 
-- `fetch_all_cards_sync(include_encounter=False)`
-- `fetch_card_by_code_sync(card_code)`
-- `fetch_packs_sync()`
-- `fetch_factions_sync()`
-- `fetch_faq_by_card_code_sync(card_code)`
-- `fetch_taboos_sync()`
-- `fetch_decklist_sync(decklist_id)`
-- `download_image_sync(url)`
-- `download_image_async(url)`
-
-### `arkhamdb_models.py`
-
-Valida e normaliza payloads recebidos da API ArkhamDB antes de persistir ou usar dados.
+- `is_admin_user(telegram_user_id)` — verifica em `ADMIN_TELEGRAM_USER_IDS` (fallback) e `bot_admins` (Supabase)
+- `admin_source(telegram_user_id)` — retorna `"env"`, `"owner"`, `"admin"`, ou `"none"`
 
 ### `daily_card.py`
 
-Executa postagem de carta:
+Orquestra postagem de carta no Telegram:
 
-- seleciona carta especifica, aleatoria ou via IA opcional;
-- baixa imagem;
-- monta legenda;
-- envia foto/mensagem para Telegram;
-- registra historico;
-- atualiza estado de carta postada;
-- faz pin/unpin quando configurado.
+1. Resolve `chat_id` (Supabase > `.env` > fallback)
+2. Seleciona carta (IA opcional, ou aleatória, ou por código específico)
+3. Baixa imagem da ArkhamDB
+4. Monta legenda HTML com `format_card_caption(is_interactive=not is_scheduled)`
+   - `is_scheduled=True` → inclui prefixo `[COTD]`
+   - `is_scheduled=False` (postagem manual) → sem `[COTD]`
+5. Envia para Telegram com retry (3 tentativas)
+6. Registra em `bot_posting_history`
+7. Atualiza `bot_posted_cards`
+8. Faz pin/unpin quando configurado
 
 ### `scheduler.py`
 
-Scheduler interno usado no processo `interactive`.
+Scheduler interno. A cada minuto verifica:
 
-Le configuracoes de `bot_settings` quando Supabase esta disponivel e usa `.env` como fallback.
+- Se o horário atual está dentro da janela de ±10 min de algum horário configurado
+- Se o dia da semana está habilitado
+- Se já postou naquela janela (estado em `data/daily_scheduler_state.json`)
+- Lê configurações do Supabase (`bot_settings`) na inicialização e em cada ciclo
 
-### `bot_commands_worker.py`
+### `heartbeat.py`
 
-Consome `public.bot_commands`.
+Background task asyncio. A cada 60s faz upsert na tabela `bot_settings`:
 
-Antes de buscar novos comandos, recupera comandos presos em `processing` ha mais tempo que `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS`.
+```json
+{ "key": "last_heartbeat", "value": "<ISO timestamp UTC>" }
+```
+
+O Worker usa esse valor em `/bot-runtime` para determinar se o bot está vivo (alive = `seconds_ago < 180`).
+
+A task é cancelada graciosamente no shutdown via `stop_heartbeat()`.
+
+### `command_worker.py`
+
+Consome a fila `bot_commands` do Supabase a cada 30s.
+
+Antes de buscar novos comandos, recupera comandos presos em `processing` há mais de `BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS` — se `attempt_count < max_attempts` volta para `retrying`; caso contrário marca como `failed`.
 
 Comandos aceitos:
 
-- `post_now`
-- `repost_card`
-- `skip_card`
-- `pause_daily_post`
-- `resume_daily_post`
-- `sync_arkhamdb`
-- `reset_cycle`
-- `clear_queue`
-- `update_setting`
+| Comando | O que faz |
+|---|---|
+| `post_now` | Posta carta imediatamente (sem `[COTD]`) |
+| `repost_card` | Reposta carta específica por código |
+| `skip_card` | Marca carta como pulada no ciclo |
+| `pause_daily_post` | Desativa `daily_post_enabled` no Supabase |
+| `resume_daily_post` | Ativa `daily_post_enabled` no Supabase |
+| `reset_cycle` | Limpa histórico de cartas postadas |
+| `clear_queue` | Cancela todos os comandos `pending` |
+| `update_setting` | Atualiza qualquer chave em `bot_settings` |
+| `sync_arkhamdb` | Executa sincronização completa do ArkhamDB |
 
-Estados usados:
+Estados de um comando:
 
-- `pending`
-- `processing`
-- `retrying`
-- `executed`
-- `failed`
-- `cancelled`
+```
+pending → processing → executed
+                    ↘ retrying → processing → ...
+                              ↘ failed
+pending → cancelled
+```
 
 ### `telegram_handlers.py`
 
-Registra handlers de comandos do bot.
+Comandos Telegram registrados:
 
-Comandos disponíveis:
-
-- `/start` — boas-vindas
-- `/status` — status do bot (online, uptime, total de cartas)
-- `/card` — exibe carta pelo código
-- `/search` — busca cartas por nome
-- `/faq` — perguntas frequentes de uma carta
-- `/taboo` — lista de cartas taboo por lista/categoria
-- `/decklist` — exibe decklist do ArkhamDB
-- `/sets` — navega pelos packs/sets disponíveis
-- `/cotd` — histórico de cartas do dia (somente postagens automáticas), navegando por ano e mês
+| Comando | Descrição |
+|---|---|
+| `/start` | Mensagem de boas-vindas |
+| `/status` | Status do bot (admins apenas) |
+| `/card <código>` | Exibe carta pelo código ArkhamDB |
+| `/search <nome>` | Busca cartas por nome |
+| `/faq <código>` | FAQ de uma carta |
+| `/taboo` | Lista taboo atual |
+| `/decklist <id>` | Exibe decklist do ArkhamDB |
+| `/sets` | Navega packs/sets por menu inline |
+| `/cotd` | Histórico de postagens diárias por ano/mês |
 
 ### `repositories/`
 
-Camada de acesso ao Supabase.
+Camada de acesso ao Supabase via REST API (`SupabaseRestClient` com `SUPABASE_SERVICE_ROLE_KEY`). Uma classe por tabela.
 
-- `admins_repo.py`: `bot_admins`
-- `audit_repo.py`: `audit_logs`
-- `cards_repo.py`: `arkham_cards`
-- `commands_repo.py`: `bot_commands`
-- `factions_repo.py`: `arkham_factions`
-- `faq_repo.py`: `arkham_faq`
-- `history_repo.py`: `bot_posting_history`
-- `packs_repo.py`: `arkham_packs`
-- `settings_repo.py`: `bot_settings`
-- `taboos_repo.py`: `arkham_taboos`
+### `ai/daily_card_selector.py`
 
-### `ai/`
+Seleção de carta por IA. Ativada quando `AI_DAILY_CARD_ENABLED=true` e `is_scheduled=True`.
 
-Selecao opcional de carta diaria. Suporta Gemini (padrao), OpenAI, Groq e Mistral.
+Provedores suportados (configurados em `AI_MODEL`):
 
-Ativada somente com:
+| Provedor | Modelos |
+|---|---|
+| Google Gemini | `gemini-2.5-flash` ★, `gemini-2.0-flash`, `gemini-2.5-pro` |
+| Groq | `llama-3.3-70b-versatile` ★, `llama-3.1-8b-instant`, `mixtral-8x7b-32768` |
+| Mistral | `mistral-small-latest`, `mistral-medium-latest`, `open-mistral-7b` |
+| OpenAI | `gpt-4o-mini`, `gpt-4o`, `gpt-4.1-mini`, `gpt-4.1` |
 
-```txt
-AI_DAILY_CARD_ENABLED=true
-AI_MODEL=gemini-2.5-flash   # ou gpt-4o-mini, groq/..., mistral/...
-GEMINI_API_KEY=<valor>       # ou OPENAI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY
-```
+★ = modelo padrão do provedor
 
 ## Supabase
 
-Migrations em `supabase/migrations/`.
+Todas as migrations estão em `supabase/migrations/` em ordem cronológica. Devem ser aplicadas manualmente no SQL Editor do Supabase.
 
-Tabelas ArkhamDB:
+### Tabelas ArkhamDB (leitura pública via RLS)
 
-- `arkham_cards`
-- `arkham_packs`
-- `arkham_factions`
-- `arkham_faq`
-- `arkham_taboos`
-- `arkham_decklists_cache`
+| Tabela | Conteúdo |
+|---|---|
+| `arkham_cards` | Cartas completas com campos normalizados + `raw` JSONB |
+| `arkham_packs` | Expansões/packs |
+| `arkham_factions` | Facções |
+| `arkham_faq` | FAQ por código de carta |
+| `arkham_taboos` | Listas taboo |
+| `arkham_decklists_cache` | Cache de decklists do ArkhamDB |
 
-Tabelas operacionais:
+### Tabelas operacionais (service_role apenas)
 
-- `bot_settings`
-- `target_chats`
-- `bot_admins`
-- `bot_commands`
-- `bot_posted_cards`
-- `bot_posting_history`
-- `bot_errors`
-- `audit_logs`
+| Tabela | Conteúdo |
+|---|---|
+| `bot_settings` | Configurações key-value do bot e do scheduler |
+| `target_chats` | Canais/grupos de destino para postagem |
+| `bot_admins` | Admins com role (`owner`, `admin`, `viewer`) |
+| `bot_commands` | Fila de comandos do Mini App para o bot |
+| `bot_posted_cards` | Registro de cartas já postadas (controle de ciclo) |
+| `bot_posting_history` | Histórico de cada postagem (source, card_code, timestamp) |
+| `bot_errors` | Log de erros do bot |
+| `audit_logs` | Auditoria de ações administrativas (add/remove admin/destino) |
 
-RLS fica habilitado. O backend Python e o Worker usam `SUPABASE_SERVICE_ROLE_KEY`.
+RLS está habilitado em todas as tabelas. O backend Python e o Worker usam `SUPABASE_SERVICE_ROLE_KEY`, que bypassa RLS.
 
 ## Cloudflare Worker
 
-Codigo em `worker/src/index.js`.
+Código em `worker/src/index.js`. Versão atual: **v1.1.0**.
 
-Responsabilidades:
+URL de produção: `https://arkham-bot-worker.homerlab.workers.dev`
 
-- validar CORS por `ALLOWED_ORIGINS`;
-- validar `x-telegram-init-data` com `TELEGRAM_BOT_TOKEN`;
-- consultar admin em `bot_admins` ou fallback `ADMIN_TELEGRAM_USER_IDS`;
-- usar fallback `ADMIN_TELEGRAM_USER_IDS` somente quando `ALLOW_ADMIN_ENV_FALLBACK=true`;
-- normalizar `command_type`;
-- inserir comandos em `bot_commands`;
-- expor status basico.
+Variáveis de ambiente (`worker/wrangler.toml`):
 
-Endpoints:
+| Variável | Tipo | Descrição |
+|---|---|---|
+| `SUPABASE_URL` | var | URL do projeto Supabase |
+| `ALLOWED_ORIGINS` | var | Lista de origens CORS permitidas (separadas por vírgula) |
+| `SUPABASE_SERVICE_ROLE_KEY` | secret | Chave service_role Supabase |
+| `TELEGRAM_BOT_TOKEN` | secret | Token do bot Telegram (para validar initData) |
+| `ALLOW_ADMIN_ENV_FALLBACK` | var (opt.) | Se `true`, aceita `ADMIN_TELEGRAM_USER_IDS` como admins |
+| `ADMIN_TELEGRAM_USER_IDS` | var (opt.) | IDs fallback quando `ALLOW_ADMIN_ENV_FALLBACK=true` |
 
-- `GET /health`
-- `GET /me`
-- `GET /status`
-- `POST /bot-command`
-- `OPTIONS *`
+### Níveis de autenticação
 
-Comandos aceitos pelo Worker:
-
-- `post_now`
-- `repost_card`
-- `skip_card`
-- `pause_daily_post`
-- `resume_daily_post`
-- `sync_arkhamdb`
-- `reset_cycle`
-- `clear_queue`
-- `update_setting`
-
-Aliases:
-
-- `pause_daily -> pause_daily_post`
-- `resume_daily -> resume_daily_post`
-
-## Mini App
-
-Codigo em `miniapp/`.
-
-Stack:
-
-- React 18
-- Vite
-- Wrangler assets deploy
-
-Variavel de build:
-
-```txt
-VITE_COMMANDS_API_URL=https://<worker>.workers.dev
+```
+público        → CORS + origem válida apenas
+requireAuth    → + valida x-telegram-init-data (HMAC-SHA256 + auth_date < 24h)
+requireAdmin   → + consulta bot_admins no Supabase (role: owner ou admin)
+requireOwner   → + exige role = owner
 ```
 
-O Mini App:
+### Endpoints
 
-- detecta `window.Telegram.WebApp`;
-- le `initData`;
-- chama `/me`, `/status` e `/bot-command` no Worker;
-- nao contem secrets;
-- desabilita acoes quando usuario nao e admin ou quando esta fora do Telegram.
+| Método | Path | Auth | Descrição |
+|---|---|---|---|
+| `GET` | `/health` | público | Healthcheck simples |
+| `GET` | `/me` | requireAuth | Perfil do usuário autenticado |
+| `GET` | `/status` | requireAdmin | Status do bot (versão, total de cartas, packs, último comando) |
+| `GET` | `/overview` | requireAdmin | Visão geral (settings, contagens, comandos e posts recentes) |
+| `GET` | `/settings` | requireAdmin | Configurações atuais do bot |
+| `PATCH` | `/settings` | requireAdmin | Atualiza configurações |
+| `GET` | `/commands` | requireAdmin | Lista comandos recentes da fila |
+| `PATCH` | `/commands/:id` | requireAdmin | Cancela comando pendente |
+| `GET` | `/cards` | requireAdmin | Busca cartas por nome/código |
+| `GET` | `/packs` | requireAdmin | Lista packs (Supabase first, fallback ArkhamDB API) |
+| `GET` | `/history` | requireAdmin | Histórico de postagens com filtros |
+| `GET` | `/bot-info` | requireAdmin | Nome, username e foto do bot via Telegram API |
+| `POST` | `/bot-command` | requireAuth | Insere comando na fila (admin verificado internamente) |
+| `GET` | `/ai-models` | CORS only | Lista provedores e modelos de IA disponíveis |
+| `GET` | `/bot-runtime` | requireAdmin | Status heartbeat do bot Python (alive se last_heartbeat < 3 min) |
+| `GET` | `/admins` | requireOwner | Lista admins |
+| `POST` | `/admins` | requireOwner | Adiciona admin |
+| `DELETE` | `/admins/:id` | requireOwner | Remove admin (protegido: não remove último owner) |
+| `GET` | `/destinations` | requireAdmin | Lista destinos de postagem |
+| `POST` | `/destinations` | requireAdmin | Adiciona destino |
+| `PATCH` | `/destinations/:id` | requireAdmin | Atualiza destino |
+| `DELETE` | `/destinations/:id` | requireAdmin | Remove destino |
+| `POST` | `/destinations/:id/test` | requireAdmin | Envia mensagem de teste para o destino |
+
+### Rate limit no Worker
+
+Antes de inserir em `bot_commands`, verifica se existe registro com mesmo `(user_id, command_type)` em status `pending` ou `processing` nos últimos 10 segundos. Se existir, retorna 429.
+
+### Audit log no Worker
+
+Ações que geram registro em `audit_logs`:
+
+- `admin_added` / `admin_removed`
+- `destination_added` / `destination_removed`
+
+## Mini App React
+
+URL de produção: `https://arkham-bot-miniapp.pages.dev`
+
+Deploy: automático via **Cloudflare Pages** conectado ao repositório GitHub. Qualquer push em `main` que altere arquivos em `miniapp/` dispara rebuild e deploy. **Nunca execute `wrangler deploy` na pasta `miniapp/`.**
+
+### Stack
+
+- React 18 + Vite 5
+- Sem bibliotecas de estado externas
+- CSS custom com variáveis Telegram (`--tg-theme-*`)
+
+### Módulos (`miniapp/src/`)
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `main.jsx` | Bootstrap: monta `<App />` no `#root` |
+| `App.jsx` | Componente raiz; todo estado e navegação |
+| `telegram.js` | Acesso ao `window.Telegram.WebApp` com fallbacks |
+| `api.js` | `apiFetch()` — constrói URL a partir de `VITE_COMMANDS_API_URL` e injeta `x-telegram-init-data` |
+| `i18n.js` | Strings PT/EN, constantes de domínio (WEEKDAYS, ALL_CARD_TYPES, TIMEZONES) |
+| `settings.js` | DEFAULT_SETTINGS, normalização, validação, AI_PROVIDERS fallback |
+| `icons.jsx` | SVG paths e componente `<Icon name />` |
+| `components.jsx` | Componentes de UI reutilizáveis (Row, Section, Toggle, etc.) |
+| `style.css` | Estilos globais com variáveis CSS do tema Telegram |
+
+### Variável de build
+
+```
+VITE_COMMANDS_API_URL=https://arkham-bot-worker.homerlab.workers.dev
+```
+
+Configurada nas variáveis de ambiente do Cloudflare Pages.
+
+### Navegação por abas
+
+```
+home
+├── post          — Postar carta, buscar carta por código
+├── history       — Histórico de postagens com filtro por fonte e data
+├── queue         — Fila de comandos
+├── settings      — Configurações de postagem
+│   ├── schedule  — Horários e dias da semana
+│   ├── day_detail — Configuração específica por dia da semana
+│   └── ai        — Configurações de IA
+├── app_settings  — Configurações do App (idioma)
+├── database      — Sync ArkhamDB, cartas, packs
+├── maintenance   — Comandos de manutenção (reset ciclo, limpar fila)
+├── health        — Status do sistema e heartbeat do bot
+└── admins        — Gerenciamento de admins (somente owners)
+```
+
+O botão BackButton do Telegram é gerenciado pelo `PARENT_TAB` para abas filhas.
 
 ## GitHub Actions
 
-### `.github/workflows/test.yml`
+### `test.yml`
 
-Workflow de validacao geral:
+Disparado em push/PR para `main` e manualmente.
 
-- instala dependencias Python;
-- roda compile;
-- roda testes;
-- roda help;
-- roda healthcheck nao estrito;
-- valida sintaxe e testes do Worker;
-- faz build do Mini App.
+Jobs:
+1. **test** (Python 3.11): `compileall` + `pytest` + `healthcheck`
+2. **worker** (Node 22): syntax check + testes + `npm run dry-run`
+3. **miniapp** (Node 22): `npm run build`
 
-### `.github/workflows/deploy-oracle.yml`
+### `deploy-oracle.yml`
 
-Workflow de deploy/sync Oracle:
+Disparado em push para `main` quando há alterações em `main.py`, `src/`, `scripts/`, `requirements*.txt`, `pyproject.toml`. Também aceita `workflow_dispatch`.
 
-- roda em push para `main` quando backend/scripts/deps mudam;
-- tambem roda por `workflow_dispatch`;
-- acessa Oracle via SSH;
-- reseta `/opt/arkham_bot` para `origin/main`;
-- instala dependencias;
-- roda `healthcheck --strict`;
-- reinicia `arkham-bot.service`.
+Passos:
+1. Validação local (Python): `compileall` + `pytest` + `main.py --help`
+2. SSH no Oracle
+3. `git reset --hard origin/main`
+4. Atualiza `.env` com `AI_DAILY_CARD_ENABLED=true`
+5. `pip install -r requirements.txt` (no venv)
+6. `python main.py healthcheck --strict`
+7. `sudo systemctl restart arkham-bot`
+8. Valida status do serviço
 
-Secrets usados:
+Secrets necessários (em `oracle-production` environment):
 
-- `ORACLE_HOST`
-- `ORACLE_USER`
-- `ORACLE_SSH_PRIVATE_KEY`
-- `ORACLE_KNOWN_HOSTS`
+| Secret | Descrição |
+|---|---|
+| `ORACLE_HOST` | IP/hostname do servidor |
+| `ORACLE_USER` | Usuário SSH |
+| `ORACLE_SSH_PRIVATE_KEY` | Chave privada PEM |
+| `ORACLE_KNOWN_HOSTS` | Fingerprint do servidor |
 
 ## Systemd
 
 Unit file em `deploy/systemd/arkham-bot.service`.
 
-Servico esperado:
-
-```txt
-arkham-bot.service
+```ini
+[Service]
+WorkingDirectory=/opt/arkham_bot
+EnvironmentFile=/opt/arkham_bot/.env
+ExecStart=/opt/arkham_bot/venv/bin/python /opt/arkham_bot/main.py interactive
+Restart=always
+RestartSec=10
 ```
 
-Comando:
+## Segurança
 
-```txt
-/opt/arkham_bot/venv/bin/python /opt/arkham_bot/main.py interactive
-```
-
-## Seguranca
-
-- `.env` nao deve ser commitado.
-- `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` e chaves de IA nao devem aparecer em logs.
-- `SUPABASE_SERVICE_ROLE_KEY` nao deve ir para frontend.
-- Worker deve validar Telegram initData antes de aceitar comandos.
-- Worker deve validar admin antes de inserir comando critico.
-- Worker deve preferir `bot_admins`; fallback por env deve ser opt-in.
-- CORS em producao deve usar allowlist.
-- Logs do backend mascaram tokens conhecidos.
+- `.env` nunca deve ser commitado
+- `SUPABASE_SERVICE_ROLE_KEY` e `TELEGRAM_BOT_TOKEN` ficam apenas em: `.env` Oracle, secrets do Worker, secrets do GitHub Actions
+- O Mini App não contém secrets — opera exclusivamente via Worker autenticado
+- `initData` tem validade de 24h; o Worker rejeita tokens expirados
+- CORS em produção usa allowlist (`ALLOWED_ORIGINS`): apenas `arkham-bot-miniapp.pages.dev`
+- Logs mascaram tokens automaticamente
+- `requireOwner` protege `/admins` — admins comuns não podem gerenciar outros admins
+- Remoção do último owner bloqueada no Worker
