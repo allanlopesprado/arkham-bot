@@ -1733,30 +1733,53 @@ async def _search_run(update: Update, context: ContextTypes.DEFAULT_TYPE, query:
     return ConversationHandler.END
 
 
+_SETS_PAGE_SIZE = 10
+
+
+def _sets_pack_list(cards: list) -> list[tuple[str, str]]:
+    seen: dict[str, str] = {}
+    for c in cards:
+        code = c.get('pack_code') or ''
+        name = c.get('pack_name') or code
+        if code and code not in seen:
+            seen[code] = name
+    return list(seen.items())
+
+
+def _sets_pack_buttons(packs: list[tuple[str, str]], page: int, s: dict) -> InlineKeyboardMarkup:
+    start = page * _SETS_PAGE_SIZE
+    page_packs = packs[start:start + _SETS_PAGE_SIZE]
+    buttons = [
+        [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}_p0")]
+        for code, name in page_packs
+    ]
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(s.get("sets_btn_prev", "◀"), callback_data=f"SET_LIST_p{page - 1}"))
+    if start + _SETS_PAGE_SIZE < len(packs):
+        nav.append(InlineKeyboardButton(s.get("sets_btn_next", "▶"), callback_data=f"SET_LIST_p{page + 1}"))
+    if nav:
+        buttons.append(nav)
+    return InlineKeyboardMarkup(buttons)
+
+
 async def sets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lists all available packs as inline buttons. Clicking one lists its cards."""
+    """Lists all available packs as inline buttons with pagination."""
     if not await _check_rate_limit(update):
         return
     try:
         cards = await _fetch_all_cards()
-        # Build unique pack list preserving order
-        seen: dict[str, str] = {}
-        for c in cards:
-            code = c.get('pack_code') or ''
-            name = c.get('pack_name') or code
-            if code and code not in seen:
-                seen[code] = name
+        packs = _sets_pack_list(cards)
         s = get_strings()
-        if not seen:
+        if not packs:
             await update.message.reply_text(s["sets_no_sets"])
             return
-        buttons = [
-            [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}")]
-            for code, name in seen.items()
-        ]
+        total = len(packs)
+        text = s["sets_choose"] + f" ({total})"
         await update.message.reply_text(
-            s["sets_choose"],
-            reply_markup=InlineKeyboardMarkup(buttons)
+            text,
+            reply_markup=_sets_pack_buttons(packs, 0, s),
+            reply_parameters=ReplyParameters(message_id=update.message.message_id),
         )
     except Exception as exc:
         logger.error(f"sets_command error: {exc}", exc_info=True)
@@ -1764,10 +1787,21 @@ async def sets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Shows cards of the selected pack as inline buttons."""
+    """Shows cards of the selected pack as inline buttons with pagination."""
     query = update.callback_query
     await query.answer()
-    pack_code = query.data.replace("SET_BROWSE_", "")
+    # callback_data format: SET_BROWSE_{code}_p{page}
+    data = query.data.replace("SET_BROWSE_", "")
+    page = 0
+    if "_p" in data:
+        parts = data.rsplit("_p", 1)
+        pack_code = parts[0]
+        try:
+            page = int(parts[1])
+        except ValueError:
+            pack_code = data
+    else:
+        pack_code = data
     try:
         cards = await _fetch_all_cards()
         pack_cards = [c for c in cards if c.get('pack_code') == pack_code]
@@ -1776,18 +1810,29 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.edit_message_text(s["sets_no_cards"])
             return
         pack_name = pack_cards[0].get('pack_name') or pack_code
+        total = len(pack_cards)
+        start = page * _SETS_PAGE_SIZE
+        page_cards = pack_cards[start:start + _SETS_PAGE_SIZE]
         buttons = []
-        for c in pack_cards:
+        for c in page_cards:
             code = c.get('code', '')
             name = c.get('name') or c.get('real_name') or code
             position = c.get('position', '')
-            label = f"{position:>3}. {name}" if position else name
-            if len(label) > 64:
-                label = label[:61] + "…"
+            label = f"{position}. {name}" if position else name
+            if len(label) > 60:
+                label = label[:57] + "…"
             buttons.append([InlineKeyboardButton(label, callback_data=f"CARD_SELECT_{code}")])
-        buttons.append([InlineKeyboardButton(s["sets_btn_back"], callback_data="SETS_BACK")])
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton(s.get("sets_btn_prev", "◀"), callback_data=f"SET_BROWSE_{pack_code}_p{page - 1}"))
+        if start + _SETS_PAGE_SIZE < total:
+            nav.append(InlineKeyboardButton(s.get("sets_btn_next", "▶"), callback_data=f"SET_BROWSE_{pack_code}_p{page + 1}"))
+        if nav:
+            buttons.append(nav)
+        buttons.append([InlineKeyboardButton(s["sets_btn_back"], callback_data="SETS_BACK_p0")])
+        page_info = f" — {start + 1}–{min(start + _SETS_PAGE_SIZE, total)}/{total}"
         await query.edit_message_text(
-            s["sets_pack_title"].format(pack_name=escape(pack_name), count=len(pack_cards)),
+            s["sets_pack_title"].format(pack_name=escape(pack_name), count=total) + page_info,
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(buttons)
         )
@@ -1796,26 +1841,48 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(get_strings()["sets_pack_error"])
 
 
-async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Returns to the pack list."""
+async def sets_list_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Navigates pack list pages."""
     query = update.callback_query
     await query.answer()
     try:
+        page = int(query.data.replace("SET_LIST_p", ""))
+    except ValueError:
+        page = 0
+    try:
         cards = await _fetch_all_cards()
-        seen: dict[str, str] = {}
-        for c in cards:
-            code = c.get('pack_code') or ''
-            name = c.get('pack_name') or code
-            if code and code not in seen:
-                seen[code] = name
-        buttons = [
-            [InlineKeyboardButton(name, callback_data=f"SET_BROWSE_{code}")]
-            for code, name in seen.items()
-        ]
+        packs = _sets_pack_list(cards)
         s = get_strings()
+        total = len(packs)
         await query.edit_message_text(
-            s["sets_choose"],
-            reply_markup=InlineKeyboardMarkup(buttons)
+            s["sets_choose"] + f" ({total})",
+            reply_markup=_sets_pack_buttons(packs, page, s),
+        )
+    except Exception as exc:
+        logger.error(f"sets_list_page_callback error: {exc}", exc_info=True)
+        await query.edit_message_text(get_strings()["sets_error"])
+
+
+async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Returns to the pack list at the given page."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data  # SETS_BACK_p{page}
+    page = 0
+    if "_p" in data:
+        try:
+            page = int(data.rsplit("_p", 1)[1])
+        except ValueError:
+            pass
+    try:
+        cards = await _fetch_all_cards()
+        packs = _sets_pack_list(cards)
+        s = get_strings()
+        total = len(packs)
+        text = s["sets_choose"] + f" ({total})"
+        await query.edit_message_text(
+            text,
+            reply_markup=_sets_pack_buttons(packs, page, s),
         )
     except Exception as exc:
         logger.error(f"sets_back_callback error: {exc}", exc_info=True)
@@ -2007,7 +2074,8 @@ def register_handlers(application):
     application.add_handler(CallbackQueryHandler(search_page_callback, pattern=r'^SEARCH_PAGE_\d+$'))
     application.add_handler(CommandHandler("sets", sets_command))
     application.add_handler(CallbackQueryHandler(set_browse_callback, pattern=r'^SET_BROWSE_'))
-    application.add_handler(CallbackQueryHandler(sets_back_callback, pattern=r'^SETS_BACK$'))
+    application.add_handler(CallbackQueryHandler(sets_back_callback, pattern=r'^SETS_BACK'))
+    application.add_handler(CallbackQueryHandler(sets_list_page_callback, pattern=r'^SET_LIST_p'))
     application.add_handler(CommandHandler("cotd", cotd_command))
     application.add_handler(CallbackQueryHandler(cotd_year_callback, pattern=r'^COTD_YEAR_\d+$'))
     application.add_handler(CallbackQueryHandler(cotd_month_callback, pattern=r'^COTD_MONTH_\d+_\d+$'))

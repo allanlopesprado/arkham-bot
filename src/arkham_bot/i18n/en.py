@@ -125,6 +125,9 @@ strings: dict = {
     "sets_pack_title": "📦 <b>{pack_name}</b> — {count} card(s):",
     "sets_pack_error": "Error loading cards from set.",
     "sets_btn_back": "« Back to sets",
+    "sets_btn_prev": "◀ Previous",
+    "sets_btn_next": "Next ▶",
+    "sets_no_sets": "No sets found.",
 
     # /cotd
     "cotd_no_cards": "No card of the day found.",
