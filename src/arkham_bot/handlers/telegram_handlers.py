@@ -875,7 +875,7 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lines.append(_arkhamdb_html_to_telegram(str(entry)))
         text = "\n\n".join(lines)
         for chunk in _chunks(text, 3900):
-            await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
+            await update.message.reply_text(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     except Exception as exc:
         logger.error(f"faq_command_failed: {exc}", exc_info=True)
         await update.message.reply_text(s["faq_error"])
