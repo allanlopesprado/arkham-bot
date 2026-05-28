@@ -1436,6 +1436,39 @@ async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
+_DECKLIST_CACHE_TTL_HOURS = 24
+
+
+async def _fetch_decklist_cached(decklist_id: str) -> dict:
+    """Fetch decklist from DB cache (TTL 24h), falling back to ArkhamDB API and saving."""
+    from ..clients.arkhamdb_client import fetch_decklist_sync
+    from ..core.supabase_client import get_supabase_client
+    from datetime import timezone as _tz
+    client = get_supabase_client()
+    if client:
+        try:
+            rows = client.get("arkham_decklists_cache", {
+                "decklist_id": f"eq.{decklist_id}", "select": "raw,updated_at", "limit": "1"
+            })
+            if rows:
+                updated_at = rows[0].get("updated_at", "")
+                try:
+                    age_hours = (datetime.now(_tz.utc) - datetime.fromisoformat(updated_at)).total_seconds() / 3600
+                    if age_hours < _DECKLIST_CACHE_TTL_HOURS:
+                        return rows[0]["raw"]
+                except Exception:
+                    return rows[0]["raw"]
+        except Exception as exc:
+            logger.warning("decklist_cache_read_failed: %s", exc)
+    deck = await asyncio.to_thread(fetch_decklist_sync, decklist_id)
+    if client and deck:
+        try:
+            client.upsert("arkham_decklists_cache", {"decklist_id": decklist_id, "raw": deck}, on_conflict="decklist_id")
+        except Exception as exc:
+            logger.warning("decklist_cache_write_failed: %s", exc)
+    return deck
+
+
 async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
@@ -1444,7 +1477,6 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(s["decklist_usage"])
         return
     from ..clients.arkhamdb_client import fetch_decklist_sync
-    pass  # use cached _fetch_all_cards below
 
     raw_arg = context.args[0].strip()
     match = re.search(r"(\d+)", raw_arg)
@@ -1454,7 +1486,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     decklist_id = match.group(1)
     user_reply = ReplyParameters(message_id=update.message.message_id)
     try:
-        deck = await asyncio.to_thread(fetch_decklist_sync, decklist_id)
+        deck = await _fetch_decklist_cached(decklist_id)
         name = escape(deck.get('name') or s["decklist_untitled"])
         inv_name = escape(deck.get('investigator_name') or deck.get('investigator_code') or s["decklist_unknown_investigator"])
         inv_code = deck.get('investigator_code', '')

@@ -27,9 +27,7 @@
   A mesma `initData` pode ser reutilizada em qualquer momento dentro da janela de 24h.  
   _Implementar nonce store com TTL curto no Worker usando Cloudflare KV._
 
-- **`arkham_decklists_cache` nunca é populada**  
-  A tabela existe mas nenhum código a usa. `/decklist` sempre vai à API do ArkhamDB.  
-  _Implementar cache da decklist na tabela após primeiro fetch, ou remover a tabela._
+- ~~**`arkham_decklists_cache` nunca é populada**~~ ✅ cache-on-demand implementado (TTL 24h)
 
 ---
 
