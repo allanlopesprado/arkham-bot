@@ -122,6 +122,12 @@ async def _execute_command(command: dict[str, Any]) -> dict[str, Any]:
         from scripts.sync_arkhamdb import sync_arkhamdb
 
         sync_result = await asyncio.to_thread(sync_arkhamdb, dry_run=False, sync_faq=bool(payload.get("sync_faq", False)), faq_limit=int(payload.get("faq_limit") or 0))
+        try:
+            from .telegram_handlers import _cards_cache, _cards_encounter_cache
+            _cards_cache.clear()
+            _cards_encounter_cache.clear()
+        except Exception:
+            pass
         return sync_result
 
     raise ValueError(f"Unhandled command_type: {command_type}")

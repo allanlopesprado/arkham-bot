@@ -596,13 +596,22 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     payload = _collect_status_payload(update)
-    await update.message.reply_text(_format_status(payload), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+    await update.message.reply_text(
+        _format_status(payload),
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
+        reply_parameters=ReplyParameters(message_id=update.message.message_id),
+    )
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
-    await update.message.reply_text(_format_help_report(), parse_mode=ParseMode.HTML)
+    await update.message.reply_text(
+        _format_help_report(),
+        parse_mode=ParseMode.HTML,
+        reply_parameters=ReplyParameters(message_id=update.message.message_id),
+    )
 
 
 def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int], set[int]]:
@@ -1517,7 +1526,8 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             clean_desc = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', clean_desc)   # [text](url)
             clean_desc = re.sub(r'\n{3,}', '\n\n', clean_desc).strip()
             if clean_desc:
-                caption_lines.append(f"\n<i>{escape(clean_desc[:300])}</i>")
+                truncated = clean_desc[:300] + ("…" if len(clean_desc) > 300 else "")
+                caption_lines.append(f"\n<i>{escape(truncated)}</i>")
         caption_lines.append(f"\n🔗 <a href='https://arkhamdb.com/decklist/view/{decklist_id}'>{s.get('decklist_view_label', 'Ver no ArkhamDB')}</a>")
         caption = "\n".join(caption_lines)
 
