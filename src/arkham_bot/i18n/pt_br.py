@@ -109,6 +109,7 @@ strings: dict = {
     "search_prompt": "🔍 Digite o nome ou código da carta:",
     "search_btn_cancel": "Cancelar",
     "search_empty_query": "Digite algo para buscar.",
+    "search_query_too_short": "Digite pelo menos 2 caracteres para buscar.",
     "search_searching": "🔍 Pesquisando…",
     "search_not_found": "Nenhuma carta encontrada. Tente outro termo.",
     "search_error": "Erro ao buscar cartas.",

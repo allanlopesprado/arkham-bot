@@ -1648,6 +1648,9 @@ async def search_receive_query(update: Update, context: ContextTypes.DEFAULT_TYP
     if not query:
         await update.message.reply_text(s["search_empty_query"])
         return SEARCH_WAITING_QUERY
+    if len(query) < 2:
+        await update.message.reply_text(s.get("search_query_too_short", s["search_empty_query"]))
+        return SEARCH_WAITING_QUERY
     # Delete the original prompt and send a "Pesquisando…" message in its place
     old_prompt = context.user_data.pop("search_prompt_obj", None)
     context.user_data.pop("search_prompt_msg_id", None)
@@ -1776,6 +1779,7 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
+    user_id = update.effective_user.id if update.effective_user else 0
     # Prefer stored search msg id; fall back to the message the bot replied to (e.g. /sets)
     user_msg_id = context.user_data.get("search_user_msg_id")
     if not user_msg_id and query.message and query.message.reply_to_message:
@@ -2151,6 +2155,7 @@ def _cotd_fetch_years() -> list[int]:
         'select': 'created_at',
         'source': 'eq.scheduled',
         'order': 'created_at.asc',
+        'limit': '5000',
     })
     years = sorted({datetime.fromisoformat(r['created_at']).year for r in rows if r.get('created_at')})
     return years
@@ -2161,13 +2166,13 @@ def _cotd_fetch_months(year: int) -> list[int]:
     client = get_supabase_client()
     if not client:
         return []
-    rows = client.get('bot_posting_history', [
-        ('select', 'created_at'),
-        ('source', 'eq.scheduled'),
-        ('created_at', f'gte.{year}-01-01T00:00:00Z'),
-        ('created_at', f'lt.{year + 1}-01-01T00:00:00Z'),
-        ('order', 'created_at.asc'),
-    ])
+    rows = client.get('bot_posting_history', {
+        'select': 'created_at',
+        'source': 'eq.scheduled',
+        'created_at': f'gte.{year}-01-01T00:00:00Z',
+        'order': 'created_at.asc',
+        'limit': '500',
+    })
     months = sorted({datetime.fromisoformat(r['created_at']).month for r in rows if r.get('created_at')})
     return months
 

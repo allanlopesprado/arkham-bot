@@ -109,6 +109,7 @@ strings: dict = {
     "search_prompt": "🔍 Enter card name or code:",
     "search_btn_cancel": "Cancel",
     "search_empty_query": "Type something to search.",
+    "search_query_too_short": "Please enter at least 2 characters to search.",
     "search_searching": "🔍 Searching…",
     "search_not_found": "No cards found. Try a different term.",
     "search_error": "Error fetching cards.",

@@ -1,8 +1,8 @@
-python-telegram-bot
-requests
-python-dotenv
-pillow
-filelock
-httpx
-tenacity
-tzdata
+python-telegram-bot>=22.0,<23.0
+requests>=2.31,<3.0
+python-dotenv>=1.0
+pillow>=10.0
+filelock>=3.12
+httpx>=0.24,<1.0
+tenacity>=8.2,<10.0
+tzdata>=2023.3
