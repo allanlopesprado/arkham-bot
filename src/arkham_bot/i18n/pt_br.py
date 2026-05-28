@@ -75,7 +75,7 @@ strings: dict = {
     "taboo_btn_previous": "Anterior",
     "taboo_btn_next": "Próximo",
     "taboo_detail_title": "<b>Taboo — {date}</b>",
-    "taboo_detail_affected": "{total} carta(s) afetada(s)\n",
+    "taboo_detail_affected": "{total} carta(s) afetada(s)",
     "taboo_category_page": "<b>{label}</b> — {total} carta(s) — página {page}/{total_pages}:",
 
     # taboo restriction labels
