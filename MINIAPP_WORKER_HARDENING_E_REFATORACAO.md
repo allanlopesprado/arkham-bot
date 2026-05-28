@@ -45,9 +45,13 @@ Resultado: o ambiente de execução está funcional. As pendências restantes s�
 
 ---
 
-## 2. Alterações já aplicadas nesta conversa
+## 2. Auditoria adicional desta conversa
 
-### 2.1 Heartbeat Python
+Esta seção consolida o que aconteceu durante a conversa atual, separando correções reais, validações, tentativas rejeitadas e pendências.
+
+### 2.1 Ajustes feitos por aqui que NÃO são workaround
+
+#### Heartbeat imediato
 
 Arquivo:
 
@@ -61,29 +65,29 @@ Commit:
 38d23f8 fix: write heartbeat immediately
 ```
 
-Alteração:
+Classificação:
 
 ```text
-- Heartbeat agora grava imediatamente ao iniciar.
-- Evita aguardar 60 segundos antes do primeiro registro.
-- Evita criar task duplicada se já houver heartbeat ativo.
+CORREÇÃO REAL
+NÃO É WORKAROUND
 ```
 
 Motivo:
 
 ```text
-Antes, /bot-runtime podia marcar o bot como inativo logo após restart porque last_heartbeat só era escrito depois de 60 segundos.
+A alteração corrigiu diretamente a função responsável pelo heartbeat.
+Não criou wrapper, fallback paralelo, serviço auxiliar ou desvio de fluxo.
 ```
 
-Status:
+Risco residual:
 
 ```text
-OK
+Baixo. A validação posterior confirmou compileall, healthcheck e pytest OK.
 ```
 
 ---
 
-### 2.2 Formatação do package.json do Mini App
+#### Formatação do package.json do Mini App
 
 Arquivo:
 
@@ -97,50 +101,315 @@ Commit:
 36b0cf6 chore: format miniapp package json
 ```
 
-Alteração:
+Classificação:
 
 ```text
-- JSON reformatado.
-- Scripts preservados.
-- build/check mantidos.
+LIMPEZA REAL
+NÃO É WORKAROUND
 ```
 
-Status:
+Motivo:
 
 ```text
-OK
+A alteração só normalizou JSON e preservou scripts existentes.
+```
+
+Risco residual:
+
+```text
+Baixo. Mini App build/check passou depois.
 ```
 
 ---
 
-### 2.3 Node 22 e lockfiles
+#### Correção de ambiente Node 22
 
-Validação local gerou alteração em:
+Local:
 
 ```text
-miniapp/package-lock.json
-worker/package-lock.json
+Servidor Ubuntu / NodeSource
+```
+
+Classificação:
+
+```text
+CORREÇÃO DE DEPENDÊNCIA
+NÃO É WORKAROUND
 ```
 
 Motivo:
 
 ```text
 Wrangler 4.95.0 exige Node >= 22.
-Node anterior era v20.20.2.
-Worker dry-run falhava com Node 20.
+Atualizar Node foi correção da dependência real, não desvio.
 ```
 
-Estado esperado:
+Risco residual:
 
 ```text
-Node 22 deve ser mantido.
-Os package-lock.json atualizados devem ser versionados se já foram commitados após validação.
+Baixo, desde que Node 22 continue instalado e package-lock.json validado seja versionado.
+```
+
+---
+
+#### Correção de arkham_packs no Supabase
+
+Banco:
+
+```text
+public.arkham_packs
+```
+
+Colunas adicionadas/populadas:
+
+```text
+cycle_position
+position
+chapter
+total
+```
+
+Classificação:
+
+```text
+CORREÇÃO DE SCHEMA
+NÃO É WORKAROUND
+```
+
+Motivo:
+
+```text
+O Worker já esperava essas colunas.
+Adicionar as colunas ao schema real corrige a fonte primária em vez de depender do fallback ArkhamDB.
+```
+
+Resultado validado:
+
+```text
+total_packs: 114
+sem_cycle_position: 0
+sem_position: 0
+sem_chapter: 0
+sem_total: 0
+```
+
+Risco residual:
+
+```text
+Baixo para /packs, desde que futuras sincronizações continuem populando essas colunas.
+```
+
+---
+
+#### Preparação de target_chats para soft delete
+
+Banco:
+
+```text
+public.target_chats
+```
+
+Colunas adicionadas:
+
+```text
+removed_at
+removed_by_name
+removed_by_user_id
+```
+
+Classificação:
+
+```text
+PREPARAÇÃO CORRETA DE SCHEMA
+NÃO É WORKAROUND
+```
+
+Motivo:
+
+```text
+A mudança prepara o banco para substituir DELETE físico por PATCH enabled=false.
+Isso corrige a modelagem de dados sem mascarar o problema.
+```
+
+Risco residual:
+
+```text
+Médio, porque o código do Worker ainda não foi alterado.
+```
+
+---
+
+### 2.2 Ajustes/condições que são dívida técnica ou operação pendente
+
+#### Dois virtualenvs no servidor
+
+Locais:
+
+```text
+/opt/arkham_bot/venv
+/opt/arkham_bot/.venv
+```
+
+Classificação:
+
+```text
+DÍVIDA OPERACIONAL
+```
+
+Motivo:
+
+```text
+O serviço systemd usa /opt/arkham_bot/venv.
+Durante a validação foi criado/ativado .venv.
+Dois ambientes Python no mesmo projeto podem causar validação em um ambiente e execução em outro.
+```
+
+Estado validado:
+
+```text
+/opt/arkham_bot/venv está OK.
+filelock existe nesse venv.
+pytest existe nesse venv.
+healthcheck OK.
+42 passed.
+systemd active/running.
+```
+
+Ação correta:
+
+```bash
+sudo systemctl show arkham-bot -p ExecStart -p WorkingDirectory -p User
+/opt/arkham_bot/venv/bin/python -m pytest -q /opt/arkham_bot
+cd /opt/arkham_bot
+rm -rf .venv
 ```
 
 Status:
 
 ```text
-OK se os lockfiles foram commitados depois da validação.
+PENDENTE OPCIONAL
+```
+
+---
+
+#### package-lock.json alterados por npm install
+
+Arquivos:
+
+```text
+miniapp/package-lock.json
+worker/package-lock.json
+```
+
+Classificação:
+
+```text
+PENDÊNCIA DE VERSIONAMENTO
+```
+
+Motivo:
+
+```text
+Node 22 e npm install podem ter atualizado lockfiles.
+Se o build/dry-run validado depende desses locks, eles devem ser versionados.
+```
+
+Ação correta:
+
+```bash
+cd /opt/arkham_bot
+git status
+git diff -- miniapp/package-lock.json worker/package-lock.json | head -80
+git add miniapp/package-lock.json worker/package-lock.json
+git commit -m "chore: update npm lockfiles after node 22 validation"
+git push
+```
+
+Status:
+
+```text
+VERIFICAR SE JÁ FOI COMMITADO
+```
+
+---
+
+#### Kernel pendente no Ubuntu
+
+Indicação do sistema durante atualização:
+
+```text
+Running kernel: 6.14.0-1016-oracle
+Expected kernel: 6.17.0-1014-oracle
+```
+
+Classificação:
+
+```text
+PENDÊNCIA OPERACIONAL
+NÃO É BLOQUEANTE PARA APP/WORKER AGORA
+```
+
+Ação correta:
+
+```text
+Agendar reboot controlado da instância em janela segura.
+```
+
+Status:
+
+```text
+PENDENTE OPERACIONAL
+```
+
+---
+
+### 2.3 Tentativa rejeitada que NÃO deve ser retomada
+
+#### hardened.js / wrapper Worker
+
+Durante a conversa foi considerada a criação de:
+
+```text
+worker/src/hardened.js
+```
+
+com mudança de entrada do Worker para interceptar rotas e delegar ao `index.js` original.
+
+Classificação:
+
+```text
+WORKAROUND REJEITADO
+NÃO APLICAR
+```
+
+Motivo:
+
+```text
+Criaria uma camada paralela para corrigir sintomas em vez de corrigir worker/src/index.js diretamente.
+Isso tornaria a arquitetura menos clara, duplicaria lógica de autenticação/CORS e aumentaria a dívida técnica.
+```
+
+Estado real verificado:
+
+```text
+worker/src/hardened.js não existe no repositório.
+worker/wrangler.toml continua apontando para src/index.js.
+```
+
+Regra permanente:
+
+```text
+Não criar hardened.js.
+Não criar proxy interno.
+Não duplicar handlers.
+Não trocar wrangler.toml para arquivo intermediário.
+Toda correção de Worker deve entrar diretamente em worker/src/index.js.
+```
+
+Status:
+
+```text
+CANCELADO / NÃO APLICADO
 ```
 
 ---
@@ -505,20 +774,6 @@ Padronizar um único venv operacional.
 Como systemd usa /opt/arkham_bot/venv e ele está validado, considerar remover .venv após confirmar que não está em uso.
 ```
 
-Comandos para validar antes de remover:
-
-```bash
-sudo systemctl show arkham-bot -p ExecStart -p WorkingDirectory -p User
-/opt/arkham_bot/venv/bin/python -m pytest -q /opt/arkham_bot
-```
-
-Remoção opcional:
-
-```bash
-cd /opt/arkham_bot
-rm -rf .venv
-```
-
 Status:
 
 ```text
@@ -527,35 +782,80 @@ PENDENTE DE LIMPEZA OPERACIONAL
 
 ---
 
-### WRK-006 — Tentativa rejeitada de wrapper Worker
+### WRK-006 — Processo manual de patch local por limitação do conector
 
 Descrição:
 
 ```text
-Durante esta conversa foi sugerida a criação de worker/src/hardened.js para interceptar rotas e delegar ao Worker original.
-O usuário rejeitou corretamente a abordagem como workaround.
+Foi sugerido aplicar patch localmente em worker/src/index.js porque o conector GitHub substitui arquivo inteiro e o arquivo é grande.
 ```
 
-Estado real:
+Classificação:
 
 ```text
-worker/src/hardened.js NÃO foi criado no repositório.
-wrangler.toml NÃO foi alterado para apontar para wrapper.
+NÃO É WORKAROUND DE CÓDIGO
+É PROCESSO OPERACIONAL ACEITÁVEL SE O PATCH FOR DIRETO NO ARQUIVO REAL
 ```
 
-Regra permanente:
+Risco:
 
 ```text
-Não criar hardened.js.
-Não criar proxy interno.
-Não alterar main do Worker para uma camada intermediária.
-Corrigir diretamente worker/src/index.js.
+- Aplicação manual pode gerar erro humano.
+- Precisa ser validada com npm run dry-run antes de commit/push.
+```
+
+Regra:
+
+```text
+Patch local é aceitável somente se alterar diretamente worker/src/index.js.
+Não é aceitável criar arquivo paralelo, wrapper ou entrada alternativa.
 ```
 
 Status:
 
 ```text
-CANCELADO / NÃO APLICADO
+ACEITÁVEL COM VALIDAÇÃO
+```
+
+---
+
+### WRK-007 — Busca textual por termos explícitos não prova ausência de workaround
+
+Durante esta revisão, buscas por termos como:
+
+```text
+workaround
+hack
+TODO
+FIXME
+stub
+fallback
+legacy
+gambiarra
+dívida técnica
+temporary
+```
+
+não retornaram resultados relevantes no índice consultado.
+
+Classificação:
+
+```text
+EVIDÊNCIA FRACA
+NÃO PROVA AUSÊNCIA
+```
+
+Motivo:
+
+```text
+Workaround pode existir sem usar esses termos.
+A validação precisa continuar por leitura estrutural de código e comportamento.
+```
+
+Status:
+
+```text
+REGISTRADO
 ```
 
 ---
@@ -912,6 +1212,94 @@ PENDENTE
 
 ---
 
+### PEND-010 — PTBUserWarning nos ConversationHandlers
+
+Arquivo provável:
+
+```text
+src/arkham_bot/handlers/telegram_handlers.py
+```
+
+Aviso visto no log:
+
+```text
+PTBUserWarning: If 'per_message=False', 'CallbackQueryHandler' will not be tracked for every message.
+```
+
+Classificação:
+
+```text
+AVISO NÃO CRÍTICO
+PENDÊNCIA DE LIMPEZA FUTURA
+```
+
+Risco:
+
+```text
+Pode haver comportamento não ideal em callbacks dentro de ConversationHandler.
+Não bloqueia runtime, pois bot subiu, scheduler iniciou e testes passaram.
+```
+
+Ação correta:
+
+```text
+Revisar ConversationHandler de card_conv_handler e search_conv_handler.
+Decidir explicitamente per_message/per_chat/per_user conforme comportamento desejado.
+```
+
+Status:
+
+```text
+PENDENTE BAIXO
+```
+
+---
+
+### PEND-011 — Cloudflare Worker sem SUPABASE_SERVICE_ROLE_KEY visível no dry-run
+
+Durante dry-run, bindings exibidos:
+
+```text
+env.SUPABASE_URL
+env.ALLOWED_ORIGINS
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` não apareceu no resumo.
+
+Classificação:
+
+```text
+PENDÊNCIA DE VALIDAÇÃO DE SECRET
+```
+
+Possível motivo:
+
+```text
+Wrangler pode ocultar secrets no dry-run, ou o secret pode não estar configurado no ambiente Cloudflare.
+```
+
+Ação correta:
+
+```bash
+cd /opt/arkham_bot/worker
+npx wrangler secret list
+```
+
+Verificar se existe:
+
+```text
+SUPABASE_SERVICE_ROLE_KEY
+TELEGRAM_BOT_TOKEN
+```
+
+Status:
+
+```text
+PENDENTE DE VALIDAÇÃO CLOUDFLARE
+```
+
+---
+
 ## 6. Pendências operacionais
 
 ### OPS-001 — Commitar lockfiles se ainda não foram commitados
@@ -1001,6 +1389,43 @@ PENDENTE OPERACIONAL
 
 ---
 
+### OPS-004 — Validar secrets reais do Worker antes de deploy
+
+Motivo:
+
+```text
+Dry-run passou, mas isso não garante que secrets de produção estejam configurados corretamente no Cloudflare.
+```
+
+Comandos:
+
+```bash
+cd /opt/arkham_bot/worker
+npx wrangler secret list
+```
+
+Secrets esperados:
+
+```text
+SUPABASE_SERVICE_ROLE_KEY
+TELEGRAM_BOT_TOKEN
+```
+
+Variáveis não secret esperadas:
+
+```text
+SUPABASE_URL
+ALLOWED_ORIGINS
+```
+
+Status:
+
+```text
+PENDENTE
+```
+
+---
+
 ## 7. Ordem correta de correção sem workaround
 
 ### Fase 1 — Worker direto em worker/src/index.js
@@ -1049,9 +1474,9 @@ Somente depois de corrigir Worker:
 
 ---
 
-## 8. Comandos de validação obrigatórios após cada fase
+## 8. Validação obrigatória após cada fase
 
-No servidor:
+Python:
 
 ```bash
 cd /opt/arkham_bot
@@ -1103,6 +1528,7 @@ O trabalho só estará concluído quando:
 - /history filtrar source pelo backend.
 - /destinations não apagar dados fisicamente.
 - decisão sobre múltiplos tópicos for implementada no banco e Worker.
+- secrets reais do Cloudflare estiverem validados.
 ```
 
 ---
@@ -1127,3 +1553,5 @@ Motivo:
 O banco já foi preparado com removed_at, removed_by_name e removed_by_user_id.
 É a menor correção real e elimina DELETE físico sem exigir arquitetura paralela.
 ```
+
+Não aplicar nenhuma correção via wrapper.
