@@ -604,7 +604,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _check_rate_limit(update):
         return
     payload = _collect_status_payload(update)
-    await update.message.reply_text(_format_status(payload), parse_mode=ParseMode.HTML)
+    await update.message.reply_text(_format_status(payload), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
