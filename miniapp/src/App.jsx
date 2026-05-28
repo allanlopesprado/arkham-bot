@@ -81,7 +81,7 @@ export default function App() {
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoadingState, setHistoryLoadingState] = useState(false);
   const [historyError, setHistoryError] = useState(null);
-  const [historyDate, setHistoryDate] = useState('');
+  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [allDaysMode, setAllDaysMode] = useState(false);
   const [savedAllDaysMode, setSavedAllDaysMode] = useState(false);
@@ -186,7 +186,7 @@ export default function App() {
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
-  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', database: 'home', schedule: 'settings', admins: 'home', destinations: 'home', maintenance: 'home', queue: 'home', history: 'home', health: 'home' };
+  const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'settings', database: 'home', schedule: 'settings', admins: 'app_settings', destinations: 'home', maintenance: 'home', queue: 'home', history: 'home', health: 'home' };
   useEffect(() => {
     const btn = tg()?.BackButton;
     if (!btn) return;
@@ -249,7 +249,7 @@ export default function App() {
   // ── Auto-load history when entering history tab ─────────────────────────────
   useEffect(() => {
     if (activeTab === 'history') fetchHistoryItems(historyDate, 0);
-    if (activeTab === 'admins') fetchAdmins();
+    if (activeTab === 'app_settings') fetchAdmins();
     if (activeTab === 'health') fetchBotRuntime();
   }, [activeTab]);
 
@@ -814,7 +814,6 @@ export default function App() {
             <Row icon="database" label={copy.databaseTab}  onClick={() => setActiveTab('database')} />
             <Row icon="server"   label={copy.health}       onClick={() => setActiveTab('health')} value={workerValue} badgeTone={workerTone} />
             <Row icon="wrench"   label={copy.maintenance}  onClick={() => setActiveTab('maintenance')} />
-            {me?.role === 'owner' && <Row icon="shield" label={copy.adminsTab} onClick={() => setActiveTab('admins')} />}
           </Section>
         </>
       )}
@@ -931,24 +930,11 @@ export default function App() {
             <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
           </Section>
 
-          {/* Language */}
-          <Section title={copy.chooseLanguage}>
-            <ToggleRow
-              label={copy.portuguese}
-              checked={language === 'pt'}
-              onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
-            />
-            <ToggleRow
-              label={copy.englishLang}
-              checked={language === 'en'}
-              onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
-            />
-          </Section>
-
           {/* Sub-sections navigation */}
           <Section>
-            <Row icon="clock" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
-            <Row icon="ai" label={copy.aiTab} onClick={() => setActiveTab('ai')} />
+            <Row icon="clock"    label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
+            <Row icon="ai"       label={copy.aiTab}       onClick={() => setActiveTab('ai')} />
+            <Row icon="settings" label={copy.appTab}      onClick={() => setActiveTab('app_settings')} />
           </Section>
 
           {settingsResult && (
@@ -1380,46 +1366,6 @@ export default function App() {
         );
       })()}
 
-      {/* ── ADMINS ── */}
-      {activeTab === 'admins' && me?.role === 'owner' && (
-        <>
-          <Section title={copy.adminsTitle}>
-            <MenuRow icon="refresh" label={copy.refreshQueue} loading={adminsLoading} disabled={!apiConfigured} onClick={fetchAdmins} />
-            {adminsError && <Row icon="info" label={String(adminsError)} value="err" badgeTone="err" />}
-            {admins.map((admin) => (
-              <div key={admin.telegram_user_id} className="row" style={{ justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                  <span className="row-label">{admin.name || String(admin.telegram_user_id)}</span>
-                  <span className="row-caption">{admin.telegram_user_id}{admin.added_by_name ? ` · ${copy.adminAddedBy} ${admin.added_by_name}` : ''}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Badge tone={admin.role === 'owner' ? 'ok' : admin.role === 'admin' ? 'warn' : ''}>{admin.role}</Badge>
-                  {!(admin.telegram_user_id === me?.user?.id && admin.role === 'owner') && (
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => removeAdmin(admin.telegram_user_id)}
-                      aria-label={copy.removeAdmin}
-                    ><Icon name="x" /></button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </Section>
-          <Section title={copy.addAdmin}>
-            <StackedInputRow label={copy.adminUserIdLabel} value={adminUserId} onChange={setAdminUserId} placeholder={copy.adminUserIdPlaceholder} inputMode="numeric" />
-            <StackedInputRow label={copy.adminNameLabel} value={adminName} onChange={setAdminName} placeholder={copy.adminNamePlaceholder} />
-            <SelectRow label={copy.adminRoleLabel} value={adminRole} onChange={setAdminRole}>
-              <option value="admin">{copy.adminRoleAdmin}</option>
-              <option value="viewer">{copy.adminRoleViewer}</option>
-            </SelectRow>
-            <MenuRow icon="shield" label={copy.addAdmin} loading={addingAdmin} disabled={!apiConfigured || !adminUserId.trim()} onClick={addAdmin} />
-            {addAdminResult && (
-              <Row icon={addAdminResult.ok ? 'result' : 'info'} label={addAdminResult.ok ? copy.success : copy.error} value={addAdminResult.ok ? 'ok' : 'err'} badgeTone={addAdminResult.ok ? 'ok' : 'err'} caption={addAdminResult.friendly} />
-            )}
-          </Section>
-        </>
-      )}
 
       {/* ── DESTINATIONS MANAGE ── */}
       {activeTab === 'destinations' && (
@@ -1476,18 +1422,60 @@ export default function App() {
 
       {/* ── APP SETTINGS ── */}
       {activeTab === 'app_settings' && (
-        <Section title={copy.chooseLanguage}>
-          <ToggleRow
-            label={copy.portuguese}
-            checked={language === 'pt'}
-            onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
-          />
-          <ToggleRow
-            label={copy.englishLang}
-            checked={language === 'en'}
-            onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
-          />
-        </Section>
+        <>
+          <Section title={copy.chooseLanguage}>
+            <ToggleRow
+              label={copy.portuguese}
+              checked={language === 'pt'}
+              onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
+            />
+            <ToggleRow
+              label={copy.englishLang}
+              checked={language === 'en'}
+              onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
+            />
+          </Section>
+
+          {me?.role === 'owner' && (
+            <>
+              <Section title={copy.adminsTitle}>
+                <MenuRow icon="refresh" label={copy.refreshQueue} loading={adminsLoading} disabled={!apiConfigured} onClick={fetchAdmins} />
+                {adminsError && <Row icon="info" label={String(adminsError)} value="err" badgeTone="err" />}
+                {admins.map((admin) => (
+                  <div key={admin.telegram_user_id} className="row" style={{ justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                      <span className="row-label">{admin.name || String(admin.telegram_user_id)}</span>
+                      <span className="row-caption">{admin.telegram_user_id}{admin.added_by_name ? ` · ${copy.adminAddedBy} ${admin.added_by_name}` : ''}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Badge tone={admin.role === 'owner' ? 'ok' : admin.role === 'admin' ? 'warn' : ''}>{admin.role}</Badge>
+                      {!(admin.telegram_user_id === me?.user?.id && admin.role === 'owner') && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          onClick={() => removeAdmin(admin.telegram_user_id)}
+                          aria-label={copy.removeAdmin}
+                        ><Icon name="x" /></button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </Section>
+              <Section title={copy.addAdmin}>
+                <StackedInputRow label={copy.adminUserIdLabel} value={adminUserId} onChange={setAdminUserId} placeholder={copy.adminUserIdPlaceholder} inputMode="numeric" />
+                <StackedInputRow label={copy.adminNameLabel} value={adminName} onChange={setAdminName} placeholder={copy.adminNamePlaceholder} />
+                <SelectRow label={copy.adminRoleLabel} value={adminRole} onChange={setAdminRole}>
+                  <option value="admin">{copy.adminRoleAdmin}</option>
+                  <option value="viewer">{copy.adminRoleViewer}</option>
+                </SelectRow>
+                <MenuRow icon="shield" label={copy.addAdmin} loading={addingAdmin} disabled={!apiConfigured || !adminUserId.trim()} onClick={addAdmin} />
+                {addAdminResult && (
+                  <Row icon={addAdminResult.ok ? 'result' : 'info'} label={addAdminResult.ok ? copy.success : copy.error} value={addAdminResult.ok ? 'ok' : 'err'} badgeTone={addAdminResult.ok ? 'ok' : 'err'} caption={addAdminResult.friendly} />
+                )}
+              </Section>
+            </>
+          )}
+        </>
       )}
 
       {/* ── HEALTH ── */}

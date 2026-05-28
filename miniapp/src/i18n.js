@@ -152,6 +152,7 @@ export const I18N = {
     aiCreativityCreative: 'Criativo',
     // schedule tab
     scheduleTab: 'Agenda',
+    appTab: 'App',
     // weekly schedule
     weeklySchedule: 'Padrão global',
     weeklyScheduleCaption: 'Configure horário, ciclos e tipos por dia da semana',
@@ -470,6 +471,7 @@ export const I18N = {
     aiCreativityCreative: 'Creative',
     // schedule tab
     scheduleTab: 'Schedule',
+    appTab: 'App',
     // weekly schedule
     weeklySchedule: 'Global default',
     weeklyScheduleCaption: 'Configure time, cycles and types per weekday',
