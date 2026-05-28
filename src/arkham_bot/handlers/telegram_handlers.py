@@ -1424,7 +1424,7 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
 
         # Build card list grouped by type
-        all_cards = await asyncio.to_thread(_get_all_cards)
+        all_cards = await asyncio.to_thread(_get_all_cards, True)
         card_map = {c['code']: c for c in all_cards if c.get('code')}
 
         TYPE_ORDER = ['investigator', 'asset', 'event', 'skill', 'enemy', 'treachery', 'location']
