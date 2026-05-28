@@ -983,16 +983,13 @@ export default function App() {
             )}
           </Section>
 
-          {/* Chat ID fallback — only shown when no destinations are configured */}
-          {targetChats.length === 0 ? (
-            <Section title={copy.telegramChannel} footer={copy.telegramChatIdActiveFallback}>
-              <ChatIdInputRow
-                value={settings.telegram_chat_id}
-                onChange={(v) => updateSetting('telegram_chat_id', v)}
-                placeholder={copy.telegramChatIdPlaceholder}
-              />
+          {/* No destinations warning */}
+          {targetChats.length === 0 && (
+            <Section>
+              <Row icon="info" label={copy.noDestinationsWarning} badgeTone="warn" />
+              <Row icon="send" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
             </Section>
-          ) : null}
+          )}
 
           {/* Card filter */}
           <Section title={copy.cardFilter} info={copy.includeSpoilersCaption}>
