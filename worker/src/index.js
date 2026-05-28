@@ -1112,10 +1112,36 @@ async function handleAddDestination(request, env, user, ao) {
       removed_by_name: null,
       removed_at: null,
     };
-    const url = `${supabaseBase(env)}/rest/v1/target_chats?on_conflict=chat_id`;
+    // Check for duplicate (chat_id, message_thread_id) pair before inserting.
+    // on_conflict=chat_id,message_thread_id requires the composite UNIQUE constraint
+    // applied in migration 20260528_telegram_topics_support.sql
+    const threadFilter = record.message_thread_id != null
+      ? `&message_thread_id=eq.${record.message_thread_id}`
+      : `&message_thread_id=is.null`;
+    const dupCheck = await fetchSupabaseJson(env,
+      `/rest/v1/target_chats?select=id,enabled&chat_id=eq.${encodeURIComponent(record.chat_id)}${threadFilter}&limit=1`);
+    if (dupCheck && dupCheck.length > 0) {
+      const existing = dupCheck[0];
+      if (existing.enabled) {
+        return withCors(jsonResponse({ ok: false, error: 'destination_already_exists' }, 409), ao);
+      }
+      // Re-enable soft-deleted destination
+      const reUrl = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${existing.id}`;
+      const reResp = await fetch(reUrl, {
+        method: 'PATCH',
+        headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify({ enabled: true, removed_by_user_id: null, removed_by_name: null, removed_at: null,
+          title: record.title, added_by_user_id: user.id, added_by_name: user.name || '' }),
+      });
+      if (!reResp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }, 502), ao);
+      await writeAuditLog(env, user, 'destination_readded', { chat_id });
+      const reResult = await reResp.json();
+      return withCors(jsonResponse({ ok: true, destination: Array.isArray(reResult) ? reResult[0] : reResult }), ao);
+    }
+    const url = `${supabaseBase(env)}/rest/v1/target_chats`;
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      headers: { ...supabaseHeaders(env), 'content-type': 'application/json', 'Prefer': 'return=representation' },
       body: JSON.stringify(record),
     });
     if (!resp.ok) return withCors(jsonResponse({ ok: false, error: 'destination_insert_failed' }, 502), ao);

@@ -106,38 +106,48 @@ async def _pin_new_daily_card(bot: Bot, chat_id: str, card_code: str, message_id
         logger.warning(f"Could not persist pin state for {card_code}: {exc}", exc_info=True)
 
 
-def _get_target_chat_ids() -> list[str]:
-    """Returns enabled target chat IDs from target_chats table, falling back to telegram_chat_id setting."""
+@dataclass(slots=True)
+class _Destination:
+    chat_id: str
+    message_thread_id: int | None = None
+
+
+def _get_destinations() -> list[_Destination]:
+    """Returns enabled destinations from target_chats, falling back to telegram_chat_id setting."""
     try:
         from ..core.supabase_client import get_supabase_client
         client = get_supabase_client()
         if client:
             rows = client.get("target_chats", params={"enabled": "eq.true", "select": "chat_id,message_thread_id"})
-            ids = [r["chat_id"] for r in (rows or []) if r.get("chat_id")]
-            if ids:
-                logger.info(f"target_chats: {len(ids)} destino(s) encontrado(s)")
-                return ids
+            dests = [
+                _Destination(chat_id=r["chat_id"], message_thread_id=r.get("message_thread_id"))
+                for r in (rows or []) if r.get("chat_id")
+            ]
+            if dests:
+                logger.info(f"target_chats: {len(dests)} destino(s) encontrado(s)")
+                return dests
     except Exception as exc:
         logger.warning(f"target_chats_fetch_failed: {exc}")
     chat_id = str(get_setting('telegram_chat_id', None) or TELEGRAM_CHAT_ID or "").strip()
-    return [chat_id] if chat_id else []
+    return [_Destination(chat_id=chat_id)] if chat_id else []
 
 
 async def post_daily_card(specific_card_code=None, target_chat_id: str | None = None, is_scheduled: bool = False) -> DailyPostResult:
     """Posts the daily ArkhamDB card. When target_chat_id is None, posts to all enabled target_chats."""
 
     if target_chat_id:
-        chat_ids = [str(target_chat_id).strip()]
+        destinations = [_Destination(chat_id=str(target_chat_id).strip())]
     else:
-        chat_ids = _get_target_chat_ids()
+        destinations = _get_destinations()
 
-    if not TELEGRAM_BOT_TOKEN or not chat_ids:
+    if not TELEGRAM_BOT_TOKEN or not destinations:
         error = "Telegram token or chat id not configured."
         logger.error(error)
         return DailyPostResult(success=False, error=error)
 
-    chat_id = chat_ids[0]
-    extra_chat_ids = chat_ids[1:]
+    primary = destinations[0]
+    chat_id = primary.chat_id
+    extra_destinations = destinations[1:]
 
     if not TELEGRAM_BOT_TOKEN or not chat_id:
         error = "Telegram token or chat id not configured."
@@ -264,6 +274,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         chat_id=chat_id,
                         text=get_strings()["daily_cycle_reset"],
                         parse_mode=ParseMode.HTML,
+                        message_thread_id=primary.message_thread_id,
                     )
                     posted_cards.clear()
                     try:
@@ -363,6 +374,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         chat_id=chat_id,
                         text=ai_pre_message,
                         parse_mode=ParseMode.HTML,
+                        message_thread_id=primary.message_thread_id,
                     )
                     pre_message_sent = True
                     if ai_pre_message_delay > 0:
@@ -374,6 +386,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     photo=card_image_bytes,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
+                    message_thread_id=primary.message_thread_id,
                 )
                 logger.info(f"Image (Front) for {card_code} posted successfully. Message ID: {message.message_id}")
                 save_posted_card(card_code)
@@ -440,6 +453,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                             caption=back_caption,
                             parse_mode=ParseMode.HTML,
                             reply_to_message_id=message.message_id,
+                            message_thread_id=primary.message_thread_id,
                         )
                         log_posting_history(card_code, card.get('name'), "POSTED_BACK")
                     except Exception as exc:
@@ -455,6 +469,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                             text=back_caption,
                             parse_mode=ParseMode.HTML,
                             reply_to_message_id=message.message_id,
+                            message_thread_id=primary.message_thread_id,
                         )
                         log_posting_history(card_code, card.get('name'), "POSTED_BACK_TEXT_ONLY")
                     except TelegramError as exc:
@@ -462,16 +477,17 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
 
         await _pin_new_daily_card(bot, chat_id, card_code, message.message_id)
 
-        for extra_chat in extra_chat_ids:
+        for extra in extra_destinations:
             try:
                 card_image_bytes.seek(0)
                 extra_msg = await bot.send_photo(
-                    chat_id=extra_chat,
+                    chat_id=extra.chat_id,
                     photo=card_image_bytes,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
+                    message_thread_id=extra.message_thread_id,
                 )
-                logger.info(f"Card {card_code} replicated to extra destination {extra_chat}. Message ID: {extra_msg.message_id}")
+                logger.info(f"Card {card_code} replicated to extra destination {extra.chat_id} thread={extra.message_thread_id}. Message ID: {extra_msg.message_id}")
                 try:
                     create_history_entry(
                         card_code=card_code,
@@ -479,12 +495,12 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                         status='POSTED_FRONT_SUCCESS',
                         source='scheduled' if is_scheduled else 'manual',
                         telegram_message_id=extra_msg.message_id,
-                        target_chat_id=extra_chat,
+                        target_chat_id=extra.chat_id,
                     )
                 except Exception as _he:
                     logger.warning(f"history_entry_failed extra dest: {_he}")
             except Exception as exc:
-                logger.error(f"Failed to replicate card {card_code} to extra destination {extra_chat}: {exc}")
+                logger.error(f"Failed to replicate card {card_code} to extra destination {extra.chat_id}: {exc}")
 
         if ai_post_question:
             try:
@@ -496,6 +512,7 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                     text=ai_post_question,
                     parse_mode=ParseMode.HTML,
                     reply_to_message_id=message.message_id,
+                    message_thread_id=primary.message_thread_id,
                 )
             except TelegramError as exc:
                 logger.warning(f"Could not send AI discussion message: {exc}")
