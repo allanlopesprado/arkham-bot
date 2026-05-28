@@ -438,3 +438,29 @@ def _pop_search_prompt(context):
     context.user_data.pop("search_prompt_chat_id", None)
     context.user_data.pop("search_user_chat_id", None)
     return prompt
+
+
+async def handle_my_chat_member(update, context):
+    """Handles bot being added to or removed from a group."""
+    member = update.my_chat_member
+    if not member:
+        return
+    chat = member.chat
+    new_status = member.new_chat_member.status if member.new_chat_member else None
+    chat_id = str(chat.id)
+    try:
+        from ..repositories.pending_destinations_repo import upsert_pending, dismiss_pending
+        if new_status in ("member", "administrator"):
+            title = chat.title or chat.username or chat_id
+            upsert_pending(
+                chat_id=chat_id,
+                chat_title=title,
+                chat_type=chat.type or "group",
+                chat_username=chat.username,
+            )
+            logger.info("pending_destination_added: chat_id=%s title=%s", chat_id, title)
+        elif new_status in ("left", "kicked", "banned"):
+            dismiss_pending(chat_id)
+            logger.info("pending_destination_dismissed: chat_id=%s", chat_id)
+    except Exception as exc:
+        logger.warning("handle_my_chat_member_failed: %s", exc)

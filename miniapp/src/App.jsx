@@ -58,6 +58,9 @@ export default function App() {
   const [destList, setDestList] = useState([]);
   const [destLoading, setDestLoading] = useState(false);
   const [destError, setDestError] = useState(null);
+  const [pendingDests, setPendingDests] = useState([]);
+  const [pendingThreadId, setPendingThreadId] = useState({});
+  const [acceptingPending, setAcceptingPending] = useState(null);
   const [destChatId, setDestChatId] = useState('');
   const [destTitle, setDestTitle] = useState('');
   const [destThread, setDestThread] = useState('');
@@ -684,6 +687,42 @@ export default function App() {
     } catch { haptic('notification', 'error'); }
   }
 
+  async function fetchPendingDestinations() {
+    if (!apiConfigured) return;
+    try {
+      const { ok, json } = await apiFetch('/destinations/pending');
+      if (ok) setPendingDests(json.pending || []);
+    } catch {}
+  }
+
+  async function acceptPending(pending) {
+    setAcceptingPending(pending.id);
+    try {
+      const threadId = pendingThreadId[pending.id] || '';
+      const body = threadId ? { message_thread_id: Number(threadId) } : {};
+      const { ok, json } = await apiFetch(`/destinations/pending/${pending.id}/accept`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (ok) {
+        haptic('notification', 'success');
+        setPendingDests(p => p.filter(d => d.id !== pending.id));
+        fetchDestinations();
+      } else {
+        haptic('notification', 'error');
+        setAddDestResult({ ok: false, friendly: json?.error || copy.error });
+      }
+    } catch { haptic('notification', 'error'); }
+    finally { setAcceptingPending(null); }
+  }
+
+  async function dismissPending(pendingId) {
+    try {
+      await apiFetch(`/destinations/pending/${pendingId}`, { method: 'DELETE' });
+      setPendingDests(p => p.filter(d => d.id !== pendingId));
+      haptic('selection');
+    } catch {}
+  }
+
   async function fetchDestinations() {
     if (!apiConfigured) return;
     setDestLoading(true);
@@ -831,7 +870,7 @@ export default function App() {
 
           <Section title={copy.configTitle}>
             <Row icon="settings" label={copy.postingConfig}          onClick={() => setActiveTab('settings')} />
-            <Row icon="send"     label={copy.destinationsManageTab}  onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
+            <Row icon="send"     label={copy.destinationsManageTab}  onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
             <Row icon="settings" label={copy.appTab}                 onClick={() => { setActiveTab('app_settings'); fetchAdmins(); }} />
           </Section>
 
@@ -1400,8 +1439,41 @@ export default function App() {
       {/* ── DESTINATIONS MANAGE ── */}
       {activeTab === 'destinations' && (
         <>
+          {pendingDests.length > 0 && (
+            <Section title={copy.pendingDestinationsTitle} footer={copy.pendingDestinationCaption}>
+              {pendingDests.map(p => (
+                <div key={p.id} style={{ padding: '10px 14px', borderTop: '1px solid var(--sep)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <span className="row-label">{p.chat_title}</span>
+                      <span className="row-caption">{p.chat_id}{p.chat_username ? ` · @${p.chat_username}` : ''} · {p.chat_type}</span>
+                      <input
+                        className="block-input"
+                        style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 13 }}
+                        type="number"
+                        placeholder={copy.pendingThreadHint}
+                        value={pendingThreadId[p.id] || ''}
+                        onChange={e => setPendingThreadId(t => ({ ...t, [p.id]: e.target.value }))}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                      <button type="button" className="icon-btn" disabled={acceptingPending === p.id}
+                        onClick={() => acceptPending(p)} aria-label={copy.pendingAccept}>
+                        {acceptingPending === p.id ? <Spinner /> : <Icon name="result" />}
+                      </button>
+                      <button type="button" className="icon-btn danger" onClick={() => dismissPending(p.id)} aria-label={copy.pendingDismiss}>
+                        <Icon name="x" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </Section>
+          )}
+
           <Section title={copy.destinationsManageTab}>
-            <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={fetchDestinations} />
+            <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={() => { fetchDestinations(); fetchPendingDestinations(); }} />
             {destError && <Row icon="info" label={String(destError)} value="err" badgeTone="err" />}
             {!destLoading && !destError && destList.length === 0 && <Row icon="send" label={copy.noDestinations} />}
             {destList.map((dest) => (

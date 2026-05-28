@@ -2,6 +2,7 @@ import logging
 
 from telegram.ext import (
     CallbackQueryHandler,
+    ChatMemberHandler,
     CommandHandler,
     ConversationHandler,
     MessageHandler,
@@ -37,6 +38,7 @@ from .sets_handler import (
     sets_list_page_callback,
 )
 from .status_handler import start_command, status_command
+from .common import handle_my_chat_member
 from .taboo_handler import (
     taboo_back_callback,
     taboo_card_callback,
@@ -114,4 +116,5 @@ def register_handlers(application):
     application.add_handler(card_conv_handler)
     application.add_handler(CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"))
     application.add_handler(CallbackQueryHandler(lambda u, c: u.callback_query.answer(), pattern=r"^NOOP$"))
+    application.add_handler(ChatMemberHandler(handle_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_error_handler(error_handler)
