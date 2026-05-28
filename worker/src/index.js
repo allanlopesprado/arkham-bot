@@ -1318,7 +1318,12 @@ async function handleTestDestination(request, env, user, ao, destId) {
     const { chat_id, message_thread_id } = rows[0];
     const botToken = env.TELEGRAM_BOT_TOKEN;
     if (!botToken) return withCors(jsonResponse({ ok: false, error: 'bot_token_not_configured' }, 500), ao);
-    const msgBody = { chat_id, text: '✅ Test message from Arkham Bot Mini App.' };
+    const body = await request.json().catch(() => ({}));
+    const lang = body.language === 'en' ? 'en' : 'pt';
+    const testText = lang === 'en'
+      ? '✅ Test message from Arkham Bot Mini App.'
+      : '✅ Mensagem de teste do Arkham Bot Mini App.';
+    const msgBody = { chat_id, text: testText };
     if (message_thread_id) msgBody.message_thread_id = message_thread_id;
     const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',

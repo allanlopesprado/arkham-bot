@@ -764,7 +764,11 @@ export default function App() {
   async function testDestination(destId) {
     setTestingDest(destId);
     try {
-      const { ok, json } = await apiFetch(`/destinations/${destId}/test`, { method: 'POST' });
+      const { ok, json } = await apiFetch(`/destinations/${destId}/test`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ language }),
+      });
       if (ok) { haptic('notification', 'success'); setAddDestResult({ ok: true, friendly: copy.destinationTestOk }); }
       else { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationTestFailed, detail: json?.detail || json?.error || '' }); }
     } catch { haptic('notification', 'error'); }
