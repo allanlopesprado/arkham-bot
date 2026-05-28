@@ -534,15 +534,16 @@ input, select { outline: none; }
 .inline-select {
   flex-shrink: 0;
   max-width: 55%;
-  padding: 4px 8px;
+  padding: 7px 10px;
   border: 1px solid var(--sep);
   border-radius: 8px;
-  background: var(--section-bg);
+  background: var(--bg2);
   color: var(--text);
   font-size: 14px;
   appearance: auto;
   cursor: pointer;
 }
+.inline-select:focus { outline: none; border-color: color-mix(in srgb, var(--link) 50%, transparent); }
 
 /* ── Search row ───────────────────────────────────────────────────────────── */
 
