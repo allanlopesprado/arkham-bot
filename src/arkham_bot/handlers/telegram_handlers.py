@@ -1435,8 +1435,9 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             card = card_map.get(code)
             cname = escape(card['name'] if card else code)
             ctype = (card.get('type_code') or 'other') if card else 'other'
-            label = f"{'×' + str(qty) + ' ' if qty > 1 else ''}{cname}"
-            grouped.setdefault(ctype, []).append(label)
+            link = f"<a href='https://arkhamdb.com/card/{code}'>{cname}</a>"
+            prefix = f"×{qty} · " if qty > 1 else "· "
+            grouped.setdefault(ctype, []).append(f"{prefix}{link}")
             total_cards += qty
 
         card_lines = []
@@ -1448,7 +1449,8 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 card_lines.extend(f"  {item}" for item in grouped[t])
         for t, items in grouped.items():
             if t not in TYPE_ORDER and t != 'investigator':
-                card_lines.append(f"\n▪️ <b>{t.capitalize()}</b>")
+                tname = s.get(f"decklist_type_{t}", t.capitalize())
+                card_lines.append(f"\n▪️ <b>{tname}</b>")
                 card_lines.extend(f"  {item}" for item in items)
 
         # Caption for investigator image
@@ -1464,7 +1466,9 @@ async def decklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if taboo_id:
             caption_lines.append(f"🚫 {s.get('decklist_taboo_active', 'Com taboo')}")
         if description:
-            caption_lines.append(f"\n{escape(description[:300])}")
+            clean_desc = re.sub(r'<[^>]+>', '', description).strip()
+            if clean_desc:
+                caption_lines.append(f"\n{escape(clean_desc[:300])}")
         caption_lines.append(f"\n🔗 <a href='https://arkhamdb.com/decklist/view/{decklist_id}'>{s.get('decklist_view_label', 'Ver no ArkhamDB')}</a>")
         caption = "\n".join(caption_lines)
 
