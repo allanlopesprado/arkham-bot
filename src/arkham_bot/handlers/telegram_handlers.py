@@ -984,16 +984,18 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo_msg = None
 
         # 2. Send FAQ text as reply to the image (or to user if no image)
-        # Split only at paragraph boundaries — never mid-sentence
-        anchor = photo_msg or update.message
+        anchor_id = photo_msg.message_id if photo_msg else update.message.message_id
         chunks = _chunks(faq_text, 3900)
-        last_msg = anchor
+        last_id = anchor_id
         for chunk in chunks:
-            last_msg = await last_msg.reply_text(
-                chunk,
+            sent = await update.message.get_bot().send_message(
+                chat_id=update.effective_chat.id,
+                text=chunk,
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=True,
+                reply_parameters=ReplyParameters(message_id=last_id),
             )
+            last_id = sent.message_id
 
     except Exception as exc:
         logger.error(f"faq_command_failed: {exc}", exc_info=True)
