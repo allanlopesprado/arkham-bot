@@ -148,6 +148,8 @@ strings: dict = {
         "Todas as cartas da seleção atual já foram postadas.\n"
         "O ciclo foi reiniciado automaticamente."
     ),
+    "daily_post_failed_alert": "⚠️ <b>Arkham Bot</b> — falha na postagem diária.\n<code>{error}</code>",
+    "daily_post_failed_unknown": "erro desconhecido",
 
     # text_formatters.py
     "fmt_exceptional": "⚡ Exceptional",

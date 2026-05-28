@@ -206,8 +206,11 @@ async def _notify_admins_failure(error: str | None) -> None:
         return
     try:
         from telegram import Bot
+        from ..i18n import get_strings
+        lang = get_setting("ai_language", "pt-BR")
+        s = get_strings(lang)
+        msg = s["daily_post_failed_alert"].format(error=error or s["daily_post_failed_unknown"])
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
-        msg = f"⚠️ <b>Arkham Bot</b> — falha na postagem diária.\n<code>{error or 'erro desconhecido'}</code>"
         for uid in ADMIN_TELEGRAM_USER_IDS:
             try:
                 await bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")

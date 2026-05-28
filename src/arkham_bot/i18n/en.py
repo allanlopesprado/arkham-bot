@@ -148,6 +148,8 @@ strings: dict = {
         "All cards in the current selection have been posted.\n"
         "The cycle has been reset automatically."
     ),
+    "daily_post_failed_alert": "⚠️ <b>Arkham Bot</b> — daily post failed.\n<code>{error}</code>",
+    "daily_post_failed_unknown": "unknown error",
 
     # text_formatters.py
     "fmt_exceptional": "⚡ Exceptional",
