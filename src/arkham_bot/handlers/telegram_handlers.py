@@ -1547,7 +1547,10 @@ async def search_card_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
     card_code = query.data.replace("CARD_SELECT_", "")
+    # Prefer stored search msg id; fall back to the message the bot replied to (e.g. /sets)
     user_msg_id = context.user_data.get("search_user_msg_id")
+    if not user_msg_id and query.message and query.message.reply_to_message:
+        user_msg_id = query.message.reply_to_message.message_id
     try:
         card, _ = await get_card_async(card_code)
         if not card:
