@@ -110,6 +110,7 @@ export const I18N = {
     // settings sections
     telegramChatIdLabel: 'Chat ID de destino',
     telegramChatIdCaption: 'Usado como fallback quando nenhum destino está cadastrado na tabela de destinos.',
+    telegramChatIdActiveFallback: '⚠️ Nenhum destino cadastrado — este canal está sendo usado como destino ativo. Adicione destinos em Gerenciar destinos para maior controle.',
     telegramChatIdPlaceholder: 'ex: -100123456789',
     noDestinationsInPost: 'Nenhum destino cadastrado. O bot usará o Chat ID das configurações.',
     goToDestinations: 'Gerenciar destinos',
@@ -428,6 +429,7 @@ export const I18N = {
     defaultChat: 'Default chat',
     telegramChatIdLabel: 'Destination Chat ID',
     telegramChatIdCaption: 'Used as fallback when no destinations are registered in the destinations table.',
+    telegramChatIdActiveFallback: '⚠️ No destinations configured — this channel is being used as the active destination. Add destinations in Manage Destinations for more control.',
     telegramChatIdPlaceholder: 'e.g. -100123456789',
     noDestinationsInPost: 'No destinations configured. The bot will use the Chat ID from settings.',
     goToDestinations: 'Manage destinations',
