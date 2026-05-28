@@ -886,37 +886,41 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(s["faq_usage"])
         return
     card_code = context.args[0].strip()
+    user_reply = ReplyParameters(message_id=update.message.message_id)
     try:
         faq = await _fetch_faq(card_code)
         if not faq:
-            await update.message.reply_text(s["faq_not_found"].format(card_code=escape(card_code)), parse_mode=ParseMode.HTML)
+            await update.message.reply_text(
+                s["faq_not_found"].format(card_code=escape(card_code)),
+                parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
+            )
             return
+
+        # Build full FAQ text
         entries = faq if isinstance(faq, list) else [faq]
-        lines = [s["faq_title"].format(card_code=escape(card_code))]
+        parts = []
         for i, entry in enumerate(entries):
             if i > 0:
-                lines.append("─────────────")
+                parts.append("─────────────")
             if isinstance(entry, dict):
                 raw_html = str(entry.get('html') or entry.get('text') or '').strip()
                 if raw_html:
-                    lines.append(_arkhamdb_html_to_telegram(raw_html))
+                    parts.append(_arkhamdb_html_to_telegram(raw_html))
             else:
-                lines.append(_arkhamdb_html_to_telegram(str(entry)))
-        text = "\n\n".join(lines)
-        for chunk in _chunks(text, 3900):
-            await update.message.reply_text(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+                parts.append(_arkhamdb_html_to_telegram(str(entry)))
+        faq_text = "\n\n".join(parts)
 
-        # Send card image with caption (same style as /card)
+        # Fetch card image
+        img_bytes = None
         try:
             card_data, _ = await get_card_async(card_code)
             if card_data:
                 image_src = card_data.get('imagesrc')
-                img_bytes = None
                 for ext in EXTENSIONS_TO_TRY:
                     img_path = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}{ext}"
-                    img_url = urljoin(BASE_URL, img_path)
                     try:
-                        content = await download_image_async(img_url)
+                        content = await download_image_async(urljoin(BASE_URL, img_path))
                         buf = io.BytesIO(content)
                         Image.open(buf).verify()
                         buf.seek(0)
@@ -924,13 +928,39 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         break
                     except Exception:
                         continue
-                caption = format_card_caption(card_data, is_interactive=True)
-                if img_bytes:
-                    await update.message.reply_photo(photo=img_bytes, caption=caption, parse_mode=ParseMode.HTML)
-                else:
-                    await update.message.reply_text(caption, parse_mode=ParseMode.HTML)
         except Exception:
             pass
+
+        # Send image with FAQ as caption (max 1024 chars), overflow as replies
+        CAPTION_LIMIT = 1024
+        chunks = _chunks(faq_text, CAPTION_LIMIT)
+        first_caption = chunks[0]
+        overflow = chunks[1:]
+
+        if img_bytes:
+            photo_msg = await update.message.reply_photo(
+                photo=img_bytes,
+                caption=first_caption,
+                parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
+            )
+        else:
+            photo_msg = await update.message.reply_text(
+                first_caption,
+                parse_mode=ParseMode.HTML,
+                reply_parameters=user_reply,
+                disable_web_page_preview=True,
+            )
+
+        # Chain overflow messages as replies to the previous message
+        last_msg = photo_msg
+        for chunk in overflow:
+            last_msg = await last_msg.reply_text(
+                chunk,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+
     except Exception as exc:
         logger.error(f"faq_command_failed: {exc}", exc_info=True)
         await update.message.reply_text(s["faq_error"])
