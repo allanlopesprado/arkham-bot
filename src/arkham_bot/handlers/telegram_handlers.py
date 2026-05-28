@@ -1670,7 +1670,9 @@ async def _send_card_by_code(update: Update, code: str, prompt_message=None) -> 
         except Exception:
             pass
 
-    user_msg = update.message
+    user_msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if not user_msg:
+        return
 
     if is_spoiler:
         await user_msg.reply_text(get_strings()["search_spoiler_warning"], parse_mode=ParseMode.HTML, do_quote=True)
@@ -2146,7 +2148,11 @@ async def cotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def cotd_year_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    year = int(query.data.split('_')[-1])
+    try:
+        year = int(query.data.split('_')[-1])
+    except (ValueError, IndexError):
+        await query.edit_message_text(get_strings()["taboo_session_expired"])
+        return
     s = get_strings()
     months = await asyncio.to_thread(_cotd_fetch_months, year)
     if not months:
