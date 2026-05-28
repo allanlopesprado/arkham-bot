@@ -1,12 +1,14 @@
 # Mini App e Worker — plano validado contra o código real
 
-Este arquivo é a especificação operacional para evoluir o Mini App administrativo e o Worker do Arkham Bot sem quebrar o bot Python. Esta versão foi revisada contra o estado real do projeto e separa claramente: bug confirmado, hardening aplicável agora, melhoria incremental e backlog futuro.
+Este arquivo é a especificação operacional para evoluir o Mini App administrativo e o Worker do Arkham Bot sem quebrar o bot Python. Esta versão foi revisada contra o estado real do projeto e separa claramente: bug confirmado, hardening aplicável agora, melhoria incremental, refatoração posterior e backlog futuro.
 
 ## 1. Como a IA executora deve usar este arquivo
 
 Leia este arquivo inteiro antes de alterar código. Execute primeiro somente o bloco **P0 — Obrigatório agora**. Não implemente backlog futuro como se fosse bug. Não crie migrations, endpoints novos, telas novas complexas ou alterações destrutivas sem autorização explícita.
 
 Se alguma validação não puder ser executada no ambiente atual, registre como `NÃO EXECUTADO + motivo`. Não invente sucesso.
+
+Regra de ouro: **corrigir o mínimo necessário primeiro, validar, e só depois avançar para melhorias**.
 
 ## 2. Diagnóstico real do projeto
 
@@ -137,16 +139,50 @@ Trocar para:
 
 Adicionar tratamento visual para `auth_error`. Reutilizar o padrão de gate existente, sem criar arquitetura nova.
 
-Mensagem:
+Implementação recomendada no `I18N.pt`:
 
-```text
-Não foi possível validar o acesso administrativo. Reabra pelo Telegram ou verifique o Worker.
+```javascript
+authErrorTitle: 'Falha na validação administrativa',
+authErrorText: 'Não foi possível validar o acesso administrativo. Reabra pelo Telegram ou verifique o Worker.',
+```
+
+Implementação recomendada no `I18N.en`:
+
+```javascript
+authErrorTitle: 'Admin validation failed',
+authErrorText: 'Could not validate admin access. Reopen from Telegram or check the Worker.',
+```
+
+Criar componente simples, se ainda não existir:
+
+```jsx
+function AuthErrorGate({ copy }) {
+  return (
+    <GateScreen>
+      <Icon name="server" className="gate-icon" />
+      <p className="gate-title">{copy.authErrorTitle}</p>
+      <p className="gate-text">{copy.authErrorText}</p>
+    </GateScreen>
+  );
+}
+```
+
+Adicionar no render do Auth Gate:
+
+```javascript
+if (authState === 'auth_error') return <AuthErrorGate copy={copy} />;
 ```
 
 Critério:
 
 ```text
 Se /me falhar por rede, CORS, Worker fora, 500 ou JSON inválido, o painel não abre.
+```
+
+Armadilha a evitar:
+
+```text
+Não trocar auth_error por no_telegram. no_telegram significa ausência de Telegram/initData; auth_error significa falha ao validar admin no Worker.
 ```
 
 ### 5.3 Remover logs sensíveis de saveSettings
@@ -173,6 +209,20 @@ Remover completamente os logs de payload e day_config.
 Manter erro apenas sanitizado, se realmente necessário.
 ```
 
+Substituição segura sugerida:
+
+```javascript
+if (!ok) {
+  haptic('notification', 'error');
+  const errInfo = resolveError(json.error, `HTTP ${status}`, copy, json);
+  setSettingsResult({ ok: false, ...errInfo, detail: json.error || errInfo.detail || `HTTP ${status}` });
+} else {
+  haptic('notification', 'success');
+  applySettings(json.settings);
+  setSettingsResult({ ok: true, friendly: copy.settingsSaved, detail: '' });
+}
+```
+
 Critério:
 
 ```text
@@ -194,6 +244,25 @@ Adicionar:
 ```
 
 Preservar scripts existentes.
+
+Exemplo esperado:
+
+```json
+"scripts": {
+  "dev": "vite --host 0.0.0.0",
+  "deploy": "wrangler deploy",
+  "dry-run": "wrangler deploy --dry-run",
+  "build": "vite build",
+  "check": "vite build",
+  "preview": "vite preview"
+}
+```
+
+Critério:
+
+```text
+npm run build e npm run check devem executar o mesmo build com sucesso.
+```
 
 ### 5.5 Tornar /status admin-only
 
@@ -221,13 +290,19 @@ por:
 const auth = await requireAdmin(request, env, ao, '/status');
 ```
 
-Preservar o restante da rota.
+Preservar o restante da rota:
+
+```javascript
+if (auth.response) return auth.response;
+return handleStatus(request, env, ao);
+```
 
 Critério:
 
 ```text
 Admin continua recebendo status.
 Usuário autenticado mas não admin recebe unauthorized.
+/health continua público/simples como hoje.
 ```
 
 ### 5.6 Fazer /packs preferir Supabase com fallback ArkhamDB
@@ -290,6 +365,50 @@ Formato dos packs:
 }
 ```
 
+Implementação orientativa:
+
+```javascript
+async function handleGetPacks(env, ao) {
+  const now = Date.now();
+  if (_packsCache.payload && now - _packsCache.ts < PACKS_CACHE_TTL_MS) {
+    return withCors(jsonResponse(_packsCache.payload), ao);
+  }
+
+  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const rows = await fetchSupabaseJson(
+        env,
+        '/rest/v1/arkham_packs?select=code,name,cycle_position,position,chapter,total&order=cycle_position.asc,position.asc&limit=500',
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        const packs = rows.map((p) => ({
+          code: p.code,
+          name: p.name || p.code,
+          cycle_position: p.cycle_position ?? null,
+          position: p.position ?? null,
+          chapter: p.chapter ?? 1,
+          total: p.total ?? 0,
+        }));
+        _packsCache.payload = { ok: true, packs, source: 'supabase' };
+        _packsCache.ts = now;
+        return withCors(jsonResponse(_packsCache.payload), ao);
+      }
+    } catch {
+      // fallback ArkhamDB abaixo; não logar service role nem headers
+    }
+  }
+
+  // manter fallback ArkhamDB existente aqui
+}
+```
+
+Critério:
+
+```text
+Se arkham_packs tem dados, /packs retorna source='supabase'.
+Se Supabase falhar ou estiver vazio, /packs ainda funciona via ArkhamDB.
+```
+
 ## 6. Validações obrigatórias de P0
 
 Rodar na raiz:
@@ -336,6 +455,20 @@ Critérios:
 - Mini App não deve conter service role/token/header Authorization.
 ```
 
+Validação manual de /packs, se houver ambiente:
+
+```bash
+curl -s "$WORKER_URL/packs" -H "origin: $ALLOWED_ORIGIN" -H "x-telegram-init-data: $VALID_INIT_DATA"
+```
+
+Critério esperado:
+
+```text
+- Retorna JSON.
+- Se Supabase tem arkham_packs: source='supabase'.
+- Se Supabase não tem dados: retorna packs via fallback sem quebrar.
+```
+
 ## 7. Teste manual mínimo após P0
 
 No Telegram/Mini App:
@@ -376,6 +509,15 @@ Se Todos os dias estiver ativo, ele prevalece.
 Se inativo, respeitar configuração individual de cada dia.
 ```
 
+Critério prático:
+
+```text
+- Criar activeTab='schedule' apenas se for reaproveitar o código existente.
+- Não mudar day_config.
+- Não mudar settingsPatchPayload.
+- Não mudar nomes de chaves salvas.
+```
+
 ### 8.2 Melhorar estados vazios e erros
 
 Aplicar nas telas existentes:
@@ -408,7 +550,7 @@ success
 Já existe listagem/cancelamento. Melhorar sem criar endpoints novos:
 
 ```text
-- Separar visualmente pendente, retrying, processing, failed, executed.
+- Separar visualmente pending, retrying, processing, failed, executed.
 - Não mostrar JSON bruto por padrão.
 - Exibir erro técnico em details.
 - Manter cancelamento apenas para pending/retrying.
@@ -434,6 +576,8 @@ O Worker já retorna `target_chats` no overview. Antes de criar CRUD, melhorar u
 - Deixar claro quando destino está desativado.
 - Evitar postagem para destino desativado.
 ```
+
+Não criar `/destinations` nesta fase.
 
 ### 8.6 Melhorar Saúde com dados já existentes
 
