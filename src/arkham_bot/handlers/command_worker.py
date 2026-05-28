@@ -59,6 +59,35 @@ def _validate_command_authorization(command: dict[str, Any]) -> None:
         raise PermissionError(f"Telegram user {actor_int} is not allowed to execute bot command")
 
 
+def _claim_commands_atomic(batch_size: int) -> list[dict]:
+    """Claim pending commands atomically using FOR UPDATE SKIP LOCKED RPC.
+    Falls back to legacy fetch+mark if the RPC is not yet deployed."""
+    from ..core.supabase_client import get_supabase_client
+    client = get_supabase_client()
+    if client:
+        try:
+            rows = client.get(
+                f"rpc/claim_bot_commands",
+                {"batch_size": str(batch_size)},
+            )
+            if rows is not None:
+                return rows
+        except Exception:
+            pass
+    # Legacy fallback: fetch pending and mark processing individually
+    commands = fetch_pending_commands(batch_size)
+    result = []
+    for command in commands:
+        cid = command.get("id")
+        if not cid:
+            continue
+        attempt_count = int(command.get("attempt_count") or 0) + 1
+        mark_command_processing(cid, attempt_count=attempt_count)
+        command["attempt_count"] = attempt_count
+        result.append(command)
+    return result
+
+
 async def _notify_admins(text: str) -> None:
     if not TELEGRAM_BOT_TOKEN or not ADMIN_TELEGRAM_USER_IDS:
         return
@@ -144,15 +173,19 @@ async def bot_commands_loop() -> None:
             )
             if recovered["retrying"] or recovered["failed"]:
                 logger.warning("bot_commands_stale_processing_recovered: %s", recovered)
-            for command in fetch_pending_commands(BOT_COMMANDS_BATCH_SIZE):
+
+            # Use atomic RPC (FOR UPDATE SKIP LOCKED) when available, fallback to legacy
+            commands = _claim_commands_atomic(BOT_COMMANDS_BATCH_SIZE)
+
+            for command in commands:
                 command_id = command.get("id")
                 command_type = command.get("command_type")
                 if not command_id:
                     continue
-                attempt_count = int(command.get("attempt_count") or 0) + 1
+                attempt_count = int(command.get("attempt_count") or 1)
                 max_attempts = int(command.get("max_attempts") or BOT_COMMANDS_MAX_RETRIES)
                 try:
-                    mark_command_processing(command_id, attempt_count=attempt_count)
+                    pass  # already marked processing by claim RPC
                     result = await _execute_command(command)
                     mark_command_executed(command_id, result)
                     create_audit_log(command_type or "unknown", "system_job", command.get("payload"), result, command.get("requested_by_telegram_user_id"), command.get("requested_by_name"))

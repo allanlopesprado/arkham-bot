@@ -931,9 +931,28 @@ async function handleBotCommand(request, env, user, ao) {
     return withCors(new Response(JSON.stringify({ ok: false, error: 'rate_limited', detail: 'Command already pending' }), { status: 429, headers: { 'content-type': 'application/json' } }), ao);
   }
 
+  // Whitelist allowed payload fields per command type to prevent injection
+  const PAYLOAD_SCHEMA = {
+    post_now:          ['card_code'],
+    repost_card:       ['card_code'],
+    skip_card:         ['card_code'],
+    pause_daily_post:  [],
+    resume_daily_post: [],
+    reset_cycle:       [],
+    clear_queue:       [],
+    update_setting:    ['key', 'value'],
+    sync_arkhamdb:     ['sync_faq', 'faq_limit'],
+  };
+  const allowedFields = PAYLOAD_SCHEMA[commandType] || [];
+  const rawPayload = (body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload))
+    ? body.payload : {};
+  const sanitizedPayload = Object.fromEntries(
+    Object.entries(rawPayload).filter(([k]) => allowedFields.includes(k))
+  );
+
   const payload = {
     command_type: commandType,
-    payload: body.payload || {},
+    payload: sanitizedPayload,
     requested_by_telegram_user_id: user.id,
     requested_by_name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || String(user.id),
     target_chat_id: body.target_chat_id || null,

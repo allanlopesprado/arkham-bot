@@ -33,8 +33,10 @@ def test_format_status_includes_key_fields():
 
 
 def test_format_uptime_is_compact(monkeypatch):
+    from arkham_bot.handlers import common as _common
     started_at = datetime(2026, 5, 25, 10, 0, tzinfo=UTC)
     monkeypatch.setattr(telegram_handlers, "BOT_STARTED_AT", started_at)
+    monkeypatch.setattr(_common, "BOT_STARTED_AT", started_at)
 
     assert telegram_handlers._format_uptime(started_at + timedelta(minutes=7)) == "7m"
     assert telegram_handlers._format_uptime(started_at + timedelta(hours=2, minutes=4)) == "2h 4m"
