@@ -206,19 +206,31 @@ def _chunks(text: str, size: int = 3900) -> list[str]:
 def _arkhamdb_html_to_telegram(html: str) -> str:
     """Convert ArkhamDB HTML to the subset supported by Telegram."""
     import re
+    # ArkhamDB special icon characters → text equivalents
+    icon_map = {
+        '': '[reação]', '': '[livre]', '': '[ação]',
+        '': '[automático]', '': '[guardião]', '': '[sobrevivente]',
+        '': '[investigador]', '': '[místico]', '': '[desonesto]',
+        '®': '[reação]',
+    }
+    for char, replacement in icon_map.items():
+        html = html.replace(char, replacement)
+    # Remove icon <img> tags entirely
+    html = re.sub(r'<img[^>]*>', '', html)
     # Tag conversions
     html = re.sub(r'<strong>(.*?)</strong>', r'<b>\1</b>', html, flags=re.DOTALL)
     html = re.sub(r'<em>(.*?)</em>', r'<i>\1</i>', html, flags=re.DOTALL)
     html = re.sub(r'<del>(.*?)</del>', r'<s>\1</s>', html, flags=re.DOTALL)
     # ArkhamDB internal links → full URL
     html = re.sub(r'<a href="/card/([^"]+)">', r'<a href="https://arkhamdb.com/card/\1">', html)
-    # Block elements → newlines
+    # Block elements → single newline (avoid double spacing)
     html = re.sub(r'<p>(.*?)</p>', r'\1\n', html, flags=re.DOTALL)
     html = re.sub(r'<li>(.*?)</li>', r'• \1\n', html, flags=re.DOTALL)
-    html = re.sub(r'<ul>(.*?)</ul>', r'\1', html, flags=re.DOTALL)
-    html = re.sub(r'<ol>(.*?)</ol>', r'\1', html, flags=re.DOTALL)
-    # Strip remaining unsupported tags (but keep content)
+    html = re.sub(r'</?(?:ul|ol)[^>]*>', '', html)
+    # Strip remaining unsupported tags (keep content)
     html = re.sub(r'<(?!/?(?:b|i|s|u|code|pre|a)[\s>])[^>]+>', '', html)
+    # Normalize excessive blank lines
+    html = re.sub(r'\n{3,}', '\n\n', html)
     return html.strip()
 
 
@@ -876,6 +888,23 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = "\n\n".join(lines)
         for chunk in _chunks(text, 3900):
             await update.message.reply_text(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+
+        # Send card image after the FAQ text
+        try:
+            card_data, _ = await get_card_async(card_code)
+            if card_data:
+                image_src = card_data.get('imagesrc')
+                for ext in EXTENSIONS_TO_TRY:
+                    img_path = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}{ext}"
+                    img_url = f"https://arkhamdb.com{img_path}"
+                    try:
+                        img_bytes = await download_image_async(img_url)
+                        await update.message.reply_photo(photo=img_bytes)
+                        break
+                    except Exception:
+                        continue
+        except Exception:
+            pass
     except Exception as exc:
         logger.error(f"faq_command_failed: {exc}", exc_info=True)
         await update.message.reply_text(s["faq_error"])
