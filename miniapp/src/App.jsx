@@ -1442,30 +1442,38 @@ export default function App() {
           {pendingDests.length > 0 && (
             <Section title={copy.pendingDestinationsTitle} footer={copy.pendingDestinationCaption}>
               {pendingDests.map(p => (
-                <div key={p.id} style={{ padding: '10px 14px', borderTop: '1px solid var(--sep)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <span className="row-label">{p.chat_title}</span>
-                      <span className="row-caption">{p.chat_id}{p.chat_username ? ` · @${p.chat_username}` : ''} · {p.chat_type}</span>
-                      <input
-                        className="block-input"
-                        style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 13 }}
-                        type="number"
-                        placeholder={copy.pendingThreadHint}
-                        value={pendingThreadId[p.id] || ''}
-                        onChange={e => setPendingThreadId(t => ({ ...t, [p.id]: e.target.value }))}
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                      <button type="button" className="icon-btn" disabled={acceptingPending === p.id}
-                        onClick={() => acceptPending(p)} aria-label={copy.pendingAccept}>
-                        {acceptingPending === p.id ? <Spinner /> : <Icon name="result" />}
-                      </button>
-                      <button type="button" className="icon-btn danger" onClick={() => dismissPending(p.id)} aria-label={copy.pendingDismiss}>
-                        <Icon name="x" />
-                      </button>
-                    </div>
+                <div key={p.id} style={{ padding: '10px 14px', borderTop: '1px solid var(--sep)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div>
+                    <span className="row-label">{p.chat_title}</span>
+                    <span className="row-caption">{p.chat_id}{p.chat_username ? ` · @${p.chat_username}` : ''}</span>
+                  </div>
+                  <input
+                    className="block-input"
+                    style={{ fontFamily: 'monospace', fontSize: 13 }}
+                    type="number"
+                    placeholder={copy.pendingThreadHint}
+                    value={pendingThreadId[p.id] || ''}
+                    onChange={e => setPendingThreadId(t => ({ ...t, [p.id]: e.target.value }))}
+                    autoComplete="off"
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="menu-row"
+                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--link) 12%, transparent)', borderRadius: 10 }}
+                      disabled={acceptingPending === p.id}
+                      onClick={() => acceptPending(p)}
+                    >
+                      {acceptingPending === p.id ? <Spinner /> : <><Icon name="result" /><span className="row-label" style={{ marginLeft: 6 }}>{copy.pendingAccept}</span></>}
+                    </button>
+                    <button
+                      type="button"
+                      className="menu-row"
+                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', borderRadius: 10 }}
+                      onClick={() => dismissPending(p.id)}
+                    >
+                      <Icon name="x" /><span className="row-label" style={{ marginLeft: 6 }}>{copy.pendingDismiss}</span>
+                    </button>
                   </div>
                 </div>
               ))}
