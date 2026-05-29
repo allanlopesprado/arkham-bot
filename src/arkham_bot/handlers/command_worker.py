@@ -182,7 +182,7 @@ async def bot_commands_loop() -> None:
                 attempt_count = int(command.get("attempt_count") or 1)
                 max_attempts = int(command.get("max_attempts") or BOT_COMMANDS_MAX_RETRIES)
                 try:
-                    pass  # _claim_commands_atomic já marca status=processing; não repete aqui
+                    # _claim_commands_atomic já marca status=processing; não repete aqui
                     result = await _execute_command(command)
                     mark_command_executed(command_id, result)
                     create_audit_log(command_type or "unknown", "system_job", command.get("payload"), result, command.get("requested_by_telegram_user_id"), command.get("requested_by_name"))

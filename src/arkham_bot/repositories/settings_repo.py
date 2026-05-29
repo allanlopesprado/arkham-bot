@@ -13,16 +13,18 @@ def _invalidate_cache() -> None:
 
 
 def get_all_settings() -> dict:
+    # Always hand callers a shallow copy so mutating the result can't corrupt the
+    # shared cache (and a later get_setting won't see another caller's edits).
     global _cache, _cache_ts
     if _cache and (time.monotonic() - _cache_ts) < _CACHE_TTL:
-        return _cache
+        return dict(_cache)
     client = get_supabase_client()
     if not client:
-        return _cache  # return stale cache if DB unavailable
+        return dict(_cache)  # return stale cache if DB unavailable
     rows = client.get("bot_settings")
     _cache = {row["key"]: row["value"] for row in rows}
     _cache_ts = time.monotonic()
-    return _cache
+    return dict(_cache)
 
 
 def get_setting(key: str, default=None):
