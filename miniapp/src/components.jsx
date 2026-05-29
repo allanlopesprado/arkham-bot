@@ -12,17 +12,17 @@ export function Badge({ tone = '', children }) {
 }
 
 export function Notice({ tone = 'warn', children }) {
-  return <div className={`notice ${tone}`}>{children}</div>;
+  return <div className={`notice ${tone}`} role={tone === 'err' ? 'alert' : 'status'}>{children}</div>;
 }
 
 export function Section({ title, footer, danger, bare, info, children }) {
   return (
     <section className="section">
       {title && (
-        <div className={`section-title${danger ? ' danger' : ''}`}>
+        <h2 className={`section-title${danger ? ' danger' : ''}`}>
           {title}
           {info && <InfoTooltip text={info} />}
-        </div>
+        </h2>
       )}
       {bare ? children : <div className="card">{children}</div>}
       {footer && <div className="section-footer">{footer}</div>}
@@ -73,8 +73,10 @@ export function DangerRow({ icon, label, onClick, disabled, loading }) {
   );
 }
 
-export function InfoTooltip({ text }) {
+let _infoTooltipSeq = 0;
+export function InfoTooltip({ text, label = 'info' }) {
   const [open, setOpen] = React.useState(false);
+  const id = React.useMemo(() => `info-tip-${++_infoTooltipSeq}`, []);
   React.useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -86,10 +88,12 @@ export function InfoTooltip({ text }) {
       <button
         className="info-btn"
         type="button"
-        aria-label="info"
+        aria-label={label}
+        aria-expanded={open}
+        aria-describedby={open ? id : undefined}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); haptic('selection'); setOpen((o) => !o); }}
       >ⓘ</button>
-      {open && <span className="info-tooltip">{text}</span>}
+      {open && <span className="info-tooltip" id={id} role="tooltip">{text}</span>}
     </span>
   );
 }
@@ -107,25 +111,25 @@ export function ToggleRow({ label, checked, onChange, disabled = false, info }) 
   );
 }
 
-export function InputRow({ label, value, onChange, placeholder, hint }) {
+export function InputRow({ label, value, onChange, placeholder, hint, invalid }) {
   return (
-    <div className="row input-row">
+    <label className="row input-row">
       <div className="row-main">
         <span className="row-label">{label}</span>
-        <input className="inline-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} inputMode="text" autoComplete="off" />
+        <input className={`inline-input${invalid ? ' invalid' : ''}`} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} inputMode="text" autoComplete="off" aria-invalid={invalid || undefined} />
       </div>
       {hint && <span className="row-caption-block">{hint}</span>}
-    </div>
+    </label>
   );
 }
 
-export function StackedInputRow({ label, value, onChange, placeholder, hint, inputMode }) {
+export function StackedInputRow({ label, value, onChange, placeholder, hint, inputMode, invalid }) {
   return (
-    <div className="stacked-input-row">
+    <label className="stacked-input-row">
       {label && <span className="row-label">{label}</span>}
       {hint && <span className="row-caption">{hint}</span>}
       <input
-        className="block-input"
+        className={`block-input${invalid ? ' invalid' : ''}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -134,21 +138,22 @@ export function StackedInputRow({ label, value, onChange, placeholder, hint, inp
         autoCorrect="off"
         autoCapitalize="none"
         spellCheck={false}
+        aria-invalid={invalid || undefined}
       />
-    </div>
+    </label>
   );
 }
 
-export function ChatIdInputRow({ value, onChange, placeholder, label, loading }) {
+export function ChatIdInputRow({ value, onChange, placeholder, label, loading, invalid }) {
   function handleChange(e) {
     const digits = e.target.value.replace(/[^0-9]/g, '');
     onChange(digits ? `-${digits}` : '');
   }
   const displayValue = value.startsWith('-') ? value.slice(1) : value;
   return (
-    <div className="stacked-input-row">
+    <label className="stacked-input-row">
       {label && <span className="row-label">{label}</span>}
-      <div className="chat-id-input-wrap">
+      <div className={`chat-id-input-wrap${invalid ? ' invalid' : ''}`}>
         <span className="chat-id-prefix">-</span>
         <input
           className="block-input chat-id-input"
@@ -160,10 +165,11 @@ export function ChatIdInputRow({ value, onChange, placeholder, label, loading })
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
+          aria-invalid={invalid || undefined}
         />
         {loading && <Spinner />}
       </div>
-    </div>
+    </label>
   );
 }
 
@@ -180,12 +186,12 @@ export function SelectRow({ label, value, onChange, children }) {
 
 export function StackedSelectRow({ label, value, onChange, children }) {
   return (
-    <div className="stacked-select-row">
+    <label className="stacked-select-row">
       <span className="row-label">{label}</span>
       <select className="block-select" value={value} onChange={(e) => { haptic('selection'); onChange(e.target.value); }}>
         {children}
       </select>
-    </div>
+    </label>
   );
 }
 

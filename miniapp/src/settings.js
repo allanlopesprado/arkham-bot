@@ -169,6 +169,6 @@ export function formatDelay(v, lang) {
   if (v < 60) return `${v}s`;
   const m = Math.floor(v / 60);
   const s = v % 60;
-  if (s === 0) return lang === 'pt' ? `${m} min` : `${m} min`;
+  if (s === 0) return `${m} min`;
   return `${m}min ${s}s`;
 }

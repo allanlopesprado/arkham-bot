@@ -67,6 +67,7 @@ export default function App() {
   const [addingDest, setAddingDest] = useState(false);
   const [addDestResult, setAddDestResult] = useState(null);
   const [testingDest, setTestingDest] = useState(null);
+  const [destActionResult, setDestActionResult] = useState(null); // { id, ok, text } — inline feedback per destination row
   const [resolvingDest, setResolvingDest] = useState(false);
   const destResolveTimer = useRef(null);
 
@@ -190,6 +191,20 @@ export default function App() {
       btn.hide?.();
     }
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
+
+  // ── Move focus to the first heading on tab change (screen-reader awareness) ──
+  const contentRef = useRef(null);
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    const el = contentRef.current;
+    if (!el) return;
+    const heading = el.querySelector('h2, .section-header-standalone');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      try { heading.focus({ preventScroll: false }); } catch {}
+    }
+  }, [activeTab]);
 
   // ── BackButton ──────────────────────────────────────────────────────────────
   const PARENT_TAB = { day_detail: 'settings', ai: 'settings', app_settings: 'home', database: 'home', schedule: 'settings', admins: 'app_settings', destinations: 'home', maintenance: 'home', queue: 'home', history: 'home', health: 'home' };
@@ -355,8 +370,13 @@ export default function App() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ [key]: value }),
       });
-      if (ok) haptic('notification', 'success');
-      else haptic('notification', 'error');
+      if (ok) {
+        haptic('notification', 'success');
+        // Keep saved baseline in sync so this immediate save doesn't surface a spurious "unsaved changes" state
+        setSavedSettings((cur) => ({ ...cur, [key]: value }));
+      } else {
+        haptic('notification', 'error');
+      }
     } catch {
       haptic('notification', 'error');
     }
@@ -401,7 +421,13 @@ export default function App() {
         setResult({ ok: false, command_type, ...resolveError(json.error, `HTTP ${status}`, copy, json) });
       } else {
         haptic('notification', 'success');
-        setResult({ ok: true, command_type: json.command?.command_type || command_type, friendly: copy.commandQueued, detail: json.command?.id ? `ID: ${json.command.id}` : '' });
+        setResult({ ok: true, command_type: json.command?.command_type || command_type, friendly: copy.commandQueued, detail: '' });
+        // After a card action, clear the current selection so the next action starts clean
+        if (['post_now', 'repost_card', 'skip_card'].includes(command_type)) {
+          setCardCode('');
+          setCardQuery('');
+          setCardResults([]);
+        }
         fetchStatus(); fetchCommands(); fetchOverview();
       }
     } catch { haptic('notification', 'error'); setResult({ ok: false, command_type, friendly: copy.networkError, detail: '' }); }
@@ -507,6 +533,12 @@ export default function App() {
     haptic('selection');
     setAllDaysMode(enabled);
     setSettings((cur) => ({ ...cur, daily_post_days: enabled ? WEEKDAYS.map((d) => d.code) : cur.daily_post_days }));
+  }
+
+  function applyDaysPreset(codes) {
+    haptic('selection');
+    setAllDaysMode(false);
+    setSettings((cur) => ({ ...cur, daily_post_days: codes }));
   }
 
   function areAllCyclesSelectedForDay(dayCode) {
@@ -655,25 +687,28 @@ export default function App() {
   }
 
   async function addAdmin() {
-    if (!adminUserId.trim()) return;
+    const idDigits = adminUserId.replace(/[^0-9]/g, '');
+    if (!idDigits) { haptic('notification', 'error'); setAddAdminResult({ ok: false, friendly: copy.adminInvalidId }); return; }
     setAddingAdmin(true);
     setAddAdminResult(null);
     try {
-      const { ok, json } = await apiFetch('/admins', {
+      const { ok, status, json } = await apiFetch('/admins', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ telegram_user_id: Number(adminUserId), name: adminName, role: adminRole }),
+        body: JSON.stringify({ telegram_user_id: Number(idDigits), name: adminName, role: adminRole }),
       });
       if (ok) {
+        haptic('notification', 'success');
         setAddAdminResult({ ok: true, friendly: copy.success });
         setAdminUserId('');
         setAdminName('');
         setAdminRole('admin');
         fetchAdmins();
       } else {
-        setAddAdminResult({ ok: false, friendly: copy.adminAddFailed || json.error });
+        haptic('notification', 'error');
+        setAddAdminResult({ ok: false, ...resolveError(json.error, copy.unknownError, copy, json) });
       }
-    } catch { setAddAdminResult({ ok: false, friendly: copy.networkError }); }
+    } catch { haptic('notification', 'error'); setAddAdminResult({ ok: false, friendly: copy.networkError }); }
     finally { setAddingAdmin(false); }
   }
 
@@ -728,6 +763,7 @@ export default function App() {
     if (!apiConfigured) return;
     setDestLoading(true);
     setDestError(null);
+    setDestActionResult(null);
     try {
       const { ok, json } = await apiFetch('/destinations');
       if (ok) setDestList(json.destinations || []);
@@ -738,41 +774,44 @@ export default function App() {
 
   async function addDestination() {
     const chatIdDigits = destChatId.replace(/[^0-9]/g, '');
-    if (!chatIdDigits) { setAddDestResult({ ok: false, friendly: copy.destinationInvalidChatId }); return; }
-    if (destThread && !/^\d+$/.test(destThread.trim())) { setAddDestResult({ ok: false, friendly: copy.destinationInvalidThreadId }); return; }
+    if (!chatIdDigits) { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationInvalidChatId }); return; }
+    if (destThread && !/^\d+$/.test(destThread.trim())) { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationInvalidThreadId }); return; }
     const finalChatId = `-${chatIdDigits}`;
     setAddingDest(true);
     setAddDestResult(null);
     try {
-      const { ok, json } = await apiFetch('/destinations', {
+      const { ok, status, json } = await apiFetch('/destinations', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chat_id: finalChatId, title: destTitle, message_thread_id: destThread ? Number(destThread) : null }),
       });
       if (ok) {
+        haptic('notification', 'success');
         setAddDestResult({ ok: true, friendly: copy.success });
         setDestChatId('');
         setDestTitle('');
         setDestThread('');
         fetchDestinations();
       } else {
-        setAddDestResult({ ok: false, friendly: copy.destinationAddFailed || json.error });
+        haptic('notification', 'error');
+        setAddDestResult({ ok: false, ...resolveError(json.error, copy.unknownError, copy, json) });
       }
-    } catch { setAddDestResult({ ok: false, friendly: copy.networkError }); }
+    } catch { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.networkError }); }
     finally { setAddingDest(false); }
   }
 
   async function testDestination(destId) {
     setTestingDest(destId);
+    setDestActionResult(null);
     try {
       const { ok, json } = await apiFetch(`/destinations/${destId}/test`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ language }),
       });
-      if (ok) { haptic('notification', 'success'); setAddDestResult({ ok: true, friendly: copy.destinationTestOk }); }
-      else { haptic('notification', 'error'); setAddDestResult({ ok: false, friendly: copy.destinationTestFailed, detail: json?.detail || json?.error || '' }); }
-    } catch { haptic('notification', 'error'); }
+      if (ok) { haptic('notification', 'success'); setDestActionResult({ id: destId, ok: true, text: copy.destinationTestOk }); }
+      else { haptic('notification', 'error'); setDestActionResult({ id: destId, ok: false, text: [copy.destinationTestFailed, json?.detail || json?.error].filter(Boolean).join(' — ') }); }
+    } catch { haptic('notification', 'error'); setDestActionResult({ id: destId, ok: false, text: copy.networkError }); }
     finally { setTestingDest(null); }
   }
 
@@ -827,7 +866,7 @@ export default function App() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="app">
+    <div className="app" ref={contentRef}>
 
       {/* Header */}
       <header className="app-header">
@@ -845,16 +884,34 @@ export default function App() {
 
       {!apiConfigured && <Notice tone="err">{copy.workerNotConfigured}</Notice>}
 
+      {settingsDirty && ['settings', 'schedule', 'ai', 'database', 'day_detail'].includes(activeTab) && (
+        <Notice tone="warn">{copy.unsavedChanges}</Notice>
+      )}
+
       {/* ── HOME ── */}
       {activeTab === 'home' && (
         <>
           <div className="overview-panel">
-            <div className="overview-stat">
+            <div
+              className="overview-stat overview-stat-action"
+              onClick={() => setActiveTab('health')}
+              role="button"
+              tabIndex={0}
+              aria-label={copy.health}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('health'); } }}
+            >
               <span className={`overview-dot ${sysStatus?.ok ? 'ok' : 'err'}`} />
               <span className="overview-stat-label">{loadingStatus ? '…' : workerValue}</span>
             </div>
             <div className="overview-divider" />
-            <div className="overview-stat">
+            <div
+              className="overview-stat overview-stat-action"
+              onClick={() => setActiveTab('database')}
+              role="button"
+              tabIndex={0}
+              aria-label={copy.databaseTab}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('database'); } }}
+            >
               <Icon name="cards" />
               <span className="overview-stat-label">{cardsValue}</span>
             </div>
@@ -904,6 +961,7 @@ export default function App() {
                 type="search"
                 value={cardQuery}
                 onChange={handleSearchChange}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimerRef.current); const q = cardQuery.trim(); if (q.length >= 2) doSearchCards(q); } }}
                 placeholder={copy.searchPlaceholder}
                 aria-label={copy.searchCard || copy.searchPlaceholder}
                 inputMode="text"
@@ -974,7 +1032,7 @@ export default function App() {
 
           {result && (
             <Section>
-              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
             </Section>
           )}
         </>
@@ -1013,7 +1071,7 @@ export default function App() {
 
           {settingsResult && (
             <Section>
-              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
             </Section>
           )}
 
@@ -1080,13 +1138,13 @@ export default function App() {
 
             {settingsResult && (
               <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
               </Section>
             )}
 
             {result && (
               <Section>
-                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
               </Section>
             )}
           </>
@@ -1101,7 +1159,7 @@ export default function App() {
 
           {result && (
             <Section>
-              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
             </Section>
           )}
         </>
@@ -1116,7 +1174,7 @@ export default function App() {
             <Section title={copy.cardFilter}>
               <ToggleRow label={copy.includeSpoilers} checked={settings.include_spoilers} onChange={(v) => updateSetting('include_spoilers', v)} />
             </Section>
-            <Section title={copy.weeklySchedule}>
+            <Section title={copy.weeklySchedule} footer={copy.weeklyScheduleHint}>
               <DayScheduleRow
                 label={copy.allWeekdays}
                 subtitle={dayConfigSummary('all', copy)}
@@ -1127,6 +1185,12 @@ export default function App() {
               />
             </Section>
             <Section title={copy.dailySchedule}>
+              {!allEnabled && (
+                <div className="preset-row">
+                  <button type="button" className="source-filter-btn" onClick={() => applyDaysPreset(['mon', 'tue', 'wed', 'thu', 'fri'])}>{copy.presetWeekdays}</button>
+                  <button type="button" className="source-filter-btn" onClick={() => applyDaysPreset(['sat', 'sun'])}>{copy.presetWeekend}</button>
+                </div>
+              )}
               {WEEKDAYS.map((day) => {
                 const enabled = settings.daily_post_days.includes(day.code);
                 return (
@@ -1154,7 +1218,7 @@ export default function App() {
 
             {settingsResult && (
               <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
               </Section>
             )}
           </>
@@ -1183,7 +1247,7 @@ export default function App() {
             )}
             {result && (
               <Section>
-                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} value={result.ok ? 'ok' : 'err'} badgeTone={result.ok ? 'ok' : 'err'} caption={result.friendly} />
+                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
               </Section>
             )}
           </>
@@ -1203,7 +1267,7 @@ export default function App() {
 
             {settingsResult && (
               <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
               </Section>
             )}
 
@@ -1318,6 +1382,9 @@ export default function App() {
             return (
               <Section footer={!historyLoadingState && !historyError ? copy.postsOnDate(filteredItems.length, historyDate) : undefined}>
                 {historyError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(historyError, copy.unknownError, copy).friendly} />}
+                {historyLoadingState && filteredItems.length === 0 && !historyError && (
+                  <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loading}</span></div>
+                )}
                 {!historyLoadingState && !historyError && filteredItems.length === 0 && (
                   <Row icon="cards" label={copy.noHistory} />
                 )}
@@ -1436,7 +1503,7 @@ export default function App() {
 
             {settingsResult && (
               <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} value={settingsResult.ok ? 'ok' : 'err'} badgeTone={settingsResult.ok ? 'ok' : 'err'} caption={settingsResult.friendly} />
+                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
               </Section>
             )}
           </>
@@ -1494,47 +1561,52 @@ export default function App() {
             <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={() => { fetchDestinations(); fetchPendingDestinations(); }} />
             {destError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(destError, copy.unknownError, copy).friendly} />}
             {!destLoading && !destError && destList.length === 0 && <Row icon="info" label={copy.noDestinations} />}
-            {destList.map((dest) => (
-              <div key={dest.id} className="row" style={{ justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                  <span className="row-label">{dest.title || dest.chat_id}</span>
-                  <span className="row-caption">{dest.chat_id}{dest.message_thread_id ? ` · thread ${dest.message_thread_id}` : ''}</span>
+            {destList.map((dest) => {
+              const fb = destActionResult && destActionResult.id === dest.id ? destActionResult : null;
+              return (
+                <div key={dest.id} className="row manage-row">
+                  <div className="row-main">
+                    <span className="row-label">{dest.title || dest.chat_id}</span>
+                    <span className={`row-caption${fb ? (fb.ok ? ' ok' : ' err') : ''}`}>
+                      {fb ? fb.text : `${dest.chat_id}${dest.message_thread_id ? ` · thread ${dest.message_thread_id}` : ''}`}
+                    </span>
+                  </div>
+                  <div className="manage-row-actions">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      disabled={testingDest === dest.id}
+                      onClick={() => testDestination(dest.id)}
+                      aria-label={copy.testDestination}
+                    >{testingDest === dest.id ? <Spinner /> : <Icon name="send" />}</button>
+                    <button
+                      type="button"
+                      className="icon-btn danger"
+                      onClick={async () => {
+                        const confirmed = await tgShowPopup({
+                          message: copy.confirmRemoveDestination(dest.title),
+                          buttons: [
+                            { id: 'confirm', type: 'destructive', text: copy.popupConfirm },
+                            { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+                          ],
+                        });
+                        if (confirmed === 'confirm') removeDestination(dest.id);
+                      }}
+                      aria-label={copy.removeDestination}
+                    ><Icon name="x" /></button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    disabled={testingDest === dest.id}
-                    onClick={() => testDestination(dest.id)}
-                    aria-label={copy.testDestination}
-                  >{testingDest === dest.id ? <Spinner /> : <Icon name="send" />}</button>
-                  <button
-                    type="button"
-                    className="icon-btn danger"
-                    onClick={async () => {
-                      const confirmed = await tgShowPopup({
-                        message: copy.confirmRemoveDestination(dest.title),
-                        buttons: [
-                          { id: 'confirm', type: 'destructive', text: copy.popupConfirm },
-                          { id: 'cancel', type: 'cancel', text: copy.popupCancel },
-                        ],
-                      });
-                      if (confirmed === 'confirm') removeDestination(dest.id);
-                    }}
-                    aria-label={copy.removeDestination}
-                  ><Icon name="x" /></button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </Section>
 
           <Section title={copy.addDestination}>
             <ChatIdInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={handleDestChatIdChange} placeholder="100123456789" loading={resolvingDest} />
             <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
-            <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" />
+            <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" invalid={!!destThread && !/^\d+$/.test(destThread.trim())} />
             <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
             {addDestResult && (
-              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} value={addDestResult.ok ? 'ok' : 'err'} badgeTone={addDestResult.ok ? 'ok' : 'err'} caption={[addDestResult.friendly, addDestResult.detail].filter(Boolean).join(' — ')} />
+              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} caption={[addDestResult.friendly, addDestResult.detail].filter(Boolean).join(' — ')} />
             )}
           </Section>
         </>
@@ -1544,16 +1616,20 @@ export default function App() {
       {activeTab === 'app_settings' && (
         <>
           <Section title={copy.chooseLanguage}>
-            <ToggleRow
-              label={copy.portuguese}
-              checked={language === 'pt'}
-              onChange={() => { setLanguage('pt'); writeLangStorage('pt'); updateSetting('ai_language', 'pt-BR'); saveSingleSetting('ai_language', 'pt-BR'); }}
-            />
-            <ToggleRow
-              label={copy.englishLang}
-              checked={language === 'en'}
-              onChange={() => { setLanguage('en'); writeLangStorage('en'); updateSetting('ai_language', 'en-US'); saveSingleSetting('ai_language', 'en-US'); }}
-            />
+            <SelectRow
+              label={copy.chooseLanguage}
+              value={language}
+              onChange={(v) => {
+                const aiLang = v === 'en' ? 'en-US' : 'pt-BR';
+                setLanguage(v);
+                writeLangStorage(v);
+                updateSetting('ai_language', aiLang);
+                saveSingleSetting('ai_language', aiLang);
+              }}
+            >
+              <option value="pt">{copy.portuguese}</option>
+              <option value="en">{copy.englishLang}</option>
+            </SelectRow>
           </Section>
 
           {me?.role === 'owner' && (
@@ -1561,13 +1637,14 @@ export default function App() {
               <Section title={copy.adminsTitle}>
                 <MenuRow icon="refresh" label={copy.refreshQueue} loading={adminsLoading} disabled={!apiConfigured} onClick={fetchAdmins} />
                 {adminsError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(adminsError, copy.unknownError, copy).friendly} />}
+                {!adminsLoading && !adminsError && admins.length === 0 && <Row icon="info" label={copy.noAdmins} />}
                 {admins.map((admin) => (
-                  <div key={admin.telegram_user_id} className="row" style={{ justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                  <div key={admin.telegram_user_id} className="row manage-row">
+                    <div className="row-main">
                       <span className="row-label">{admin.name || String(admin.telegram_user_id)}</span>
                       <span className="row-caption">{admin.telegram_user_id}{admin.added_by_name ? ` · ${copy.adminAddedBy} ${admin.added_by_name}` : ''}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="manage-row-actions">
                       <Badge tone={admin.role === 'owner' ? 'ok' : admin.role === 'admin' ? 'warn' : ''}>{admin.role}</Badge>
                       {!(admin.telegram_user_id === me?.user?.id && admin.role === 'owner') && (
                         <button
@@ -1591,7 +1668,7 @@ export default function App() {
                 ))}
               </Section>
               <Section title={copy.addAdmin}>
-                <StackedInputRow label={copy.adminUserIdLabel} value={adminUserId} onChange={setAdminUserId} placeholder={copy.adminUserIdPlaceholder} inputMode="numeric" />
+                <StackedInputRow label={copy.adminUserIdLabel} value={adminUserId} onChange={setAdminUserId} placeholder={copy.adminUserIdPlaceholder} inputMode="numeric" invalid={!!adminUserId && !/^\d+$/.test(adminUserId.trim())} />
                 <StackedInputRow label={copy.adminNameLabel} value={adminName} onChange={setAdminName} placeholder={copy.adminNamePlaceholder} />
                 <SelectRow label={copy.adminRoleLabel} value={adminRole} onChange={setAdminRole}>
                   <option value="admin">{copy.adminRoleAdmin}</option>
@@ -1599,7 +1676,7 @@ export default function App() {
                 </SelectRow>
                 <MenuRow icon="shield" label={copy.addAdmin} loading={addingAdmin} disabled={!apiConfigured || !adminUserId.trim()} onClick={addAdmin} />
                 {addAdminResult && (
-                  <Row icon={addAdminResult.ok ? 'result' : 'info'} label={addAdminResult.ok ? copy.success : copy.error} value={addAdminResult.ok ? 'ok' : 'err'} badgeTone={addAdminResult.ok ? 'ok' : 'err'} caption={addAdminResult.friendly} />
+                  <Row icon={addAdminResult.ok ? 'result' : 'info'} label={addAdminResult.ok ? copy.success : copy.error} caption={addAdminResult.friendly} />
                 )}
               </Section>
             </>
