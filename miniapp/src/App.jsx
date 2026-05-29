@@ -1000,7 +1000,7 @@ export default function App() {
             <Row icon="calendar" label={copy.scheduleTab} onClick={() => setActiveTab('schedule')} />
           </Section>
 
-          <Section title={copy.aiTab} footer={copy.aiTabCaption}>
+          <Section title={copy.aiTab}>
             <Row icon="ai" label={copy.aiTab} onClick={() => setActiveTab('ai')} />
           </Section>
 
