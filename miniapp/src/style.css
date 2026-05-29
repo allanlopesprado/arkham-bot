@@ -526,7 +526,7 @@ input, select { outline: none; }
 
 .time-add-btn:active { opacity: 0.7; }
 
-.icon-btn-danger { color: var(--destructive, #e53935); }
+.icon-btn.danger { color: var(--destructive); }
 
 .hint-text { color: var(--hint); }
 
@@ -653,6 +653,43 @@ input, select { outline: none; }
 
 @media (hover: hover) {
   .icon-btn:hover { background: color-mix(in srgb, var(--text) 12%, transparent); }
+}
+
+/* ── Pending destinations ─────────────────────────────────────────────────── */
+
+.pending-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--sep);
+}
+.pending-row:first-child { border-top: 0; }
+
+.pending-row-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.pending-actions { display: flex; gap: 8px; }
+
+.pending-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text);
+  font-size: 14px;
+  transition: background 0.12s ease;
+}
+.pending-action-btn:disabled { opacity: 0.5; pointer-events: none; }
+.pending-action-btn.confirm { background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); }
+.pending-action-btn.dismiss { background: color-mix(in srgb, var(--destructive) 12%, transparent); color: var(--destructive); }
+.pending-action-btn .icon { color: currentColor; }
+@media (hover: hover) {
+  .pending-action-btn:hover { filter: brightness(1.15); }
 }
 
 /* ── Command row ──────────────────────────────────────────────────────────── */
@@ -795,6 +832,8 @@ input, select { outline: none; }
   flex: 1;
   justify-content: center;
 }
+.overview-stat-action { cursor: pointer; border-radius: 8px; }
+.overview-stat-action:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .overview-stat .icon { width: 18px; height: 18px; color: var(--hint); flex-shrink: 0; }
 .overview-stat-label { font-size: 13px; color: var(--text); font-weight: 500; }
 .overview-dot {

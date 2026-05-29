@@ -682,11 +682,10 @@ export default function App() {
       const { ok, json } = await apiFetch(`/admins/${targetId}`, { method: 'DELETE' });
       if (ok) { haptic('notification', 'success'); fetchAdmins(); }
       else {
-        const msg = json.error === 'cannot_remove_last_owner' ? copy.cannotRemoveLastOwner : (copy.adminRemoveFailed || json.error);
         haptic('notification', 'error');
-        setAdminsError(msg);
+        setAdminsError(json.error || 'admin_remove_failed');
       }
-    } catch { haptic('notification', 'error'); }
+    } catch { haptic('notification', 'error'); setAdminsError('network_error'); }
   }
 
   async function fetchPendingDestinations() {
@@ -860,7 +859,14 @@ export default function App() {
               <span className="overview-stat-label">{cardsValue}</span>
             </div>
             <div className="overview-divider" />
-            <div className="overview-stat" style={{cursor:'pointer'}} onClick={() => setActiveTab('queue')} role="button" tabIndex={0} onKeyDown={e => e.key==='Enter' && setActiveTab('queue')}>
+            <div
+              className="overview-stat overview-stat-action"
+              onClick={() => setActiveTab('queue')}
+              role="button"
+              tabIndex={0}
+              aria-label={copy.queue}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('queue'); } }}
+            >
               <Icon name="queue" />
               <span className="overview-stat-label">{queueValue > 0 ? String(queueValue) : '0'}</span>
               {queueValue > 0 && <span className="overview-badge">{copy.pending}</span>}
@@ -899,6 +905,7 @@ export default function App() {
                 value={cardQuery}
                 onChange={handleSearchChange}
                 placeholder={copy.searchPlaceholder}
+                aria-label={copy.searchCard || copy.searchPlaceholder}
                 inputMode="text"
               />
               {searchingCards && <Spinner />}
@@ -933,7 +940,7 @@ export default function App() {
             </Section>
           ) : (
             <Section>
-              <Row icon="info" label={copy.noDestinationsInPost} caption={undefined} />
+              <Row icon="info" label={copy.noDestinationsInPost} />
               <Row icon="destinations" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
             </Section>
           )}
@@ -1116,6 +1123,7 @@ export default function App() {
                 enabled={allEnabled}
                 onToggle={setAllWeekdays}
                 onConfigure={() => { setActiveDayCode('all'); setActiveTab('day_detail'); }}
+                configureLabel={copy.configureDay}
               />
             </Section>
             <Section title={copy.dailySchedule}>
@@ -1138,6 +1146,7 @@ export default function App() {
                     }}
                     onConfigure={() => { setActiveDayCode(day.code); setActiveTab('day_detail'); }}
                     disabled={allEnabled}
+                    configureLabel={copy.configureDay}
                   />
                 );
               })}
@@ -1308,7 +1317,7 @@ export default function App() {
             const filteredItems = historyItems;
             return (
               <Section footer={!historyLoadingState && !historyError ? copy.postsOnDate(filteredItems.length, historyDate) : undefined}>
-                {historyError && <Row icon="info" label={copy.error} value={historyError} badgeTone="err" />}
+                {historyError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(historyError, copy.unknownError, copy).friendly} />}
                 {!historyLoadingState && !historyError && filteredItems.length === 0 && (
                   <Row icon="cards" label={copy.noHistory} />
                 )}
@@ -1441,8 +1450,8 @@ export default function App() {
           {pendingDests.length > 0 && (
             <Section title={copy.pendingDestinationsTitle} footer={copy.pendingDestinationCaption}>
               {pendingDests.map(p => (
-                <div key={p.id} style={{ padding: '10px 14px', borderTop: '1px solid var(--sep)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div key={p.id} className="pending-row">
+                  <div className="pending-row-head">
                     <span className="row-label">{p.chat_title}</span>
                     <span className="row-caption">
                       {p.chat_id}{p.chat_username ? ` · @${p.chat_username}` : ''}
@@ -1458,23 +1467,22 @@ export default function App() {
                       autoComplete="off"
                     />
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="pending-actions">
                     <button
                       type="button"
-                      className="menu-row"
-                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--link) 12%, transparent)', borderRadius: 8 }}
+                      className="pending-action-btn confirm"
                       disabled={acceptingPending === p.id}
                       onClick={() => acceptPending(p)}
                     >
-                      {acceptingPending === p.id ? <Spinner /> : <><Icon name="result" /><span className="row-label" style={{ marginLeft: 6 }}>{copy.pendingAccept}</span></>}
+                      {acceptingPending === p.id ? <Spinner /> : <><Icon name="result" /><span className="row-label">{copy.pendingAccept}</span></>}
                     </button>
                     <button
                       type="button"
-                      className="menu-row"
-                      style={{ flex: 1, justifyContent: 'center', background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', borderRadius: 8 }}
+                      className="pending-action-btn dismiss"
+                      disabled={acceptingPending === p.id}
                       onClick={() => dismissPending(p.id)}
                     >
-                      <Icon name="x" /><span className="row-label" style={{ marginLeft: 6 }}>{copy.pendingDismiss}</span>
+                      <Icon name="x" /><span className="row-label">{copy.pendingDismiss}</span>
                     </button>
                   </div>
                 </div>
@@ -1484,7 +1492,7 @@ export default function App() {
 
           <Section title={copy.destinationsManageTab}>
             <MenuRow icon="refresh" label={copy.refreshQueue} loading={destLoading} disabled={!apiConfigured} onClick={() => { fetchDestinations(); fetchPendingDestinations(); }} />
-            {destError && <Row icon="info" label={String(destError)} value="err" badgeTone="err" />}
+            {destError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(destError, copy.unknownError, copy).friendly} />}
             {!destLoading && !destError && destList.length === 0 && <Row icon="info" label={copy.noDestinations} />}
             {destList.map((dest) => (
               <div key={dest.id} className="row" style={{ justifyContent: 'space-between' }}>
@@ -1552,7 +1560,7 @@ export default function App() {
             <>
               <Section title={copy.adminsTitle}>
                 <MenuRow icon="refresh" label={copy.refreshQueue} loading={adminsLoading} disabled={!apiConfigured} onClick={fetchAdmins} />
-                {adminsError && <Row icon="info" label={String(adminsError)} value="err" badgeTone="err" />}
+                {adminsError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(adminsError, copy.unknownError, copy).friendly} />}
                 {admins.map((admin) => (
                   <div key={admin.telegram_user_id} className="row" style={{ justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
@@ -1564,8 +1572,17 @@ export default function App() {
                       {!(admin.telegram_user_id === me?.user?.id && admin.role === 'owner') && (
                         <button
                           type="button"
-                          className="icon-btn"
-                          onClick={() => removeAdmin(admin.telegram_user_id)}
+                          className="icon-btn danger"
+                          onClick={async () => {
+                            const confirmed = await tgShowPopup({
+                              message: copy.confirmRemoveAdmin(admin.name || String(admin.telegram_user_id)),
+                              buttons: [
+                                { id: 'confirm', type: 'destructive', text: copy.popupConfirm },
+                                { id: 'cancel', type: 'cancel', text: copy.popupCancel },
+                              ],
+                            });
+                            if (confirmed === 'confirm') removeAdmin(admin.telegram_user_id);
+                          }}
                           aria-label={copy.removeAdmin}
                         ><Icon name="x" /></button>
                       )}

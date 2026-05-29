@@ -189,18 +189,18 @@ export function StackedSelectRow({ label, value, onChange, children }) {
   );
 }
 
-export function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure, disabled }) {
+export function DayScheduleRow({ label, subtitle, enabled, onToggle, onConfigure, disabled, configureLabel }) {
   return (
     <div className={`row${disabled ? ' row-disabled' : ''}`}>
       <div className="row-main">
         <span className="row-label">{label}</span>
         {subtitle && <span className="row-caption">{subtitle}</span>}
       </div>
-      <button className="row-config-btn" type="button" onClick={onConfigure} aria-label="configurar" disabled={disabled}>
+      <button className="row-config-btn" type="button" onClick={onConfigure} aria-label={configureLabel || 'Configure'} disabled={disabled}>
         <Icon name="settings" />
       </button>
       <label className={`day-toggle-wrap${disabled ? ' day-toggle-disabled' : ''}`}>
-        <input type="checkbox" checked={enabled} disabled={disabled} onChange={(e) => { if (!disabled) { haptic('selection'); onToggle(e.target.checked); } }} />
+        <input type="checkbox" aria-label={label} checked={enabled} disabled={disabled} onChange={(e) => { if (!disabled) { haptic('selection'); onToggle(e.target.checked); } }} />
         <span className="toggle" aria-hidden="true" />
       </label>
     </div>
