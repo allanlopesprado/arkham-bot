@@ -140,6 +140,11 @@ input, select { outline: none; }
 
 .section-title.danger { color: var(--destructive); }
 
+/* Headings receive programmatic focus on tab change (screen-reader awareness);
+   keep the focus but hide the visible outline so it doesn't look like a selected box. */
+.section-title:focus,
+.section-header-standalone:focus { outline: none; }
+
 .section-footer {
   padding: 6px 14px 4px;
   color: var(--hint);
