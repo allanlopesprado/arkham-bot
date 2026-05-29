@@ -6,6 +6,7 @@ import { getBotPhotoUrl, getApiBase, apiFetch } from './api.js';
 import { WEEKDAYS, ALL_CARD_TYPES, deriveCycles, TIMEZONES, I18N, resolveError, readLangStorage, writeLangStorage, getInitialLanguage } from './i18n.js';
 import { AI_TONES, AI_PROVIDERS, AI_MODELS, _providerOfModel, DEFAULT_SETTINGS, normalizeSettings, settingsPatchPayload, isValidTimeValue, validateTimes, settingsEqual, DELAY_OPTIONS, formatDelay } from './settings.js';
 import { Icon } from './icons.jsx';
+import { useSwipeNavigation } from './useSwipeNavigation.js';
 import {
   Spinner, LoadingRow, Badge, Notice, Section, Row, MenuRow, DangerRow, ResultRow,
   ToggleRow, InputRow, StackedInputRow, ChatIdInputRow, SelectRow, StackedSelectRow,
@@ -192,8 +193,15 @@ export default function App() {
     }
   }, [activeTab, settingsDirty, savingSettings, copy.saveSettings]);
 
+  // ── Swipe navigation ────────────────────────────────────────────────────────
+  // Ordered list of top-level tabs reachable by horizontal swipe.
+  // Excluded: database, maintenance, app_settings (system/destructive/admin)
+  // and all nested sub-screens (day_detail, schedule, ai, admins).
+  const SWIPE_TABS = ['home', 'post', 'history', 'queue', 'settings', 'destinations', 'health'];
+
   // ── Move focus to the first heading on tab change (screen-reader awareness) ──
   const contentRef = useRef(null);
+  useSwipeNavigation(contentRef, activeTab, setActiveTab, SWIPE_TABS);
   const didMountRef = useRef(false);
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
