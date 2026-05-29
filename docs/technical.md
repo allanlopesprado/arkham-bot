@@ -83,7 +83,24 @@ Supabase
 ├── tests/                           # Testes unitários (pytest)
 ├── supabase/migrations/             # Schema SQL em ordem cronológica
 ├── worker/
-│   ├── src/index.js                 # Cloudflare Worker (único arquivo)
+│   ├── src/
+│   │   ├── index.js                 # Entry point: CORS preflight + route dispatch
+│   │   ├── http.js                  # Helpers de resposta JSON, CORS e origem
+│   │   ├── supabase.js              # Helpers REST Supabase (service-role key)
+│   │   ├── auth.js                  # Validação initData Telegram + guards requireAuth/requireAdmin/requireOwner
+│   │   ├── validation.js            # Constantes e validadores de settings/input
+│   │   ├── audit.js                 # Logging estruturado + escrita em audit_logs
+│   │   └── handlers/                # Um módulo por grupo de endpoints
+│   │       ├── admins.js            # /admins
+│   │       ├── bot-info.js          # /bot-info
+│   │       ├── cards.js             # /cards, /card-post
+│   │       ├── commands.js          # /commands
+│   │       ├── destinations.js      # /destinations, /destinations/pending
+│   │       ├── history.js           # /history
+│   │       ├── packs.js             # /packs
+│   │       ├── runtime.js           # /bot-runtime
+│   │       ├── settings.js          # /settings
+│   │       └── status.js            # /status
 │   └── wrangler.toml                # Configuração Wrangler
 ├── miniapp/
 │   ├── src/                         # Fonte React
@@ -335,7 +352,9 @@ RLS está habilitado em todas as tabelas. O backend Python e o Worker usam `SUPA
 
 ## Cloudflare Worker
 
-Código em `worker/src/index.js`. Versão atual: **v1.3.0**.
+Código em `worker/src/`. Versão atual: **v1.3.0**.
+
+`index.js` é o entry point: recebe o fetch, resolve a origem CORS, trata preflights e despacha para os handlers. Toda a lógica de negócio está nos módulos especializados (`http.js`, `supabase.js`, `auth.js`, `validation.js`, `audit.js`, `handlers/*`).
 
 URL de produção: `https://arkham-bot-worker.homerlab.workers.dev`
 

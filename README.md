@@ -98,7 +98,7 @@ O bot seleciona a carta do dia e gera mensagens de abertura/encerramento usando 
 │   ├── services/                  # Scheduler, daily_card, heartbeat, IA
 │   ├── ai/                        # Seletor de carta por IA (4 provedores)
 │   └── i18n/                      # Strings PT-BR e EN
-├── worker/src/index.js            # Cloudflare Worker (API + auth)
+├── worker/src/                    # Cloudflare Worker (index.js: dispatch; módulos: http, supabase, auth, validation, audit, handlers/*)
 ├── miniapp/src/                   # React Mini App
 ├── scripts/                       # healthcheck.py, sync_arkhamdb.py
 ├── supabase/migrations/           # 8 migrations SQL em ordem cronológica
