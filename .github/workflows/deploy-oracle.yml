@@ -95,6 +95,23 @@ jobs:
           echo "== Current branch =="
           git branch --show-current
 
+          echo "== Capture current revision (for rollback) =="
+          PREV_SHA="$(git rev-parse HEAD)"
+          echo "Previous revision: $PREV_SHA"
+
+          # Restore the previous revision, restart, dump diagnostics, and fail.
+          rollback() {
+            echo "!! Deploy failed — rolling back to $PREV_SHA"
+            git reset --hard "$PREV_SHA"
+            python -m pip install -r requirements.txt || true
+            sudo systemctl restart "$SERVICE_NAME" || true
+            sleep 5
+            echo "== Status after rollback =="
+            sudo systemctl status "$SERVICE_NAME" --no-pager -l || true
+            sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager -l || true
+            exit 1
+          }
+
           echo "== Fetch origin =="
           git fetch origin main
 
@@ -107,15 +124,20 @@ jobs:
           python -m pip install -r requirements.txt
 
           echo "== Validate =="
-          python -m compileall -q .
-          python main.py healthcheck --strict
+          python -m compileall -q . || rollback
+          python main.py healthcheck --strict || rollback
 
           echo "== Restart service =="
-          sudo systemctl restart "$SERVICE_NAME"
+          sudo systemctl restart "$SERVICE_NAME" || rollback
           sleep 5
 
           echo "== Service status =="
-          sudo systemctl is-active --quiet "$SERVICE_NAME"
+          if ! sudo systemctl is-active --quiet "$SERVICE_NAME"; then
+            echo "!! Service is not active after restart"
+            sudo systemctl status "$SERVICE_NAME" --no-pager -l || true
+            sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager -l || true
+            rollback
+          fi
           sudo systemctl status "$SERVICE_NAME" --no-pager -l
 
           echo "== Recent logs =="
