@@ -282,6 +282,8 @@ export default function App() {
     if (activeTab === 'history') fetchHistoryItems(historyDate, 0);
     if (activeTab === 'app_settings') fetchAdmins();
     if (activeTab === 'health') fetchBotRuntime();
+    // Load on entry regardless of how the tab is reached (tap or swipe).
+    if (activeTab === 'destinations') { fetchDestinations(); fetchPendingDestinations(); }
   }, [activeTab]);
 
   // ── API calls ───────────────────────────────────────────────────────────────
@@ -948,7 +950,7 @@ export default function App() {
 
           <Section title={copy.configTitle}>
             <Row icon="settings"     label={copy.postingConfig}          onClick={() => setActiveTab('settings')} />
-            <Row icon="destinations" label={copy.destinationsManageTab}  onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
+            <Row icon="destinations" label={copy.destinationsManageTab}  onClick={() => setActiveTab('destinations')} />
             <Row icon="app"          label={copy.appTab}                 onClick={() => { setActiveTab('app_settings'); fetchAdmins(); }} />
           </Section>
 
@@ -1009,7 +1011,7 @@ export default function App() {
           ) : (
             <Section>
               <Row icon="info" label={copy.noDestinationsInPost} />
-              <Row icon="destinations" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); }} />
+              <Row icon="destinations" label={copy.goToDestinations} onClick={() => setActiveTab('destinations')} />
             </Section>
           )}
 
@@ -1064,7 +1066,7 @@ export default function App() {
           {targetChats.length === 0 && (
             <Section>
               <Row icon="info" label={copy.noDestinationsWarning} badgeTone="warn" />
-              <Row icon="destinations" label={copy.goToDestinations} onClick={() => { setActiveTab('destinations'); fetchDestinations(); fetchPendingDestinations(); }} />
+              <Row icon="destinations" label={copy.goToDestinations} onClick={() => setActiveTab('destinations')} />
             </Section>
           )}
 
