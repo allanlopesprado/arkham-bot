@@ -415,9 +415,11 @@ Deploy: automático via **Cloudflare Pages** conectado ao repositório GitHub. Q
 - React 18 + Vite 5
 - Ícones: **Lucide React** (tree-shaken, ~30 ícones importados)
 - Sem bibliotecas de estado externas
-- CSS custom com variáveis Telegram (`--tg-theme-*`) + variáveis próprias (`--warn`, `--warn-bg`, `--toggle-knob`)
+- CSS custom com variáveis Telegram (`--tg-theme-*`) + variáveis próprias (`--warn`, `--warn-bg`, `--ok`, `--err`, `--toggle-knob`, `--focus-ring`)
 - Hierarquia de fontes: 19px / 14px / 13px / 12px / 11px
 - Paddings padronizados: `8px 14px` em todos os rows
+- Alvos de toque mínimos de 36px nos botões de ícone
+- Acessibilidade: `:focus-visible` em todos os controles, `prefers-reduced-motion`, e feedback de ação anunciado via `role`/`aria-live`
 
 ### Módulos (`miniapp/src/`)
 
@@ -430,7 +432,7 @@ Deploy: automático via **Cloudflare Pages** conectado ao repositório GitHub. Q
 | `i18n.js` | Strings PT/EN, constantes de domínio (WEEKDAYS, ALL_CARD_TYPES, TIMEZONES) |
 | `settings.js` | DEFAULT_SETTINGS, normalização, validação, AI_PROVIDERS fallback |
 | `icons.jsx` | SVG paths e componente `<Icon name />` |
-| `components.jsx` | Componentes de UI reutilizáveis (Row, Section, Toggle, etc.) |
+| `components.jsx` | Componentes de UI reutilizáveis (Row, MenuRow, Section, Toggle, ResultRow, LoadingRow, etc.) |
 | `style.css` | Estilos globais com variáveis CSS do tema Telegram |
 
 ### Variável de build

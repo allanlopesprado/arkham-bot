@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.5.1] — 2026-05-29
+
+Segunda passada de refinamento de UI/UX no Mini App — hierarquia visual, acessibilidade, estados de interação e consistência de componentes. Sem mudança de comportamento de negócio, auth ou schema.
+
+### Acessibilidade (Mini App)
+- Foco de teclado (`:focus-visible`) visível em **todos** os controles interativos: toggles (o checkbox oculto não exibia indicador de foco), pills de filtro do histórico, botões de atualizar/limpar, botão de configurar dia, botão de info e o `<summary>` do diagnóstico
+- Feedback de ação anunciado por leitores de tela: `role="status"`/`aria-live="polite"` para sucesso e `role="alert"`/`aria-live="assertive"` para erro
+- `aria-busy` nos botões em estado de carregamento (`MenuRow`, `DangerRow`)
+- `prefers-reduced-motion`: transições desativadas e spinner desacelerado para quem prefere menos movimento
+
+### UX / UI (Mini App)
+- **Hierarquia de seções**: títulos viraram rótulos em maiúsculas com tracking (estilo lista agrupada do Telegram/iOS), distinguindo-se de legendas e textos de apoio
+- **Ações primárias** destacadas com a cor de acento do Telegram (`--accent`): "Postar agora", "Adicionar destino", "Adicionar administrador"
+- **Alertas semânticos**: `Notice` de aviso (âmbar) e de erro (vermelho) ganharam fundo tonalizado e borda lateral de acento — antes era uma caixa neutra em que só o erro tinha cor
+- **Feedback colorido**: linhas de sucesso (verde) / erro (vermelho) com ícone + texto — o significado não depende só da cor
+- **Alvos de toque** padronizados em 36px (antes 32/34/22px inconsistentes): botões de ícone, configurar dia e a barra do histórico
+- Proteção contra overflow horizontal em `SelectRow` com rótulos longos em telas estreitas
+
+### Componentes / Limpeza (Mini App)
+- Novo `ResultRow`: consolida 11 blocos quase idênticos de feedback de sucesso/erro espalhados pelas abas
+- Novo `LoadingRow`: substitui linhas de carregamento com estilos inline
+- Novos tokens CSS: `--ok`, `--err`, `--focus-ring`
+
+---
+
 ## [1.5.0] — 2026-05-28
 
 Foco em UX, acessibilidade e limpeza — concentrado no Mini App, com correções de qualidade no bot.
