@@ -689,7 +689,7 @@ async function handleGetPacks(env, ao) {
   // Try Supabase first
   if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      const url = `${env.SUPABASE_URL}/rest/v1/arkham_packs?select=code,name,cycle_position,position,chapter,total&order=cycle_position.asc,position.asc&limit=500`;
+      const url = `${supabaseBase(env)}/rest/v1/arkham_packs?select=code,name,cycle_position,position,chapter,total&order=cycle_position.asc,position.asc&limit=500`;
       const resp = await fetch(url, {
         headers: {
           'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
