@@ -7,6 +7,15 @@ import { DELAY_OPTIONS, formatDelay } from './settings.js';
 
 export function Spinner() { return <span className="spinner" aria-hidden="true" />; }
 
+export function LoadingRow({ label }) {
+  return (
+    <div className="row loading-row" role="status" aria-live="polite">
+      <Spinner />
+      <span className="row-label">{label}</span>
+    </div>
+  );
+}
+
 export function Badge({ tone = '', children }) {
   return <span className={`badge ${tone}`.trim()}>{children}</span>;
 }
@@ -49,9 +58,15 @@ export function Row({ icon, label, value, badgeTone = '', caption, mono = false,
   );
 }
 
-export function MenuRow({ icon, label, caption, value, onClick, disabled, loading }) {
+export function MenuRow({ icon, label, caption, value, onClick, disabled, loading, accent }) {
   return (
-    <button className="row row-action" onClick={onClick} disabled={disabled || loading} type="button">
+    <button
+      className={`row row-action${accent ? ' accent' : ''}`}
+      onClick={onClick}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      type="button"
+    >
       {icon && <Icon name={icon} />}
       <span className="row-label-wrap">
         <span className="row-label">{label}</span>
@@ -65,11 +80,32 @@ export function MenuRow({ icon, label, caption, value, onClick, disabled, loadin
 
 export function DangerRow({ icon, label, onClick, disabled, loading }) {
   return (
-    <button className="row row-action danger" onClick={onClick} disabled={disabled || loading} type="button">
+    <button className="row row-action danger" onClick={onClick} disabled={disabled || loading} aria-busy={loading || undefined} type="button">
       {icon && <Icon name={icon} />}
       <span className="row-label">{label}</span>
       {loading ? <Spinner /> : <Icon name="chevron" className="chevron" />}
     </button>
+  );
+}
+
+/* Action feedback: success/error after an enqueue or save. Colored + announced
+   to screen readers (status for success, alert for errors), with icon + text so
+   the meaning does not rely on color alone. */
+export function ResultRow({ result, copy }) {
+  if (!result) return null;
+  const caption = [result.friendly, result.detail].filter(Boolean).join(' — ');
+  return (
+    <div
+      className={`row result-row ${result.ok ? 'ok' : 'err'}`}
+      role={result.ok ? 'status' : 'alert'}
+      aria-live={result.ok ? 'polite' : 'assertive'}
+    >
+      <Icon name={result.ok ? 'result' : 'info'} />
+      <div className="row-main">
+        <span className="row-label">{result.ok ? copy.success : copy.error}</span>
+        {caption && <span className="row-caption">{caption}</span>}
+      </div>
+    </div>
   );
 }
 

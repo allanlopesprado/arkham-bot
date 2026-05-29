@@ -16,7 +16,10 @@
   --header-hint: var(--tg-theme-section_header_text_color, #708499);
   --warn:        #f0a030;
   --warn-bg:     rgba(240,160,48,0.15);
+  --ok:          #3fae6b;
+  --err:         #e5484d;
   --toggle-knob: #fff;
+  --focus-ring:  var(--link);
 
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -111,14 +114,25 @@ input, select { outline: none; }
 
 .notice {
   margin: 0 0 8px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: var(--bg2);
+  padding: 10px 14px;
+  border-radius: 10px;
   border: 1px solid var(--sep);
+  border-left-width: 3px;
   color: var(--text);
   font-size: 13px;
+  line-height: 1.45;
 }
-.notice.err { color: var(--destructive); }
+.notice.warn {
+  background: var(--warn-bg);
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+  border-left-color: var(--warn);
+}
+.notice.err {
+  background: color-mix(in srgb, var(--destructive) 10%, transparent);
+  border-color: color-mix(in srgb, var(--destructive) 35%, transparent);
+  border-left-color: var(--destructive);
+  color: var(--destructive);
+}
 
 /* ── Section ──────────────────────────────────────────────────────────────── */
 
@@ -129,10 +143,12 @@ input, select { outline: none; }
 }
 
 .section-title {
-  padding: 16px 14px 6px;
+  padding: 18px 14px 7px;
   color: var(--header-hint);
-  font-size: 13px;
-  font-weight: 400;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -217,7 +233,22 @@ input, select { outline: none; }
 .row-action:focus-visible,
 .card-result:focus-visible,
 .icon-btn:focus-visible {
-  outline: 2px solid var(--link);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Standalone controls: pills, header/config/info buttons */
+.source-filter-btn:focus-visible,
+.history-refresh-btn:focus-visible,
+.history-clear-btn:focus-visible,
+.pending-action-btn:focus-visible,
+.row-config-btn:focus-visible,
+.info-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.details summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -276,6 +307,17 @@ input, select { outline: none; }
 
 .row-action.danger .row-label { color: var(--destructive); }
 
+/* Primary action: Telegram-native accent emphasis (e.g. Post now, Add) */
+.row-action.accent > .icon:first-child { color: var(--accent); }
+.row-action.accent .row-label { color: var(--accent); font-weight: 500; }
+
+/* Action feedback (success / error) */
+.result-row.ok  > .icon:first-child { color: var(--ok); }
+.result-row.err > .icon:first-child { color: var(--destructive); }
+.result-row.ok  .row-label { color: var(--ok); }
+.result-row.err .row-label { color: var(--destructive); }
+.result-row .row-caption { white-space: normal; }
+
 .row-caption {
   color: var(--hint);
   font-size: 12px;
@@ -318,8 +360,8 @@ input, select { outline: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: transparent;
   color: var(--hint);
@@ -393,6 +435,13 @@ input, select { outline: none; }
 .toggle-row input:checked + .toggle::after,
 .day-toggle-wrap input:checked + .toggle::after { transform: translateX(18px); }
 .toggle-row input:disabled + .toggle { opacity: 0.45; }
+
+/* Keyboard focus indicator for the visually-hidden checkbox */
+.toggle-row input:focus-visible + .toggle,
+.day-toggle-wrap input:focus-visible + .toggle {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 
 @media (hover: hover) {
   .toggle-row:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
@@ -535,6 +584,7 @@ input, select { outline: none; }
 /* ── Select row ───────────────────────────────────────────────────────────── */
 
 .select-row { cursor: pointer; }
+.select-row .row-label { flex: 1; min-width: 0; }
 
 .inline-select {
   flex-shrink: 0;
@@ -640,8 +690,8 @@ input, select { outline: none; }
 .icon-btn {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   border: 0;
   border-radius: 8px;
@@ -713,6 +763,11 @@ input, select { outline: none; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Loading row ──────────────────────────────────────────────────────────── */
+
+.loading-row { gap: 10px; color: var(--hint); }
+.loading-row .row-label { color: var(--hint); }
+
 /* ── Details / Diagnostic ─────────────────────────────────────────────────── */
 
 .details { position: relative; background: transparent; border-top: 1px solid var(--sep); }
@@ -756,8 +811,8 @@ input, select { outline: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   background: none;
   border: none;
@@ -899,20 +954,28 @@ input, select { outline: none; }
 .history-clear-btn {
   background: none;
   border: none;
-  padding: 4px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   color: var(--hint);
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 .history-clear-btn:active { color: var(--destructive); }
 .history-refresh-btn {
   background: none;
   border: none;
-  padding: 6px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   color: var(--hint);
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   border-radius: 8px;
   flex-shrink: 0;
@@ -977,5 +1040,16 @@ input, select { outline: none; }
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep the loading spinner readable, just slower */
+  .spinner { animation-duration: 1.2s; }
 }
 

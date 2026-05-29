@@ -7,7 +7,7 @@ import { WEEKDAYS, ALL_CARD_TYPES, deriveCycles, TIMEZONES, I18N, resolveError, 
 import { AI_TONES, AI_PROVIDERS, AI_MODELS, _providerOfModel, DEFAULT_SETTINGS, normalizeSettings, settingsPatchPayload, isValidTimeValue, validateTimes, settingsEqual, DELAY_OPTIONS, formatDelay } from './settings.js';
 import { Icon } from './icons.jsx';
 import {
-  Spinner, Badge, Notice, Section, Row, MenuRow, DangerRow,
+  Spinner, LoadingRow, Badge, Notice, Section, Row, MenuRow, DangerRow, ResultRow,
   ToggleRow, InputRow, StackedInputRow, ChatIdInputRow, SelectRow, StackedSelectRow,
   DayScheduleRow, CommandRow, CardResult,
   LoadingGate, NoTelegramGate, AuthErrorGate, UnauthorizedGate, ApiNotConfiguredGate,
@@ -1006,6 +1006,7 @@ export default function App() {
           <Section footer={!cardCode ? copy.automaticChoice : undefined}>
             <MenuRow
               icon="send"
+              accent
               label={copy.postNow}
               value={cardCode || undefined}
               loading={loadingCmd === 'post_now'}
@@ -1030,11 +1031,7 @@ export default function App() {
             />
           </Section>
 
-          {result && (
-            <Section>
-              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
-            </Section>
-          )}
+          {result && <Section><ResultRow result={result} copy={copy} /></Section>}
         </>
       )}
 
@@ -1069,11 +1066,7 @@ export default function App() {
             <Row icon="ai" label={copy.aiTab} onClick={() => setActiveTab('ai')} />
           </Section>
 
-          {settingsResult && (
-            <Section>
-              <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
-            </Section>
-          )}
+          {settingsResult && <Section><ResultRow result={settingsResult} copy={copy} /></Section>}
 
         </>
       )}
@@ -1136,17 +1129,9 @@ export default function App() {
               </>
             )}
 
-            {settingsResult && (
-              <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
-              </Section>
-            )}
+            {settingsResult && <Section><ResultRow result={settingsResult} copy={copy} /></Section>}
 
-            {result && (
-              <Section>
-                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
-              </Section>
-            )}
+            {result && <Section><ResultRow result={result} copy={copy} /></Section>}
           </>
         );
       })()}
@@ -1157,11 +1142,7 @@ export default function App() {
             <DangerRow icon="reset" label={copy.resetCycle} loading={loadingCmd === 'reset_cycle'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmReset, 'reset_cycle')} />
           </Section>
 
-          {result && (
-            <Section>
-              <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
-            </Section>
-          )}
+          {result && <Section><ResultRow result={result} copy={copy} /></Section>}
         </>
       )}
 
@@ -1216,11 +1197,7 @@ export default function App() {
               })}
             </Section>
 
-            {settingsResult && (
-              <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
-              </Section>
-            )}
+            {settingsResult && <Section><ResultRow result={settingsResult} copy={copy} /></Section>}
           </>
         );
       })()}
@@ -1245,11 +1222,7 @@ export default function App() {
                 <DangerRow icon="trash" label={copy.clearQueue} loading={loadingCmd === 'clear_queue'} disabled={actionsDisabled} onClick={() => confirmEnqueue(copy.confirmClear, 'clear_queue')} />
               </Section>
             )}
-            {result && (
-              <Section>
-                <Row icon={result.ok ? 'result' : 'info'} label={result.ok ? copy.success : copy.error} caption={result.friendly} />
-              </Section>
-            )}
+            {result && <Section><ResultRow result={result} copy={copy} /></Section>}
           </>
         );
       })()}
@@ -1265,11 +1238,7 @@ export default function App() {
           <>
             <header className="section-header-standalone">{dayLabel}</header>
 
-            {settingsResult && (
-              <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
-              </Section>
-            )}
+            {settingsResult && <Section><ResultRow result={settingsResult} copy={copy} /></Section>}
 
             <Section title={copy.postTimes}>
               {getTimesForDay(activeDayCode).map((t) => (
@@ -1302,7 +1271,7 @@ export default function App() {
 
             {/* Cycles */}
             <Section title={copy.cyclesToday}>
-              {packsLoading && <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loadingPacks}</span></div>}
+              {packsLoading && <LoadingRow label={copy.loadingPacks} />}
               {packsError && !packsLoading && <Row icon="info" label={copy.packsFailed} />}
               {!packsLoading && !packsError && (
                 <ToggleRow
@@ -1383,7 +1352,7 @@ export default function App() {
               <Section footer={!historyLoadingState && !historyError ? copy.postsOnDate(filteredItems.length, historyDate) : undefined}>
                 {historyError && <Row icon="info" label={copy.error} value="err" badgeTone="err" caption={resolveError(historyError, copy.unknownError, copy).friendly} />}
                 {historyLoadingState && filteredItems.length === 0 && !historyError && (
-                  <div className="row"><Spinner /><span className="row-label" style={{ marginLeft: 8 }}>{copy.loading}</span></div>
+                  <LoadingRow label={copy.loading} />
                 )}
                 {!historyLoadingState && !historyError && filteredItems.length === 0 && (
                   <Row icon="cards" label={copy.noHistory} />
@@ -1501,11 +1470,7 @@ export default function App() {
               </>
             )}
 
-            {settingsResult && (
-              <Section>
-                <Row icon={settingsResult.ok ? 'result' : 'info'} label={settingsResult.ok ? copy.success : copy.error} caption={settingsResult.friendly} />
-              </Section>
-            )}
+            {settingsResult && <Section><ResultRow result={settingsResult} copy={copy} /></Section>}
           </>
         );
       })()}
@@ -1604,10 +1569,8 @@ export default function App() {
             <ChatIdInputRow label={copy.destinationChatIdLabel} value={destChatId} onChange={handleDestChatIdChange} placeholder="100123456789" loading={resolvingDest} />
             <StackedInputRow label={copy.destinationTitleLabel} value={destTitle} onChange={setDestTitle} placeholder={copy.destinationTitlePlaceholder} />
             <StackedInputRow label={copy.destinationThreadLabel} value={destThread} onChange={setDestThread} placeholder={copy.destinationThreadPlaceholder} inputMode="numeric" invalid={!!destThread && !/^\d+$/.test(destThread.trim())} />
-            <MenuRow icon="send" label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
-            {addDestResult && (
-              <Row icon={addDestResult.ok ? 'result' : 'info'} label={addDestResult.ok ? copy.success : copy.error} caption={[addDestResult.friendly, addDestResult.detail].filter(Boolean).join(' — ')} />
-            )}
+            <MenuRow icon="send" accent label={copy.addDestination} loading={addingDest} disabled={!apiConfigured || !destChatId.trim()} onClick={addDestination} />
+            {addDestResult && <ResultRow result={addDestResult} copy={copy} />}
           </Section>
         </>
       )}
@@ -1674,10 +1637,8 @@ export default function App() {
                   <option value="admin">{copy.adminRoleAdmin}</option>
                   <option value="viewer">{copy.adminRoleViewer}</option>
                 </SelectRow>
-                <MenuRow icon="shield" label={copy.addAdmin} loading={addingAdmin} disabled={!apiConfigured || !adminUserId.trim()} onClick={addAdmin} />
-                {addAdminResult && (
-                  <Row icon={addAdminResult.ok ? 'result' : 'info'} label={addAdminResult.ok ? copy.success : copy.error} caption={addAdminResult.friendly} />
-                )}
+                <MenuRow icon="shield" accent label={copy.addAdmin} loading={addingAdmin} disabled={!apiConfigured || !adminUserId.trim()} onClick={addAdmin} />
+                {addAdminResult && <ResultRow result={addAdminResult} copy={copy} />}
               </Section>
             </>
           )}
