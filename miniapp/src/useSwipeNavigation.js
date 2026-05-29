@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const INTERACTIVE = 'input,textarea,select,button,a,[role="button"],[role="slider"],[role="checkbox"],[role="radio"],details,summary,label,[contenteditable]';
 const MIN_HORIZONTAL_PX = 50;
@@ -9,14 +9,22 @@ function startsOnInteractive(target) {
 }
 
 /**
- * Attaches horizontal swipe navigation to `elementRef`.
+ * Attaches horizontal swipe navigation to a container element.
  *
- * @param {React.RefObject} elementRef  - The scrollable container to listen on.
- * @param {string}          activeTab   - Current active tab name.
- * @param {Function}        setActiveTab
- * @param {string[]}        swipeTabs   - Ordered list of swipeable tab names.
+ * Returns a callback ref to spread onto the container. A callback ref fires
+ * during commit exactly when the node mounts/unmounts, so listeners attach
+ * reliably even though the container only renders after the auth gate passes
+ * (a plain ref object is still null on first render and would never re-attach).
+ *
+ * @param {string}   activeTab    - Current active tab name.
+ * @param {Function} setActiveTab
+ * @param {string[]} swipeTabs    - Ordered list of swipeable tab names.
+ * @returns {(node: HTMLElement|null) => void} callback ref for the container.
  */
-export function useSwipeNavigation(elementRef, activeTab, setActiveTab, swipeTabs) {
+export function useSwipeNavigation(activeTab, setActiveTab, swipeTabs) {
+  const [node, setNode] = useState(null);
+  const refCallback = useCallback((el) => setNode(el), []);
+
   // Keep stable refs so the touch handlers don't capture stale state.
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
@@ -26,7 +34,7 @@ export function useSwipeNavigation(elementRef, activeTab, setActiveTab, swipeTab
   swipeTabsRef.current = swipeTabs;
 
   useEffect(() => {
-    const el = elementRef.current;
+    const el = node;
     if (!el) return;
 
     let startX = 0;
@@ -46,8 +54,9 @@ export function useSwipeNavigation(elementRef, activeTab, setActiveTab, swipeTab
       const t = e.touches[0];
       const dx = Math.abs(t.clientX - startX);
       const dy = Math.abs(t.clientY - startY);
-      // Cancel if vertical scroll is dominant.
-      if (dy > dx) cancelled = true;
+      // Cancel only once movement is meaningful and clearly vertical, so a tiny
+      // vertical jitter at the start of a horizontal swipe doesn't latch-cancel it.
+      if (dy > 10 && dy > dx * 1.2) cancelled = true;
     };
 
     const onTouchEnd = (e) => {
@@ -86,7 +95,9 @@ export function useSwipeNavigation(elementRef, activeTab, setActiveTab, swipeTab
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
     };
-  }, [elementRef]); // elementRef is stable; tab state is read via refs
+  }, [node]); // re-attach when the container mounts; tab state is read via refs
+
+  return refCallback;
 }
 
 function triggerHaptic() {

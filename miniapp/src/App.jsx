@@ -201,7 +201,9 @@ export default function App() {
 
   // ── Move focus to the first heading on tab change (screen-reader awareness) ──
   const contentRef = useRef(null);
-  useSwipeNavigation(contentRef, activeTab, setActiveTab, SWIPE_TABS);
+  const swipeRef = useSwipeNavigation(activeTab, setActiveTab, SWIPE_TABS);
+  // Merge refs: keep contentRef for focus management, register node for swipe.
+  const setContentRef = useCallback((node) => { contentRef.current = node; swipeRef(node); }, [swipeRef]);
   const didMountRef = useRef(false);
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
@@ -874,7 +876,7 @@ export default function App() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="app" ref={contentRef}>
+    <div className="app" ref={setContentRef}>
 
       {/* Header */}
       <header className="app-header">
