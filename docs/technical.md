@@ -157,7 +157,8 @@ Variáveis gerenciadas pelo Mini App via Supabase — não precisam estar no `.e
 | `DAILY_POST_ENABLED` | `true` | Postagem diária ativa |
 | `DAILY_POST_TIMES` | `08:00` | Horários (separados por vírgula) |
 | `DAILY_POST_DAYS` | todos | Dias da semana |
-| `TELEGRAM_CHAT_ID` | — | ID do canal/grupo de postagem |
+
+> `TELEGRAM_CHAT_ID` foi removido (v1.4.0). Destinos vêm exclusivamente da tabela `target_chats`.
 
 ### `logging_config.py`
 
@@ -186,9 +187,9 @@ Verifica permissões de admin para o bot Telegram:
 
 Orquestra postagem de carta no Telegram:
 
-1. Resolve destinos via `_get_destinations()`: lê `target_chats` (enabled, com `message_thread_id`) no Supabase; fallback para `telegram_chat_id` do `.env`
+1. Resolve destinos via `_get_destinations()`: lê `target_chats` (enabled, com `message_thread_id`) no Supabase — única fonte de destinos
 2. Seleciona carta (IA opcional, ou aleatória, ou por código específico)
-3. Baixa imagem da ArkhamDB
+3. Baixa imagem da ArkhamDB (frente e verso usam a mesma estratégia: tenta `imagesrc`/`backimagesrc`, senão o caminho do bundle por extensão)
 4. Monta legenda HTML com `format_card_caption(is_interactive=not is_scheduled)`
    - `is_scheduled=True` → inclui prefixo `[COTD]`
    - `is_scheduled=False` (postagem manual) → sem `[COTD]`
@@ -385,6 +386,10 @@ requireOwner   → + exige role = owner
 | `PATCH` | `/destinations/:id` | requireAdmin | Atualiza destino |
 | `DELETE` | `/destinations/:id` | requireAdmin | Remove destino |
 | `POST` | `/destinations/:id/test` | requireAdmin | Envia mensagem de teste para o destino |
+| `GET` | `/destinations/resolve` | requireAdmin | Resolve nome do grupo a partir do `chat_id` |
+| `GET` | `/destinations/pending` | requireAdmin | Lista grupos detectados aguardando confirmação |
+| `POST` | `/destinations/pending/:id/accept` | requireAdmin | Confirma grupo pendente (Thread ID opcional) |
+| `DELETE` | `/destinations/pending/:id` | requireAdmin | Ignora grupo pendente |
 
 ### Rate limit no Worker
 

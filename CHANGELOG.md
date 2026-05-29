@@ -1,5 +1,63 @@
 # Changelog
 
+## [1.5.0] — 2026-05-28
+
+Foco em UX, acessibilidade e limpeza — concentrado no Mini App, com correções de qualidade no bot.
+
+### Acessibilidade (Mini App)
+- Campos de formulário (`InputRow`, `StackedInputRow`, `StackedSelectRow`, `ChatIdInputRow`) agora usam `<label>` associando rótulo ao campo
+- Títulos de seção viraram headings semânticos (`<h2>`) — navegação por heading em leitores de tela
+- Ao trocar de aba, o foco move para o título da nova tela (consciência de mudança para leitores de tela), sem outline azul visível
+- `InfoTooltip` com `aria-expanded` / `aria-describedby` / `role="tooltip"` e rótulo localizável
+- `aria-label` localizado no botão de configurar dia (`DayScheduleRow`) e nome acessível no toggle do dia
+- `aria-label` no campo de busca de carta; `Notice` com `role="alert"`/`status`
+
+### UX / UI (Mini App)
+- Mensagens de erro amigáveis (destinos, administradores, histórico, adicionar destino/admin) via `resolveError` — sem códigos crus como `network_error`
+- Remover administrador agora pede confirmação e usa estilo destrutivo (consistente com remover destino)
+- Feedback de "testar/remover destino" aparece inline na própria linha do destino (antes surgia no rodapé do formulário)
+- Banner visível de "alterações não salvas" nas abas de configuração
+- Seleção de idioma virou um único seletor (`SelectRow`) em vez de dois toggles
+- Stats do painel (status e cartas) agora são clicáveis → Saúde e Banco
+- Busca de carta dispara no Enter; seleção é limpa após postar/repostar/pular
+- Mensagem de sucesso sem ID técnico; badges redundantes "ok/err" removidos das linhas de resultado
+- Hint explicando "Padrão global" × "Por dia da semana"; presets rápidos "Dias úteis" / "Fim de semana"
+- Estado de carregamento no histórico; estado vazio na lista de administradores
+- Validação inline (destaque vermelho) para Telegram User ID e Thread ID inválidos
+- `max-width: 520px` no desktop — evita linhas largas demais no Telegram Desktop/Web
+- Botões destrutivos de ícone (`.icon-btn.danger`) agora ficam vermelhos; botões de destinos pendentes ganharam classes próprias (antes usavam classe inexistente)
+
+### Comando /taboo
+- `/taboo` (sem argumento) volta a abrir o menu de listas; ao escolher uma data mostra apenas **título + total de cartas afetadas** (categorias como botões)
+- Datas das listas alinhadas no menu
+- Removida linha em branco extra na descrição do detalhe
+
+### Corrigido (bot)
+- `searchNotFound` ausente no i18n do Mini App fazia a busca vazia exibir "nenhuma postagem recente" — adicionada string correta
+- Troca de idioma marcava "alterações não salvas" falsamente (baseline `savedSettings` não era sincronizado)
+- Download da imagem do **verso** da carta não tentava o caminho do bundle e repetia a mesma URL — agora espelha a lógica da frente
+- Docstring de `bot_started_message` dizia que enviava mensagem ao grupo (apenas faz pré-aquecimento de cache)
+- `daily_card.py`: comparação `== True` trocada por checagem de verdade; variável ambígua `l` renomeada em `text_formatters.py`
+- Rate limiter em memória vazava memória: a limpeza de buckets ficava depois do `append` (inalcançável), então `_user_hits`/`_chat_hits` cresciam sem limite ao longo da execução; agora um sweep periódico descarta buckets com a janela expirada
+- `settings_repo.get_all_settings` passou a devolver uma cópia rasa do cache, evitando que um chamador corrompa o cache compartilhado
+
+### Corrigido (Worker)
+- `/packs` agora normaliza a barra final de `SUPABASE_URL` (como os demais endpoints), evitando caminho com `//` que o PostgREST pode rejeitar
+
+### Testes
+- Testes do Worker para a conversão de data→UTC em `/history` cobrindo UTC, `America/Sao_Paulo` (−3) e `Asia/Tokyo` (+9) — 3 novos (10 no total no Worker)
+
+### Removido / Limpeza
+- Funções Python mortas: `get_card_required_string`, `get_card_optional_string` (`arkhamdb_models`), `_code`, `_day_labels` (`common.py`)
+- Chaves i18n órfãs do bot: `bot_started`, `faq_title`, `fmt_taboo_label`, `day_mon`…`day_all`
+- ~50 chaves i18n mortas e captions redundantes no Mini App
+- Imports não usados em vários handlers; f-strings sem placeholder
+- CSS morto (`.time-add-btn`), ternário sem efeito em `formatDelay`, estilos inline migrados para classes (`.manage-row`, `.pending-action-btn`, `.preset-row`)
+- `ruff` configurado para ignorar `E402` intencional nos entrypoints (`main.py`, `scripts/`)
+- `pass` morto antes de `_execute_command` (`command_worker.py`) e bloco de eviction inalcançável no rate limiter
+
+---
+
 ## [1.4.0] — 2026-05-28
 
 ### Adicionado

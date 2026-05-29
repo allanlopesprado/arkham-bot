@@ -50,7 +50,7 @@ Supabase (PostgreSQL + PostgREST)
 |---|---|
 | Bot | Python 3.11+, python-telegram-bot v22 |
 | Worker | Cloudflare Workers (JavaScript ES Modules) v1.3.0 |
-| Mini App | React 18 + Vite 5 |
+| Mini App | React 18 + Vite 5 (labels associados, headings semânticos, foco por aba) |
 | Banco | Supabase (PostgreSQL + PostgREST) |
 | Deploy bot | Oracle Linux, systemd, GitHub Actions |
 | Deploy Worker | Wrangler CLI |
@@ -147,5 +147,5 @@ python main.py interactive
 |---|---|
 | Bot Python | 0.1.0 |
 | Worker | 1.3.0 |
-| Mini App | 1.2.0 |
-| Testes automatizados | 54 (pytest) |
+| Mini App | 1.5.0 |
+| Testes automatizados | 54 (pytest) + 10 (worker) |
