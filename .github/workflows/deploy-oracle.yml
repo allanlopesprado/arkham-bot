@@ -125,7 +125,7 @@ jobs:
 
           echo "== Validate =="
           python -m compileall -q . || rollback
-          python main.py healthcheck --strict || rollback
+          python main.py healthcheck --strict --deep || rollback
 
           echo "== Restart service =="
           sudo systemctl restart "$SERVICE_NAME" || rollback

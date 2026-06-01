@@ -20,6 +20,7 @@ from ..repositories.commands_repo import enqueue_command
 logger = logging.getLogger(__name__)
 WEEKDAY_CODES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 POST_WINDOW_MINUTES = 10
+ATTEMPT_STALE_MINUTES = 2
 
 
 def _load_state() -> dict:
@@ -43,6 +44,24 @@ def _slot_key(date_iso: str, post_time: str) -> str:
     return f"{date_iso}_{post_time}"
 
 
+def _attempts(state: dict) -> dict:
+    attempts = state.get("attempting_slots", {})
+    return attempts if isinstance(attempts, dict) else {}
+
+
+def _is_attempt_active(now: datetime, started_at: str | None) -> bool:
+    if not started_at:
+        return False
+    try:
+        started = datetime.fromisoformat(started_at)
+    except ValueError:
+        return False
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=now.tzinfo)
+    elapsed_minutes = (now - started.astimezone(now.tzinfo)).total_seconds() / 60
+    return 0 <= elapsed_minutes <= ATTEMPT_STALE_MINUTES
+
+
 def _is_due(now: datetime, post_time: str, state: dict, before_seconds: int = 0) -> bool:
     try:
         hour, minute = [int(part) for part in post_time.split(":", 1)]
@@ -56,7 +75,30 @@ def _is_due(now: datetime, post_time: str, state: dict, before_seconds: int = 0)
     if elapsed_minutes < 0 or elapsed_minutes > POST_WINDOW_MINUTES:
         return False
     posted_slots = state.get("posted_slots", [])
-    return _slot_key(now.date().isoformat(), post_time) not in posted_slots
+    key = _slot_key(now.date().isoformat(), post_time)
+    if key in posted_slots:
+        return False
+    return not _is_attempt_active(now, _attempts(state).get(key))
+
+
+def _mark_attempting(state: dict, date_iso: str, post_time: str, now: datetime) -> dict:
+    key = _slot_key(date_iso, post_time)
+    attempts = {k: v for k, v in _attempts(state).items() if str(k).startswith(date_iso)}
+    attempts[key] = now.isoformat()
+    state["attempting_slots"] = attempts
+    return state
+
+
+def _finish_attempt(state: dict, date_iso: str, post_time: str, success: bool) -> dict:
+    key = _slot_key(date_iso, post_time)
+    attempts = {k: v for k, v in _attempts(state).items() if k != key and str(k).startswith(date_iso)}
+    state["attempting_slots"] = attempts
+    if success:
+        posted_slots = [s for s in state.get("posted_slots", []) if str(s).startswith(date_iso)]
+        if key not in posted_slots:
+            posted_slots.append(key)
+        state["posted_slots"] = posted_slots
+    return state
 
 
 def _as_list(value, default: list[str]) -> list[str]:
@@ -150,13 +192,10 @@ async def daily_scheduler_loop() -> None:
                     if _is_due(now, post_time, state, before_seconds=before_seconds):
                         logger.info("daily_post_due")
                         today_iso = now.date().isoformat()
-                        # Slot gravado ANTES de postar: se o serviço reiniciar durante o delay da pré-mensagem,
-                        # a nova instância verá o slot e não disparará novamente (evita double-post).
-                        posted_slots = [s for s in state.get("posted_slots", []) if s.startswith(today_iso)]
-                        posted_slots.append(_slot_key(today_iso, post_time))
-                        state["posted_slots"] = posted_slots
+                        state = _mark_attempting(state, today_iso, post_time, now)
                         _save_state(state)
                         result = await post_daily_card(is_scheduled=True)
+                        state = _finish_attempt(state, today_iso, post_time, result.success)
                         state.update({
                             "last_daily_post_date": today_iso,
                             "last_daily_post_time": post_time,
