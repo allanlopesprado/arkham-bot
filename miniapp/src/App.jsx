@@ -859,7 +859,7 @@ export default function App() {
     return c.minutesAgo(Math.floor(secondsAgo / 60));
   }
 
-  function dailyQueueInfo() {
+  function postedDailyQueueItem() {
     const actual = savedSettings || settings;
     const timezone = actual.timezone || 'UTC';
     const todayKey = new Intl.DateTimeFormat('sv-SE', {
@@ -880,24 +880,14 @@ export default function App() {
     });
     if (postedToday) {
       return {
+        id: `daily-post-${postedToday.id || postedToday.created_at}`,
+        command_type: 'daily_post',
         status: 'executed',
-        detail: [postedToday.card_name || postedToday.card_code, postedToday.created_at ? new Date(postedToday.created_at).toLocaleString(copy.locale) : null].filter(Boolean).join(' · '),
+        caption: postedToday.card_name || postedToday.card_code || '',
+        created_at: postedToday.created_at,
       };
     }
-    if (!actual.daily_post_enabled) {
-      return { status: 'disabled', detail: actual.timezone || copy.notConfigured };
-    }
-    const times = Array.isArray(actual.daily_post_times) ? actual.daily_post_times : [];
-    const days = Array.isArray(actual.daily_post_days) ? actual.daily_post_days : [];
-    const dayLabel = days.length === WEEKDAYS.length
-      ? copy.allWeekdays
-      : days.map((code) => WEEKDAYS.find((day) => day.code === code)?.[language] || code).join(', ');
-    const parts = [
-      times.length ? times.join(', ') : copy.notConfigured,
-      dayLabel || copy.notConfigured,
-      actual.timezone || copy.notConfigured,
-    ];
-    return { status: 'scheduled', detail: parts.join(' · ') };
+    return null;
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -907,7 +897,7 @@ export default function App() {
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
-  const scheduledDaily = dailyQueueInfo();
+  const postedDaily = postedDailyQueueItem();
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
 
@@ -1265,17 +1255,7 @@ export default function App() {
           <>
             <Section title={copy.commandQueue} footer={summaryFooter}>
               <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
-              <CommandRow
-                command={{
-                  id: 'daily-post-schedule',
-                  command_type: 'daily_post',
-                  status: scheduledDaily.status,
-                  caption: scheduledDaily.detail,
-                }}
-                onCancel={cancelCommand}
-                loading={false}
-                copy={copy}
-              />
+              {postedDaily && <CommandRow command={postedDaily} onCancel={cancelCommand} loading={false} copy={copy} />}
               {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}
               {!commandsError && commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
               {commands.map((cmd) => (

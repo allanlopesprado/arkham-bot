@@ -260,8 +260,6 @@ export const I18N = {
       executed: 'executado',
       failed: 'falhou',
       cancelled: 'cancelado',
-      scheduled: 'agendado',
-      disabled: 'desativado',
     },
     postStatusLabels: {
       POSTED_FRONT_SUCCESS: 'Postada',
@@ -548,8 +546,6 @@ export const I18N = {
       executed: 'executed',
       failed: 'failed',
       cancelled: 'cancelled',
-      scheduled: 'scheduled',
-      disabled: 'disabled',
     },
     postStatusLabels: {
       POSTED_FRONT_SUCCESS: 'Posted',
