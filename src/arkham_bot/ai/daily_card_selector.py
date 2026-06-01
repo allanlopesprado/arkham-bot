@@ -169,8 +169,9 @@ async def choose_daily_card_with_ai(
     effective_tone = tone if tone and tone in TONES else random.choice(TONES)
     temperature = TEMPERATURE_MAP.get(creativity, 0.9)
 
-    candidate_codes = {str(card.get("code")) for card in candidates if card.get("code")}
-    compact_cards = [_compact(card) for card in candidates[:50]]
+    visible_candidates = random.sample(candidates, min(50, len(candidates)))
+    candidate_codes = {str(card.get("code")) for card in visible_candidates if card.get("code")}
+    compact_cards = [_compact(card) for card in visible_candidates]
 
     rules = [
         "Return strict JSON only — no markdown, no extra keys.",

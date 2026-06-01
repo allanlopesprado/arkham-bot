@@ -100,6 +100,7 @@ BOT_COMMANDS_BATCH_SIZE = int(os.getenv("BOT_COMMANDS_BATCH_SIZE", "10"))
 BOT_COMMANDS_MAX_RETRIES = int(os.getenv("BOT_COMMANDS_MAX_RETRIES", "3"))
 BOT_COMMANDS_RETRY_DELAY_SECONDS = int(os.getenv("BOT_COMMANDS_RETRY_DELAY_SECONDS", "60"))
 BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS = int(os.getenv("BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS", "900"))
+BOT_COMMANDS_REQUIRE_ATOMIC_CLAIM = os.getenv("BOT_COMMANDS_REQUIRE_ATOMIC_CLAIM", "true").lower() == "true"
 
 # Override labels for code prefixes that group many packs with similar card counts,
 # making auto-detection of a representative name unreliable.

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from html import escape
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters, Update
@@ -22,6 +23,42 @@ from .common import (
 logger = logging.getLogger(__name__)
 
 TABOO_CATEGORY_KEYS = ['forbidden', 'xp_up', 'xp_down', 'exceptional', 'errata', 'other']
+_TABOO_SESSION_TTL = 900
+
+
+def _taboo_session_key(update: Update) -> str:
+    chat = update.effective_chat
+    user = update.effective_user
+    return f"taboo:{chat.id if chat else 0}:{user.id if user else 0}"
+
+
+def _cleanup_taboo_sessions(context: ContextTypes.DEFAULT_TYPE) -> None:
+    now = time.monotonic()
+    expired = [
+        key for key, value in context.bot_data.items()
+        if key.startswith("taboo:")
+        and isinstance(value, dict)
+        and now - float(value.get("created_at", 0)) > _TABOO_SESSION_TTL
+    ]
+    for key in expired:
+        context.bot_data.pop(key, None)
+
+
+def _get_taboo_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> dict | None:
+    _cleanup_taboo_sessions(context)
+    session = context.bot_data.get(_taboo_session_key(update))
+    if not isinstance(session, dict):
+        return None
+    if time.monotonic() - float(session.get("created_at", 0)) > _TABOO_SESSION_TTL:
+        context.bot_data.pop(_taboo_session_key(update), None)
+        return None
+    return session
+
+
+def _set_taboo_session(update: Update, context: ContextTypes.DEFAULT_TYPE, session: dict) -> None:
+    _cleanup_taboo_sessions(context)
+    session["created_at"] = time.monotonic()
+    context.bot_data[_taboo_session_key(update)] = session
 
 
 def _parse_taboo_cards(taboo_list: dict) -> dict:
@@ -179,8 +216,6 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         name_map = {c['code']: {'name': c.get('name') or c.get('real_name') or c['code'], 'pack': c.get('pack_name') or ''} for c in all_cards_raw if c.get('code')}
         sorted_lists = sorted(taboos, key=lambda t: t.get('date_start', ''), reverse=True)
-        context.bot_data['taboo_all_lists'] = sorted_lists
-        context.bot_data['taboo_name_map'] = name_map
 
         if context.args:
             q = " ".join(context.args).strip().lower()
@@ -201,8 +236,15 @@ async def taboo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
             return
 
-        context.bot_data['taboo_origin_chat_id'] = update.message.chat_id
-        context.bot_data['taboo_origin_message_id'] = update.message.message_id
+        _set_taboo_session(update, context, {
+            "all_lists": sorted_lists,
+            "name_map": name_map,
+            "selected": None,
+            "by_code": {},
+            "cats": {},
+            "origin_chat_id": update.message.chat_id,
+            "origin_message_id": update.message.message_id,
+        })
 
         text, markup = _taboo_list_menu_text_and_buttons(sorted_lists, name_map)
         await update.message.reply_text(
@@ -223,7 +265,12 @@ async def taboo_list_select_callback(update: Update, context: ContextTypes.DEFAU
     query = update.callback_query
     await query.answer()
     tid = query.data.replace("TABOO_LIST_", "")
-    all_lists = context.bot_data.get('taboo_all_lists', [])
+    session = _get_taboo_session(update, context)
+    if not session:
+        s = get_strings()
+        await query.answer(s["taboo_session_expired"], show_alert=True)
+        return
+    all_lists = session.get('all_lists', [])
     taboo = next((t for t in all_lists if str(t.get('id', '')) == tid), None)
     if not taboo:
         s = get_strings()
@@ -234,9 +281,9 @@ async def taboo_list_select_callback(update: Update, context: ContextTypes.DEFAU
     for code, entry in by_code.items():
         cat = _taboo_category(entry)
         cats.setdefault(cat, []).append((code, entry))
-    context.bot_data['taboo_selected'] = taboo
-    context.bot_data['taboo_by_code'] = by_code
-    context.bot_data['taboo_cats'] = cats
+    session['selected'] = taboo
+    session['by_code'] = by_code
+    session['cats'] = cats
     text, markup = _taboo_detail_text_and_buttons(taboo, cats)
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
@@ -245,12 +292,13 @@ async def taboo_lists_back_callback(update: Update, context: ContextTypes.DEFAUL
     """Back to the list selection screen."""
     query = update.callback_query
     await query.answer()
-    all_lists = context.bot_data.get('taboo_all_lists', [])
-    name_map = context.bot_data.get('taboo_name_map', {})
-    if not all_lists:
+    session = _get_taboo_session(update, context)
+    if not session:
         s = get_strings()
         await query.answer(s["taboo_session_expired"], show_alert=True)
         return
+    all_lists = session.get('all_lists', [])
+    name_map = session.get('name_map', {})
     text, markup = _taboo_list_menu_text_and_buttons(all_lists, name_map, page=0)
     try:
         await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
@@ -266,11 +314,12 @@ async def taboo_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         page = int(query.data.replace("TABOO_PAGE_", ""))
     except ValueError:
         page = 0
-    all_lists = context.bot_data.get('taboo_all_lists', [])
-    name_map = context.bot_data.get('taboo_name_map', {})
-    if not all_lists:
+    session = _get_taboo_session(update, context)
+    if not session:
         await query.answer(get_strings()["taboo_session_expired"], show_alert=True)
         return
+    all_lists = session.get('all_lists', [])
+    name_map = session.get('name_map', {})
     text, markup = _taboo_list_menu_text_and_buttons(all_lists, name_map, page=page)
     try:
         await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
@@ -285,8 +334,12 @@ async def taboo_category_callback(update: Update, context: ContextTypes.DEFAULT_
     cat_key = parts[0]
     page = int(parts[1]) if len(parts) > 1 else 0
 
-    cats = context.bot_data.get('taboo_cats', {})
-    name_map = context.bot_data.get('taboo_name_map', {})
+    session = _get_taboo_session(update, context)
+    if not session:
+        await query.answer(get_strings()["taboo_session_expired"], show_alert=True)
+        return
+    cats = session.get('cats', {})
+    name_map = session.get('name_map', {})
     entries = cats.get(cat_key, [])
     TABOO_CATEGORIES = _taboo_categories()
     icon, label = TABOO_CATEGORIES.get(cat_key, ('', cat_key))
@@ -330,8 +383,12 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
     code = query.data.replace("TABOO_CARD_", "")
-    by_code = context.bot_data.get('taboo_by_code', {})
-    name_map = context.bot_data.get('taboo_name_map', {})
+    session = _get_taboo_session(update, context)
+    if not session:
+        await query.answer(get_strings()["taboo_session_expired"], show_alert=True)
+        return
+    by_code = session.get('by_code', {})
+    name_map = session.get('name_map', {})
     entry = by_code.get(code)
     s = get_strings()
     if not entry:
@@ -340,8 +397,8 @@ async def taboo_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await query.edit_message_text(s["taboo_card_searching"].format(code=code), parse_mode=ParseMode.HTML)
 
-    origin_chat_id = context.bot_data.get('taboo_origin_chat_id')
-    origin_message_id = context.bot_data.get('taboo_origin_message_id')
+    origin_chat_id = session.get('origin_chat_id')
+    origin_message_id = session.get('origin_message_id')
 
     card, _ = await get_card_async(code)
     name = _taboo_name(name_map, code) or (card.get('name') if card else code)
@@ -401,11 +458,12 @@ async def taboo_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Back to the selected taboo list's category screen."""
     query = update.callback_query
     await query.answer()
-    taboo = context.bot_data.get('taboo_selected', {})
-    cats = context.bot_data.get('taboo_cats', {})
-    if not taboo:
+    session = _get_taboo_session(update, context)
+    if not session:
         s = get_strings()
         await query.answer(s["taboo_session_expired"], show_alert=True)
         return
+    taboo = session.get('selected', {})
+    cats = session.get('cats', {})
     text, markup = _taboo_detail_text_and_buttons(taboo, cats)
     await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)

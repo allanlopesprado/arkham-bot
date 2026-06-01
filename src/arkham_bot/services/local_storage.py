@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import shutil
 import tempfile
 import traceback
 from datetime import datetime, timedelta
@@ -30,21 +29,23 @@ def safe_atomic_write(data, target_path: Path, lock_path: Path, data_type='text'
     ensure_runtime_dirs()
     target_path.parent.mkdir(parents=True, exist_ok=True)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_file = Path(tempfile.mktemp(dir=target_path.parent))
+    temp_file: Path | None = None
 
     try:
         with filelock.FileLock(lock_path, timeout=10):
-            with open(temp_file, 'w', encoding='utf-8') as f:
+            fd, temp_name = tempfile.mkstemp(dir=target_path.parent)
+            temp_file = Path(temp_name)
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 if data_type == 'json':
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 else:
                     f.write(data)
-            shutil.move(temp_file, target_path)
+            os.replace(temp_file, target_path)
     except Exception as e:
         logger.error(f"Failed atomic write for {target_path.name}: {e}")
         raise
     finally:
-        if temp_file.exists():
+        if temp_file and temp_file.exists():
             os.remove(temp_file)
 
 

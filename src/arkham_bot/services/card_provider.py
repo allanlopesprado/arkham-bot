@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from ..clients.arkhamdb_client import fetch_card_by_code_async, fetch_card_by_code_sync
@@ -41,7 +42,7 @@ def get_card(card_code: str, allow_cache: bool = True) -> tuple[dict | None, str
 async def get_card_async(card_code: str, allow_cache: bool = True) -> tuple[dict | None, str]:
     if allow_cache:
         try:
-            cached = get_card_by_code(card_code)
+            cached = await asyncio.to_thread(get_card_by_code, card_code)
             if cached:
                 raw = _card_from_db_row(cached)
                 if raw is not None:

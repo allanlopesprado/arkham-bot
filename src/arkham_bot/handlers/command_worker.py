@@ -11,6 +11,7 @@ from ..core.config import (
     BOT_COMMANDS_MAX_RETRIES,
     BOT_COMMANDS_POLLING_INTERVAL_SECONDS,
     BOT_COMMANDS_PROCESSING_TIMEOUT_SECONDS,
+    BOT_COMMANDS_REQUIRE_ATOMIC_CLAIM,
     BOT_COMMANDS_RETRY_DELAY_SECONDS,
     POSTED_CARDS_FILE,
     POSTED_CARDS_LOCK,
@@ -60,18 +61,20 @@ def _validate_command_authorization(command: dict[str, Any]) -> None:
 
 
 def _claim_commands_atomic(batch_size: int) -> list[dict]:
-    """Tenta claim atômico via RPC (FOR UPDATE SKIP LOCKED) para evitar que duas instâncias
-    executem o mesmo comando. Fallback automático para fetch+mark se a RPC não estiver deployada."""
+    """Claim commands through the atomic RPC; legacy fallback is dev-only."""
     from ..core.supabase_client import get_supabase_client
     client = get_supabase_client()
+    rpc_error: Exception | None = None
     if client:
         try:
             rows = client.rpc("claim_bot_commands", {"batch_size": batch_size})
             if rows is not None:
                 return rows
-        except Exception:
-            pass
-    # Legacy fallback: fetch pending and mark processing individually
+        except Exception as exc:
+            rpc_error = exc
+    if BOT_COMMANDS_REQUIRE_ATOMIC_CLAIM:
+        raise RuntimeError(f"claim_bot_commands RPC unavailable: {rpc_error or 'no Supabase client'}")
+    logger.warning("claim_bot_commands RPC unavailable; using non-atomic legacy fallback")
     commands = fetch_pending_commands(batch_size)
     result = []
     for command in commands:
@@ -83,7 +86,6 @@ def _claim_commands_atomic(batch_size: int) -> list[dict]:
         command["attempt_count"] = attempt_count
         result.append(command)
     return result
-
 
 async def _notify_admins(text: str) -> None:
     if not TELEGRAM_BOT_TOKEN or not ADMIN_TELEGRAM_USER_IDS:
@@ -182,7 +184,7 @@ async def bot_commands_loop() -> None:
                 attempt_count = int(command.get("attempt_count") or 1)
                 max_attempts = int(command.get("max_attempts") or BOT_COMMANDS_MAX_RETRIES)
                 try:
-                    # _claim_commands_atomic já marca status=processing; não repete aqui
+                    # _claim_commands_atomic ja marca status=processing; nao repete aqui
                     result = await _execute_command(command)
                     mark_command_executed(command_id, result)
                     create_audit_log(command_type or "unknown", "system_job", command.get("payload"), result, command.get("requested_by_telegram_user_id"), command.get("requested_by_name"))
@@ -210,5 +212,3 @@ async def bot_commands_loop() -> None:
         except asyncio.CancelledError:
             logger.info("bot_commands_worker_stopped")
             raise
-
-

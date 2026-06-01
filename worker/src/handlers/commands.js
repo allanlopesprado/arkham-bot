@@ -58,6 +58,7 @@ export async function handleCancelCommand(request, env, user, ao, commandId) {
       body: JSON.stringify({
         status: 'cancelled',
         last_error: `Cancelled from Mini App by ${user.id}`,
+        updated_at: new Date().toISOString(),
       }),
     });
     if (!resp.ok) return withCors(jsonResponse({ error: 'command_cancel_failed' }, 500), ao);

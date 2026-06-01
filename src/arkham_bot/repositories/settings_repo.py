@@ -1,10 +1,11 @@
+import os
 import time
 
 from ..core.supabase_client import get_supabase_client
 
 _cache: dict = {}
 _cache_ts: float = 0.0
-_CACHE_TTL = 60.0  # seconds — settings change rarely
+_CACHE_TTL = float(os.getenv("SETTINGS_CACHE_TTL_SECONDS", "10"))
 
 
 def _invalidate_cache() -> None:

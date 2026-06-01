@@ -3,6 +3,12 @@ import { withCors, jsonResponse } from '../http.js';
 import { supabaseBase, supabaseHeaders, fetchSupabaseJson } from '../supabase.js';
 import { writeAuditLog } from '../audit.js';
 
+function parseThreadId(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : 'invalid';
+}
+
 export async function handleGetDestinations(env, ao) {
   try {
     const url = `${supabaseBase(env)}/rest/v1/target_chats?select=id,chat_id,title,message_thread_id,enabled,added_by_user_id,added_by_name,created_at,updated_at&enabled=eq.true&order=created_at.asc`;
@@ -20,10 +26,17 @@ export async function handleAddDestination(request, env, user, ao) {
     const body = await request.json().catch(() => ({}));
     const { chat_id, title = '', message_thread_id = null } = body;
     if (!chat_id) return withCors(jsonResponse({ ok: false, error: 'chat_id_required' }, 400), ao);
+    if (!/^-?\d+$/.test(String(chat_id))) {
+      return withCors(jsonResponse({ ok: false, error: 'invalid_chat_id' }, 400), ao);
+    }
+    const threadId = parseThreadId(message_thread_id);
+    if (threadId === 'invalid') {
+      return withCors(jsonResponse({ ok: false, error: 'invalid_message_thread_id' }, 400), ao);
+    }
     const record = {
       chat_id: String(chat_id),
       title: String(title || '').slice(0, 200),
-      message_thread_id: message_thread_id ? Number(message_thread_id) : null,
+      message_thread_id: threadId,
       enabled: true,
       added_by_user_id: user.id,
       added_by_name: user.name || '',
@@ -87,7 +100,10 @@ export async function handleGetPendingDestinations(env, ao) {
 export async function handleAcceptPendingDestination(request, env, user, ao, pendingId) {
   try {
     const body = await request.json().catch(() => ({}));
-    const threadId = body.message_thread_id ? Number(body.message_thread_id) : null;
+    const threadId = parseThreadId(body.message_thread_id);
+    if (threadId === 'invalid') {
+      return withCors(jsonResponse({ ok: false, error: 'invalid_message_thread_id' }, 400), ao);
+    }
     // Fetch pending entry
     const pUrl = `${supabaseBase(env)}/rest/v1/pending_destinations?id=eq.${pendingId}&status=eq.pending&limit=1`;
     const pResp = await fetch(pUrl, { headers: supabaseHeaders(env) });

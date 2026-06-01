@@ -58,9 +58,30 @@ def _check_supabase(strict: bool) -> bool:
         return not strict
 
 
+def _check_supabase_deep(strict: bool) -> bool:
+    if not SUPABASE_ENABLED:
+        return not strict
+    try:
+        client = get_supabase_client()
+        checks = {
+            "bot_commands": lambda: client.get("bot_commands", {"select": "id", "limit": "1"}),
+            "target_chats": lambda: client.get("target_chats", {"select": "id", "limit": "1"}),
+            "arkham_cards": lambda: client.get("arkham_cards", {"select": "code", "limit": "1"}),
+            "claim_bot_commands": lambda: client.rpc("claim_bot_commands", {"batch_size": 0}),
+        }
+        for name, check in checks.items():
+            check()
+            logger.info("supabase_deep_%s_ok", name)
+        return True
+    except Exception as exc:
+        logger.error("supabase_deep_check_failed: %s", exc)
+        return not strict
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true", help="Fail when Telegram/Supabase checks cannot run.")
+    parser.add_argument("--deep", action="store_true", help="Also validate command queue, destinations, cards, and RPC access.")
     args = parser.parse_args(argv)
 
     ensure_runtime_dirs()
@@ -68,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
         asyncio.run(_check_telegram(args.strict)),
         _check_supabase(args.strict),
     ]
+    if args.deep:
+        checks.append(_check_supabase_deep(args.strict))
     if all(checks):
         logger.info("healthcheck_ok")
         return 0

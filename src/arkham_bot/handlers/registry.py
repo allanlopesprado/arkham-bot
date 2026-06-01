@@ -51,6 +51,8 @@ from .taboo_handler import (
 
 logger = logging.getLogger(__name__)
 
+CONVERSATION_TIMEOUT_SECONDS = 120
+
 
 async def error_handler(update: object, context) -> None:
     """Logs unhandled Telegram handler errors without exposing details to users."""
@@ -73,6 +75,7 @@ def register_handlers(application):
             CommandHandler("start", start_command),
             CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"),
         ],
+        conversation_timeout=CONVERSATION_TIMEOUT_SECONDS,
         per_message=False,
     )
 
@@ -100,6 +103,7 @@ def register_handlers(application):
             CommandHandler("start", start_command),
             CallbackQueryHandler(cancel_conversation, pattern=f"^{CALLBACK_CANCEL}$"),
         ],
+        conversation_timeout=CONVERSATION_TIMEOUT_SECONDS,
         per_message=False,
     )
     application.add_handler(search_conv_handler)

@@ -7,7 +7,12 @@ export function getBotPhotoUrl() { return import.meta.env.VITE_BOT_PHOTO_URL || 
 export function getApiBase() {
   const raw = import.meta.env.VITE_COMMANDS_API_URL || '';
   if (!raw) return '';
-  try { return new URL(raw).origin; } catch { return raw; }
+  try {
+    const url = new URL(raw);
+    return `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return raw.replace(/\/$/, '');
+  }
 }
 
 export function apiUrl(path) {
@@ -24,6 +29,12 @@ export async function apiFetch(path, options = {}) {
     ...options,
     headers: { ...authHeaders(), ...(options.headers || {}) },
   });
-  const json = await resp.json().catch(() => ({}));
+  const text = await resp.text();
+  let json = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { error: 'non_json_response', detail: text.slice(0, 300) };
+  }
   return { ok: resp.ok, status: resp.status, json };
 }

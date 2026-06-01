@@ -23,7 +23,6 @@ export function corsHeaders(allowedOrigin) {
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type,x-telegram-init-data',
     'x-content-type-options': 'nosniff',
-    'x-frame-options': 'DENY',
     'strict-transport-security': 'max-age=31536000; includeSubDomains',
     vary: 'Origin',
   };
