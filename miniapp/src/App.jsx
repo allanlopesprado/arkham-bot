@@ -1240,7 +1240,8 @@ export default function App() {
         const summaryFooter = !loadingCommands && !commandsError && totalCount > 0 ? copy.queueStatusSummary(pendingCount, totalCount) : undefined;
         return (
           <>
-            <Section title={copy.dailyQueueTitle}>
+            <Section title={copy.commandQueue} footer={summaryFooter}>
+              <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
               <Row
                 icon="calendar"
                 label={copy.dailyQueueItem}
@@ -1248,9 +1249,6 @@ export default function App() {
                 badgeTone={scheduledDaily.tone}
                 caption={scheduledDaily.caption}
               />
-            </Section>
-            <Section title={copy.commandQueue} footer={summaryFooter}>
-              <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
               {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}
               {!commandsError && commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
               {commands.map((cmd) => (
