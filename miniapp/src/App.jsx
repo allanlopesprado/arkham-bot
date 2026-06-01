@@ -862,7 +862,7 @@ export default function App() {
   function dailyQueueInfo() {
     const actual = savedSettings || settings;
     if (!actual.daily_post_enabled) {
-      return { value: copy.dailyQueueDisabled, tone: 'warn', caption: actual.timezone || copy.notConfigured };
+      return { status: 'disabled', detail: actual.timezone || copy.notConfigured };
     }
     const times = Array.isArray(actual.daily_post_times) ? actual.daily_post_times : [];
     const days = Array.isArray(actual.daily_post_days) ? actual.daily_post_days : [];
@@ -874,7 +874,7 @@ export default function App() {
       dayLabel || copy.notConfigured,
       actual.timezone || copy.notConfigured,
     ];
-    return { value: copy.dailyQueueEnabled, tone: 'ok', caption: parts.join(' · ') };
+    return { status: 'scheduled', detail: parts.join(' · ') };
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -1242,12 +1242,16 @@ export default function App() {
           <>
             <Section title={copy.commandQueue} footer={summaryFooter}>
               <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
-              <Row
-                icon="calendar"
-                label={copy.dailyQueueItem}
-                value={scheduledDaily.value}
-                badgeTone={scheduledDaily.tone}
-                caption={scheduledDaily.caption}
+              <CommandRow
+                command={{
+                  id: 'daily-post-schedule',
+                  command_type: 'daily_post',
+                  status: scheduledDaily.status,
+                  created_at: scheduledDaily.detail,
+                }}
+                onCancel={cancelCommand}
+                loading={false}
+                copy={copy}
               />
               {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}
               {!commandsError && commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}

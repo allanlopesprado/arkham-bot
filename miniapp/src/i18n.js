@@ -181,9 +181,6 @@ export const I18N = {
     // queue
     queueStatusSummary: (pending, total) => pending > 0 ? `${pending} pendente${pending !== 1 ? 's' : ''} · ${total} total` : `${total} total`,
     commandsFetchError: 'Falha ao carregar fila de comandos.',
-    dailyQueueItem: 'Carde diario automatico',
-    dailyQueueEnabled: 'agendado',
-    dailyQueueDisabled: 'desativado',
     // history source filter
     sourceAll: 'Todos',
     sourceScheduled: 'Automáticos',
@@ -251,6 +248,7 @@ export const I18N = {
       sync_arkhamdb: 'Sincronizar ArkhamDB',
       reset_cycle: 'Resetar ciclo',
       clear_queue: 'Limpar fila',
+      daily_post: 'Carde diario',
       update_setting: 'Configurar',
       pause_daily_post: 'Pausar postagem',
       resume_daily_post: 'Retomar postagem',
@@ -262,6 +260,8 @@ export const I18N = {
       executed: 'executado',
       failed: 'falhou',
       cancelled: 'cancelado',
+      scheduled: 'agendado',
+      disabled: 'desativado',
     },
     postStatusLabels: {
       POSTED_FRONT_SUCCESS: 'Postada',
@@ -469,9 +469,6 @@ export const I18N = {
     // queue
     queueStatusSummary: (pending, total) => pending > 0 ? `${pending} pending · ${total} total` : `${total} total`,
     commandsFetchError: 'Failed to load command queue.',
-    dailyQueueItem: 'Automatic card of the day',
-    dailyQueueEnabled: 'scheduled',
-    dailyQueueDisabled: 'disabled',
     // history source filter
     sourceAll: 'All',
     sourceScheduled: 'Scheduled',
@@ -539,6 +536,7 @@ export const I18N = {
       sync_arkhamdb: 'Sync ArkhamDB',
       reset_cycle: 'Reset cycle',
       clear_queue: 'Clear queue',
+      daily_post: 'Daily card',
       update_setting: 'Update setting',
       pause_daily_post: 'Pause posting',
       resume_daily_post: 'Resume posting',
@@ -550,6 +548,8 @@ export const I18N = {
       executed: 'executed',
       failed: 'failed',
       cancelled: 'cancelled',
+      scheduled: 'scheduled',
+      disabled: 'disabled',
     },
     postStatusLabels: {
       POSTED_FRONT_SUCCESS: 'Posted',
