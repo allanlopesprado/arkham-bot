@@ -886,7 +886,6 @@ export default function App() {
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
-  const postedDailyItems = postedDailyQueueItems();
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
 
@@ -1244,9 +1243,6 @@ export default function App() {
           <>
             <Section title={copy.commandQueue} footer={summaryFooter}>
               <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
-              {postedDailyItems.map((item) => (
-                <CommandRow key={item.id} command={item} onCancel={cancelCommand} loading={false} copy={copy} />
-              ))}
               {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}
               {!commandsError && commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
               {commands.map((cmd) => (

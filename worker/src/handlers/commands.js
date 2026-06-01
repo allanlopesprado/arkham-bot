@@ -37,7 +37,35 @@ export async function handleCommands(request, env, ao) {
       env,
       `/rest/v1/bot_commands?select=id,command_type,status,created_at,updated_at,executed_at,last_error,next_attempt_at,scheduled_for,attempt_count,max_attempts,payload,result,requested_by_name${filters}&order=created_at.desc&limit=${limit}`,
     );
-    return withCors(jsonResponse({ ok: true, commands: rows }), ao);
+    if (status) {
+      return withCors(jsonResponse({ ok: true, commands: rows }), ao);
+    }
+
+    const dailyRows = await fetchSupabaseJson(
+      env,
+      '/rest/v1/bot_posting_history?select=id,card_code,card_name,status,source,created_at,telegram_message_id&source=eq.scheduled&order=created_at.desc&limit=8',
+    );
+    const dailyCommands = dailyRows.map((post) => ({
+      id: `daily-post-${post.id || post.created_at}`,
+      command_type: 'daily_post',
+      status: 'executed',
+      created_at: post.created_at,
+      executed_at: post.created_at,
+      last_error: null,
+      payload: {
+        card_code: post.card_code,
+        card_name: post.card_name,
+        telegram_message_id: post.telegram_message_id,
+      },
+      result: {
+        status: post.status,
+        source: post.source,
+      },
+    }));
+    const commands = [...dailyCommands, ...rows]
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      .slice(0, limit);
+    return withCors(jsonResponse({ ok: true, commands }), ao);
   } catch {
     return withCors(jsonResponse({ error: 'commands_fetch_failed' }, 500), ao);
   }
