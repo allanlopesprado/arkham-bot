@@ -859,6 +859,24 @@ export default function App() {
     return c.minutesAgo(Math.floor(secondsAgo / 60));
   }
 
+  function dailyQueueInfo() {
+    const actual = savedSettings || settings;
+    if (!actual.daily_post_enabled) {
+      return { value: copy.dailyQueueDisabled, tone: 'warn', caption: actual.timezone || copy.notConfigured };
+    }
+    const times = Array.isArray(actual.daily_post_times) ? actual.daily_post_times : [];
+    const days = Array.isArray(actual.daily_post_days) ? actual.daily_post_days : [];
+    const dayLabel = days.length === WEEKDAYS.length
+      ? copy.allWeekdays
+      : days.map((code) => WEEKDAYS.find((day) => day.code === code)?.[language] || code).join(', ');
+    const parts = [
+      times.length ? times.join(', ') : copy.notConfigured,
+      dayLabel || copy.notConfigured,
+      actual.timezone || copy.notConfigured,
+    ];
+    return { value: copy.dailyQueueEnabled, tone: 'ok', caption: parts.join(' · ') };
+  }
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const workerValue = loadingStatus ? '…' : sysStatus?.ok ? copy.online : copy.offline;
@@ -866,6 +884,7 @@ export default function App() {
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
+  const scheduledDaily = dailyQueueInfo();
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
 
@@ -1221,6 +1240,15 @@ export default function App() {
         const summaryFooter = !loadingCommands && !commandsError && totalCount > 0 ? copy.queueStatusSummary(pendingCount, totalCount) : undefined;
         return (
           <>
+            <Section title={copy.dailyQueueTitle}>
+              <Row
+                icon="calendar"
+                label={copy.dailyQueueItem}
+                value={scheduledDaily.value}
+                badgeTone={scheduledDaily.tone}
+                caption={scheduledDaily.caption}
+              />
+            </Section>
             <Section title={copy.commandQueue} footer={summaryFooter}>
               <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
               {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}

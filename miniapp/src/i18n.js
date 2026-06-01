@@ -181,6 +181,10 @@ export const I18N = {
     // queue
     queueStatusSummary: (pending, total) => pending > 0 ? `${pending} pendente${pending !== 1 ? 's' : ''} · ${total} total` : `${total} total`,
     commandsFetchError: 'Falha ao carregar fila de comandos.',
+    dailyQueueTitle: 'Post diario',
+    dailyQueueItem: 'Carde diario automatico',
+    dailyQueueEnabled: 'agendado',
+    dailyQueueDisabled: 'desativado',
     // history source filter
     sourceAll: 'Todos',
     sourceScheduled: 'Automáticos',
@@ -466,6 +470,10 @@ export const I18N = {
     // queue
     queueStatusSummary: (pending, total) => pending > 0 ? `${pending} pending · ${total} total` : `${total} total`,
     commandsFetchError: 'Failed to load command queue.',
+    dailyQueueTitle: 'Daily post',
+    dailyQueueItem: 'Automatic card of the day',
+    dailyQueueEnabled: 'scheduled',
+    dailyQueueDisabled: 'disabled',
     // history source filter
     sourceAll: 'All',
     sourceScheduled: 'Scheduled',
