@@ -255,6 +255,7 @@ export function CommandRow({ command, onCancel, loading, copy }) {
   const friendlyStatus = copy.commandStatusLabels[command.status] || command.status;
   const friendlyType = copy.commandTypeLabels[command.command_type] || command.command_type;
   const parts = [
+    command.caption || null,
     command.created_at ? new Date(command.created_at).toLocaleString(copy.locale) : null,
     command.last_error || null,
   ].filter(Boolean);

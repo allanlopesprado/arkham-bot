@@ -94,7 +94,7 @@ export async function handleOverview(request, env, user, ao) {
     ] = await Promise.all([
       fetchSettingsRows(env),
       fetchSupabaseJson(env, '/rest/v1/bot_commands?select=id,command_type,status,created_at,updated_at,executed_at,last_error,payload,result,requested_by_name&order=created_at.desc&limit=12'),
-      fetchSupabaseJson(env, '/rest/v1/bot_posting_history?select=id,card_code,card_name,status,created_at,telegram_message_id&order=created_at.desc&limit=8'),
+      fetchSupabaseJson(env, '/rest/v1/bot_posting_history?select=id,card_code,card_name,status,source,created_at,telegram_message_id&order=created_at.desc&limit=8'),
       fetchSupabaseJson(env, '/rest/v1/bot_errors?select=id,context,error_message,card_code,created_at&order=created_at.desc&limit=5'),
       fetchSupabaseJson(env, '/rest/v1/target_chats?select=chat_id,title,message_thread_id,enabled,updated_at&enabled=eq.true&order=created_at.desc&limit=20'),
       fetchCount(env, 'arkham_cards'),

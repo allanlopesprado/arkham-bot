@@ -861,6 +861,29 @@ export default function App() {
 
   function dailyQueueInfo() {
     const actual = savedSettings || settings;
+    const timezone = actual.timezone || 'UTC';
+    const todayKey = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const postedToday = (overview?.recent_posts || []).find((post) => {
+      if (post.source !== 'scheduled' || !post.created_at) return false;
+      const postDate = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(post.created_at));
+      return postDate === todayKey;
+    });
+    if (postedToday) {
+      return {
+        status: 'executed',
+        detail: [postedToday.card_name || postedToday.card_code, postedToday.created_at ? new Date(postedToday.created_at).toLocaleString(copy.locale) : null].filter(Boolean).join(' · '),
+      };
+    }
     if (!actual.daily_post_enabled) {
       return { status: 'disabled', detail: actual.timezone || copy.notConfigured };
     }
@@ -1247,7 +1270,7 @@ export default function App() {
                   id: 'daily-post-schedule',
                   command_type: 'daily_post',
                   status: scheduledDaily.status,
-                  created_at: scheduledDaily.detail,
+                  caption: scheduledDaily.detail,
                 }}
                 onCancel={cancelCommand}
                 loading={false}
