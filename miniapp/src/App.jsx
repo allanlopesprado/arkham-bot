@@ -859,35 +859,24 @@ export default function App() {
     return c.minutesAgo(Math.floor(secondsAgo / 60));
   }
 
-  function postedDailyQueueItem() {
+  function postedDailyQueueItems() {
     const actual = savedSettings || settings;
     const timezone = actual.timezone || 'UTC';
-    const todayKey = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-    const postedToday = (overview?.recent_posts || []).find((post) => {
-      if (post.source !== 'scheduled' || !post.created_at) return false;
+    return (overview?.recent_posts || []).filter((post) => post.source === 'scheduled' && post.created_at).map((post) => {
       const postDate = new Intl.DateTimeFormat('sv-SE', {
         timeZone: timezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       }).format(new Date(post.created_at));
-      return postDate === todayKey;
-    });
-    if (postedToday) {
       return {
-        id: `daily-post-${postedToday.id || postedToday.created_at}`,
+        id: `daily-post-${post.id || post.created_at}`,
         command_type: 'daily_post',
         status: 'executed',
-        caption: postedToday.card_name || postedToday.card_code || '',
-        created_at: postedToday.created_at,
+        caption: [post.card_name || post.card_code, postDate].filter(Boolean).join(' · '),
+        created_at: post.created_at,
       };
-    }
-    return null;
+    });
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -897,7 +886,7 @@ export default function App() {
   const cardsValue = loadingOverview ? '…' : (overview?.counts?.cards ?? sysStatus?.total_cards ?? '-');
   const queueValue = loadingOverview ? '…' : (overview?.counts?.pending_commands ?? 0);
   const targetChats = overview?.target_chats?.filter((c) => c.enabled !== false) || [];
-  const postedDaily = postedDailyQueueItem();
+  const postedDailyItems = postedDailyQueueItems();
 
   // ── Auth gate ───────────────────────────────────────────────────────────────
 
@@ -1255,7 +1244,9 @@ export default function App() {
           <>
             <Section title={copy.commandQueue} footer={summaryFooter}>
               <MenuRow icon="refresh" label={copy.refreshQueue} loading={loadingCommands} disabled={!apiConfigured} onClick={fetchCommands} />
-              {postedDaily && <CommandRow command={postedDaily} onCancel={cancelCommand} loading={false} copy={copy} />}
+              {postedDailyItems.map((item) => (
+                <CommandRow key={item.id} command={item} onCancel={cancelCommand} loading={false} copy={copy} />
+              ))}
               {commandsError && <Row icon="info" label={copy.commandsFetchError} value="err" badgeTone="err" />}
               {!commandsError && commands.length === 0 && !loadingCommands && <Row icon="queue" label={copy.noRecentCommands} />}
               {commands.map((cmd) => (
