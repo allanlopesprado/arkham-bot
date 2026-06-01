@@ -35,6 +35,17 @@ _OPENAI_COMPAT = {
     "groq":    ("https://api.groq.com/openai/v1/chat/completions",    lambda: GROQ_API_KEY),
     "mistral": ("https://api.mistral.ai/v1/chat/completions",         lambda: MISTRAL_API_KEY),
 }
+_ASYNC_CLIENT: httpx.AsyncClient | None = None
+
+
+def _get_async_client() -> httpx.AsyncClient:
+    global _ASYNC_CLIENT
+    if _ASYNC_CLIENT is None or _ASYNC_CLIENT.is_closed:
+        _ASYNC_CLIENT = httpx.AsyncClient(
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+    return _ASYNC_CLIENT
 
 
 def _provider(model: str) -> str:
@@ -106,8 +117,8 @@ async def _call_gemini(prompt: dict, model: str, temperature: float) -> dict:
             "responseMimeType": "application/json",
         },
     }
-    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, json=payload)
+    client = _get_async_client()
+    response = await client.post(url, json=payload)
     if response.status_code != 200:
         logger.error("gemini_error status=%s body=%s", response.status_code, response.text[:500])
     response.raise_for_status()
@@ -125,8 +136,8 @@ async def _call_openai_compat(prompt: dict, model: str, temperature: float, prov
         "response_format": {"type": "json_object"},
         "messages": [{"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
     }
-    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, json=payload, headers=headers)
+    client = _get_async_client()
+    response = await client.post(url, json=payload, headers=headers)
     response.raise_for_status()
     data = response.json()
     return json.loads(data["choices"][0]["message"]["content"])
