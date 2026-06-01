@@ -1,4 +1,5 @@
 import logging
+import time
 from html import escape
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters, Update
@@ -16,6 +17,12 @@ from .common import (
 
 logger = logging.getLogger(__name__)
 
+_sets_pack_cache: list[tuple[str, str, int]] = []
+_sets_pack_cache_ts = 0.0
+_sets_cards_by_pack_cache: dict[str, list] = {}
+_sets_cards_by_pack_cache_ts = 0.0
+_SETS_PACK_CACHE_TTL = 600.0
+
 
 def _sets_pack_list(cards: list) -> list[tuple[str, str, int]]:
     seen: dict[str, str] = {}
@@ -28,6 +35,31 @@ def _sets_pack_list(cards: list) -> list[tuple[str, str, int]]:
                 seen[code] = name
             counts[code] = counts.get(code, 0) + 1
     return [(code, name, counts.get(code, 0)) for code, name in seen.items()]
+
+
+async def _get_cached_sets_pack_list() -> list[tuple[str, str, int]]:
+    global _sets_pack_cache, _sets_pack_cache_ts, _sets_cards_by_pack_cache, _sets_cards_by_pack_cache_ts
+    if _sets_pack_cache and (time.monotonic() - _sets_pack_cache_ts) < _SETS_PACK_CACHE_TTL:
+        return _sets_pack_cache
+    cards = await _fetch_all_cards()
+    _sets_pack_cache = _sets_pack_list(cards)
+    cards_by_pack: dict[str, list] = {}
+    for card in cards:
+        pack_code = card.get('pack_code') or ''
+        if pack_code:
+            cards_by_pack.setdefault(pack_code, []).append(card)
+    _sets_cards_by_pack_cache = cards_by_pack
+    _sets_pack_cache_ts = time.monotonic()
+    _sets_cards_by_pack_cache_ts = _sets_pack_cache_ts
+    return _sets_pack_cache
+
+
+async def _get_cached_pack_cards(pack_code: str) -> list:
+    global _sets_cards_by_pack_cache, _sets_cards_by_pack_cache_ts
+    if _sets_cards_by_pack_cache and (time.monotonic() - _sets_cards_by_pack_cache_ts) < _SETS_PACK_CACHE_TTL:
+        return _sets_cards_by_pack_cache.get(pack_code, [])
+    await _get_cached_sets_pack_list()
+    return _sets_cards_by_pack_cache.get(pack_code, [])
 
 
 def _sets_pack_buttons(packs: list[tuple[str, str, int]], page: int, s: dict) -> InlineKeyboardMarkup:
@@ -53,8 +85,7 @@ async def sets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not await _check_rate_limit(update):
         return
     try:
-        cards = await _fetch_all_cards()
-        packs = _sets_pack_list(cards)
+        packs = await _get_cached_sets_pack_list()
         s = get_strings()
         if not packs:
             await update.message.reply_text(s["sets_no_sets"])
@@ -87,8 +118,7 @@ async def set_browse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         pack_code = data
     try:
-        cards = await _fetch_all_cards()
-        pack_cards = [c for c in cards if c.get('pack_code') == pack_code]
+        pack_cards = await _get_cached_pack_cards(pack_code)
         s = get_strings()
         if not pack_cards:
             await query.edit_message_text(s["sets_no_cards"])
@@ -134,8 +164,7 @@ async def sets_list_page_callback(update: Update, context: ContextTypes.DEFAULT_
     except ValueError:
         page = 0
     try:
-        cards = await _fetch_all_cards()
-        packs = _sets_pack_list(cards)
+        packs = await _get_cached_sets_pack_list()
         s = get_strings()
         total = len(packs)
         try:
@@ -161,8 +190,7 @@ async def sets_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except ValueError:
             pass
     try:
-        cards = await _fetch_all_cards()
-        packs = _sets_pack_list(cards)
+        packs = await _get_cached_sets_pack_list()
         s = get_strings()
         total = len(packs)
         text = s["sets_choose"] + f" ({total})"

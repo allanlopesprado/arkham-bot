@@ -1,17 +1,13 @@
 import asyncio
-import io
 import logging
 import re
-from urllib.parse import urljoin
 
-from PIL import Image
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters, Update
 from telegram.error import BadRequest as TelegramBadRequest
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes, ConversationHandler
 
-from ..clients.arkhamdb_client import download_image_async
-from ..core.config import BASE_URL, CALLBACK_CANCEL, CHOOSING_CARD_NUMBER, EXTENSIONS_TO_TRY
+from ..core.config import CALLBACK_CANCEL, CHOOSING_CARD_NUMBER
 from ..core.supabase_client import get_supabase_client
 from ..formatters.text_formatters import format_card_back_caption
 from ..i18n import get_strings
@@ -19,6 +15,7 @@ from ..services.card_provider import get_card_async
 from .common import (
     _CARD_PAGE_SIZE,
     _check_rate_limit,
+    _fetch_card_image,
     _get_cached_pack_list,
     _spoiler_caption,
 )
@@ -27,9 +24,14 @@ import random
 
 logger = logging.getLogger(__name__)
 
+_pack_positions_cache: dict[str, tuple[int, int, int, list[int], set[int]]] = {}
+
 
 def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int], set[int]]:
     """Returns (count, min_num, max_num, sample_numbers, valid_numbers_set)."""
+    cached = _pack_positions_cache.get(pack_code_prefix)
+    if cached is not None:
+        return cached
     try:
         client = get_supabase_client()
         if not client:
@@ -50,7 +52,9 @@ def _get_pack_positions(pack_code_prefix: str) -> tuple[int, int, int, list[int]
         sample_pool = [n for n in numbers if n > 0] or numbers
         k = min(5, len(sample_pool))
         sample = sorted(random.sample(sample_pool, k))
-        return len(numbers), numbers[0], numbers[-1], sample, set(numbers)
+        result = (len(numbers), numbers[0], numbers[-1], sample, set(numbers))
+        _pack_positions_cache[pack_code_prefix] = result
+        return result
     except Exception as exc:
         logger.warning(f"Failed to get pack positions for {pack_code_prefix}: {exc}")
         return 0, 0, 0, [], set()
@@ -226,22 +230,8 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.info(f"Card {full_card_id} loaded from {source}")
         card_code = card_data.get('code')
 
-        image_src = card_data.get('imagesrc')
-        card_image_bytes = None
-
-        for ext in EXTENSIONS_TO_TRY:
-            CARD_IMAGE_PATH = image_src if image_src and image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}{ext}"
-            card_image_url = urljoin(BASE_URL, CARD_IMAGE_PATH)
-
-            try:
-                image_content = await download_image_async(card_image_url)
-                card_image_bytes = io.BytesIO(image_content)
-                Image.open(card_image_bytes).verify()
-                card_image_bytes.seek(0)
-                break
-            except Exception as img_e:
-                logger.warning(f"Failed to download front image for {card_code} ({card_image_url}). Trying next extension: {img_e}")
-                continue
+        image_src = card_data.get('imagesrc') or card_data.get('image_src')
+        card_image_bytes = await _fetch_card_image(card_code, image_src)
 
         caption, is_spoiler = _spoiler_caption(card_data)
         await _delete_status()
@@ -272,23 +262,8 @@ async def receive_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             if back_text_raw or back_flavor_raw:
                 back_caption = format_card_back_caption(card_data, back_text_raw, is_interactive=True)
-                back_image_bytes = None
-                found_back_image = False
-
-                if back_image_src:
-                    for ext in EXTENSIONS_TO_TRY:
-                        BACK_IMAGE_PATH = back_image_src if back_image_src.lower().endswith(ext) else f"/bundles/cards/{card_code}b{ext}"
-                        BACK_IMAGE_URL = urljoin(BASE_URL, BACK_IMAGE_PATH)
-
-                        try:
-                            back_image_content = await download_image_async(BACK_IMAGE_URL)
-                            back_image_bytes = io.BytesIO(back_image_content)
-                            Image.open(back_image_bytes).verify()
-                            back_image_bytes.seek(0)
-                            found_back_image = True
-                            break
-                        except Exception:
-                            continue
+                back_image_bytes = await _fetch_card_image(f"{card_code}b", back_image_src)
+                found_back_image = back_image_bytes is not None
 
                 if found_back_image:
                     try:

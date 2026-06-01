@@ -144,22 +144,25 @@ def get_all_cards(include_encounter: bool = False) -> list[dict]:
     return results
 
 
-def search_cards(query: str, include_encounter: bool = True, code_prefix: bool = False) -> list[dict]:
+def search_cards(query: str, include_encounter: bool = True, code_prefix: bool = False, max_results: int = 100) -> list[dict]:
     """Search cards by name/real_name ilike or code prefix. Returns raw dicts."""
     client = get_supabase_client()
     if not client:
         return []
     q = query.strip()
-    safe_q = re.sub(r'[^\w\s\-]', '', q)
+    safe_q = re.sub(r'[^\w\s\-]', '', q).replace("_", " ").strip()
+    if not safe_q:
+        return []
     results = []
     offset = 0
     while True:
+        page_size = max(1, min(_PAGE, max_results - len(results)))
         if code_prefix:
             params = {
                 "select": "raw,spoiler,type_code",
                 "code": f"like.{safe_q}%",
                 "order": "code.asc",
-                "limit": str(_PAGE),
+                "limit": str(page_size),
                 "offset": str(offset),
             }
         else:
@@ -168,7 +171,7 @@ def search_cards(query: str, include_encounter: bool = True, code_prefix: bool =
                 "select": "raw,spoiler,type_code",
                 "or": f"(name.ilike.*{q_lower}*,real_name.ilike.*{q_lower}*)",
                 "order": "code.asc",
-                "limit": str(_PAGE),
+                "limit": str(page_size),
                 "offset": str(offset),
             }
         if not include_encounter:
@@ -182,7 +185,9 @@ def search_cards(query: str, include_encounter: bool = True, code_prefix: bool =
                 continue
             raw["spoiler"] = bool(row.get("spoiler")) or bool(raw.get("spoiler"))
             results.append(raw)
-        if len(rows) < _PAGE:
+            if len(results) >= max_results:
+                return results
+        if len(rows) < page_size:
             break
-        offset += _PAGE
+        offset += page_size
     return results
