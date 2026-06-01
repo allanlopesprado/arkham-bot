@@ -127,7 +127,7 @@ Foco em UX, acessibilidade e limpeza — concentrado no Mini App, com correçõe
 - Pre-warm automático de caches de cartas e packs no startup do bot
 - Mini App: aba "Aplicativo" na Home com idioma + administradores; histórico abre no dia atual; paginação em /sets e /card
 - Validação de número de carta no `/card` contra conjunto real de números do pack
-- Migration `20260528_claim_bot_commands_rpc.sql`: RPC atômica `FOR UPDATE SKIP LOCKED` para command queue
+- Migration `202605280001_claim_bot_commands_rpc.sql`: RPC atômica `FOR UPDATE SKIP LOCKED` para command queue
 - Payload whitelist por tipo de comando no Worker (`PAYLOAD_SCHEMA`)
 - Headers de segurança no Worker: `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`
 - Audit logs nos 4 endpoints faltantes: PATCH /settings, POST /bot-command, PATCH /commands/:id, PATCH /destinations/:id

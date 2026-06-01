@@ -344,7 +344,7 @@ Todas as migrations estão em `supabase/migrations/` em ordem cronológica. Deve
 
 ### `target_chats` — suporte a tópicos
 
-A constraint `UNIQUE(chat_id)` foi substituída por `UNIQUE(chat_id, message_thread_id)` (migration `20260528_telegram_topics_support.sql`), permitindo múltiplos tópicos por grupo. `message_thread_id = NULL` representa o chat principal (sem tópico).
+A constraint `UNIQUE(chat_id)` foi substituída por índices únicos parciais para destinos ativos (migration `202605280003_telegram_topics_support.sql`), permitindo múltiplos tópicos por grupo. `message_thread_id = NULL` representa o chat principal (sem tópico).
 
 O Worker não usa `on_conflict` do PostgREST para este upsert — faz SELECT antes do INSERT para checar duplicata `(chat_id, message_thread_id)`, e re-habilita destinos soft-deletados quando o mesmo par é readicionado.
 

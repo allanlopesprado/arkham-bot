@@ -188,17 +188,18 @@ supabase/migrations/202605240002_public_read_and_admin_policy_notes.sql
 supabase/migrations/202605260001_add_source_to_posting_history.sql
 supabase/migrations/202605260002_fix_arkham_cards_schema.sql
 supabase/migrations/202605270001_p3_admins_destinations_audit.sql
-supabase/migrations/20260528_worker_hardening_schema.sql
-supabase/migrations/20260528_telegram_topics_support.sql
-supabase/migrations/20260528_claim_bot_commands_rpc.sql
-supabase/migrations/20260528_pending_destinations.sql
+supabase/migrations/202605280001_claim_bot_commands_rpc.sql
+supabase/migrations/202605280002_pending_destinations.sql
+supabase/migrations/202605280003_telegram_topics_support.sql
+supabase/migrations/202605280004_worker_hardening_schema.sql
 ```
 
 | Migration | O que faz |
 |---|---|
-| `20260528_telegram_topics_support.sql` | Troca `UNIQUE(chat_id)` → `UNIQUE(chat_id, message_thread_id)` em `target_chats` |
-| `20260528_claim_bot_commands_rpc.sql` | Cria RPC `claim_bot_commands` com `FOR UPDATE SKIP LOCKED` — evita execução dupla |
-| `20260528_pending_destinations.sql` | Cria tabela `pending_destinations` — grupos aguardando confirmação no Mini App |
+| `202605280001_claim_bot_commands_rpc.sql` | Cria RPC `claim_bot_commands` com `FOR UPDATE SKIP LOCKED` — evita execução dupla |
+| `202605280002_pending_destinations.sql` | Cria tabela `pending_destinations` — grupos aguardando confirmação no Mini App |
+| `202605280003_telegram_topics_support.sql` | Troca `UNIQUE(chat_id)` por índices únicos parciais de destinos ativos em `target_chats` |
+| `202605280004_worker_hardening_schema.sql` | Adiciona colunas de hardening usadas pelo Worker/Mini App |
 
 ## Sincronização ArkhamDB
 

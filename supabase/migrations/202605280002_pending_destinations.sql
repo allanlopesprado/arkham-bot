@@ -11,5 +11,6 @@ CREATE TABLE IF NOT EXISTS pending_destinations (
 
 ALTER TABLE pending_destinations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "service_role_all" ON pending_destinations;
 CREATE POLICY "service_role_all" ON pending_destinations
   USING (true) WITH CHECK (true);

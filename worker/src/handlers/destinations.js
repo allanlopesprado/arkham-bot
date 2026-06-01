@@ -44,19 +44,20 @@ export async function handleAddDestination(request, env, user, ao) {
       removed_by_name: null,
       removed_at: null,
     };
-    // Check for duplicate (chat_id, message_thread_id) pair before inserting.
-    // on_conflict=chat_id,message_thread_id requires the composite UNIQUE constraint
-    // applied in migration 20260528_telegram_topics_support.sql
+    // Check active duplicate first; historical disabled rows may coexist because
+    // target_chats is soft-deleted.
     const threadFilter = record.message_thread_id != null
       ? `&message_thread_id=eq.${record.message_thread_id}`
       : `&message_thread_id=is.null`;
-    const dupCheck = await fetchSupabaseJson(env,
-      `/rest/v1/target_chats?select=id,enabled&chat_id=eq.${encodeURIComponent(record.chat_id)}${threadFilter}&limit=1`);
-    if (dupCheck && dupCheck.length > 0) {
-      const existing = dupCheck[0];
-      if (existing.enabled) {
-        return withCors(jsonResponse({ ok: false, error: 'destination_already_exists' }, 409), ao);
-      }
+    const activeCheck = await fetchSupabaseJson(env,
+      `/rest/v1/target_chats?select=id&chat_id=eq.${encodeURIComponent(record.chat_id)}${threadFilter}&enabled=eq.true&limit=1`);
+    if (activeCheck && activeCheck.length > 0) {
+      return withCors(jsonResponse({ ok: false, error: 'destination_already_exists' }, 409), ao);
+    }
+    const disabledCheck = await fetchSupabaseJson(env,
+      `/rest/v1/target_chats?select=id&chat_id=eq.${encodeURIComponent(record.chat_id)}${threadFilter}&enabled=eq.false&order=updated_at.desc&limit=1`);
+    if (disabledCheck && disabledCheck.length > 0) {
+      const existing = disabledCheck[0];
       // Re-enable soft-deleted destination
       const reUrl = `${supabaseBase(env)}/rest/v1/target_chats?id=eq.${existing.id}`;
       const reResp = await fetch(reUrl, {
@@ -111,10 +112,10 @@ export async function handleAcceptPendingDestination(request, env, user, ao, pen
     if (!rows.length) return withCors(jsonResponse({ ok: false, error: 'pending_not_found' }, 404), ao);
     const { chat_id, chat_title } = rows[0];
     // Insert into target_chats (check for existing first)
-    const checkUrl = `${supabaseBase(env)}/rest/v1/target_chats?chat_id=eq.${encodeURIComponent(chat_id)}&message_thread_id=${threadId == null ? 'is.null' : `eq.${threadId}`}&limit=1`;
+    const checkUrl = `${supabaseBase(env)}/rest/v1/target_chats?chat_id=eq.${encodeURIComponent(chat_id)}&message_thread_id=${threadId == null ? 'is.null' : `eq.${threadId}`}&enabled=eq.true&limit=1`;
     const checkResp = await fetch(checkUrl, { headers: supabaseHeaders(env) });
     const existing = await checkResp.json().catch(() => []);
-    if (existing.length && existing[0].enabled) {
+    if (existing.length) {
       return withCors(jsonResponse({ ok: false, error: 'destination_already_exists' }, 409), ao);
     }
     const destBody = { chat_id, title: chat_title, message_thread_id: threadId, enabled: true,
@@ -231,8 +232,8 @@ export async function handleTestDestination(request, env, user, ao, destId) {
     const body = await request.json().catch(() => ({}));
     const lang = body.language === 'en' ? 'en' : 'pt';
     const testText = lang === 'en'
-      ? '✅ Test message from Arkham Bot Mini App.'
-      : '✅ Mensagem de teste do Arkham Bot Mini App.';
+      ? 'âœ… Test message from Arkham Bot Mini App.'
+      : 'âœ… Mensagem de teste do Arkham Bot Mini App.';
     const msgBody = { chat_id, text: testText };
     if (message_thread_id) msgBody.message_thread_id = message_thread_id;
     const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {

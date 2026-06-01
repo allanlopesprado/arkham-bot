@@ -17,8 +17,8 @@ ALTER TABLE target_chats
 
 CREATE UNIQUE INDEX IF NOT EXISTS target_chats_unique_main_chat
   ON target_chats (chat_id)
-  WHERE message_thread_id IS NULL;
+  WHERE enabled = true AND message_thread_id IS NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS target_chats_unique_topic
   ON target_chats (chat_id, message_thread_id)
-  WHERE message_thread_id IS NOT NULL;
+  WHERE enabled = true AND message_thread_id IS NOT NULL;
