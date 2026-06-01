@@ -1,4 +1,5 @@
 import logging
+import time
 
 import httpx
 import requests
@@ -34,6 +35,42 @@ RETRYABLE_NETWORK_EXCEPTIONS = (
     requests.exceptions.ConnectionError, requests.exceptions.Timeout,
     requests.exceptions.RequestException
 )
+INTERACTIVE_IMAGE_RETRIES = 2
+INTERACTIVE_IMAGE_TIMEOUT_SECONDS = min(REQUEST_TIMEOUT_SECONDS, 6)
+_ASYNC_CLIENT: httpx.AsyncClient | None = None
+_IMAGE_CACHE_TTL_SECONDS = 3600.0
+_IMAGE_CACHE_MAX_ITEMS = 256
+_image_cache: dict[str, tuple[float, bytes]] = {}
+
+
+def _get_async_client(timeout: float | None = None) -> httpx.AsyncClient:
+    global _ASYNC_CLIENT
+    effective_timeout = timeout if timeout is not None else REQUEST_TIMEOUT_SECONDS
+    if _ASYNC_CLIENT is None or _ASYNC_CLIENT.is_closed:
+        _ASYNC_CLIENT = httpx.AsyncClient(
+            timeout=effective_timeout,
+            headers={"User-Agent": "ArkhamDailyCardBot/1.0"},
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
+    return _ASYNC_CLIENT
+
+
+def _get_cached_image(url: str) -> bytes | None:
+    cached = _image_cache.get(url)
+    if not cached:
+        return None
+    ts, content = cached
+    if time.monotonic() - ts > _IMAGE_CACHE_TTL_SECONDS:
+        _image_cache.pop(url, None)
+        return None
+    return content
+
+
+def _cache_image(url: str, content: bytes) -> None:
+    if len(_image_cache) >= _IMAGE_CACHE_MAX_ITEMS:
+        oldest = min(_image_cache, key=lambda key: _image_cache[key][0])
+        _image_cache.pop(oldest, None)
+    _image_cache[url] = (time.monotonic(), content)
 
 
 def is_retryable_http_error(exception):
@@ -96,8 +133,8 @@ def _decklist_url(decklist_id: str) -> str:
 
 
 async def _request_json_async(url: str, context: str):
-    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = await client.get(url)
+    client = _get_async_client()
+    response = await client.get(url)
     response.raise_for_status()
     return _parse_json_response(response, context)
 
@@ -161,13 +198,17 @@ def download_image_sync(url):
 
 async def download_image_async(url):
     """Downloads an image asynchronously with retry (Interactive Mode)."""
+    cached = _get_cached_image(url)
+    if cached is not None:
+        return cached
     async for attempt in AsyncRetrying(
-        wait=wait_exponential(multiplier=INITIAL_BACKOFF, min=2, max=30),
-        stop=stop_after_attempt(MAX_RETRIES),
+        wait=wait_exponential(multiplier=1, min=1, max=3),
+        stop=stop_after_attempt(INTERACTIVE_IMAGE_RETRIES),
         reraise=True,
     ):
         with attempt:
-            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                return response.content
+            client = _get_async_client(INTERACTIVE_IMAGE_TIMEOUT_SECONDS)
+            response = await client.get(url, timeout=INTERACTIVE_IMAGE_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            _cache_image(url, response.content)
+            return response.content

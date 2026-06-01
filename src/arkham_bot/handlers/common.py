@@ -192,9 +192,11 @@ async def _fetch_decklist_cached(decklist_id: str) -> dict:
     client = get_supabase_client()
     if client:
         try:
-            rows = client.get("arkham_decklists_cache", {
-                "decklist_id": f"eq.{decklist_id}", "select": "raw,updated_at", "limit": "1"
-            })
+            rows = await asyncio.to_thread(
+                client.get,
+                "arkham_decklists_cache",
+                {"decklist_id": f"eq.{decklist_id}", "select": "raw,updated_at", "limit": "1"},
+            )
             if rows:
                 updated_at = rows[0].get("updated_at", "")
                 try:
@@ -208,7 +210,12 @@ async def _fetch_decklist_cached(decklist_id: str) -> dict:
     deck = await asyncio.to_thread(fetch_decklist_sync, decklist_id)
     if client and deck:
         try:
-            client.upsert("arkham_decklists_cache", {"decklist_id": decklist_id, "raw": deck}, on_conflict="decklist_id")
+            await asyncio.to_thread(
+                client.upsert,
+                "arkham_decklists_cache",
+                {"decklist_id": decklist_id, "raw": deck},
+                on_conflict="decklist_id",
+            )
         except Exception as exc:
             logger.warning("decklist_cache_write_failed: %s", exc)
     return deck
@@ -376,7 +383,7 @@ def _safe_status_value(value) -> str:
 
 async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.BytesIO | None:
     """Tries all extensions and returns a valid image BytesIO or None."""
-    import httpx
+    from ..clients.arkhamdb_client import download_image_async
     urls = []
     if image_src:
         urls.append(urljoin(BASE_URL, image_src))
@@ -386,11 +393,7 @@ async def _fetch_card_image(card_code: str, image_src: str | None = None) -> io.
             urls.append(url)
     for url in urls:
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(url)
-            if resp.status_code != 200:
-                continue
-            raw = resp.content
+            raw = await download_image_async(url)
             buf = io.BytesIO(raw)
             img = Image.open(buf)
             img.load()

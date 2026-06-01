@@ -219,10 +219,10 @@ async def post_daily_card(specific_card_code=None, target_chat_id: str | None = 
                 if not all_cards:
                     logger.info("Card list cache empty. Fetching from DB...")
                     try:
-                        all_cards = _db_get_all_cards()
+                        all_cards = await asyncio.to_thread(_db_get_all_cards)
                     except Exception as exc:
                         logger.warning(f"DB fetch failed, falling back to API: {exc}")
-                        all_cards = fetch_all_cards_sync()
+                        all_cards = await asyncio.to_thread(fetch_all_cards_sync)
                     if all_cards:
                         save_card_cache(all_cards)
 
